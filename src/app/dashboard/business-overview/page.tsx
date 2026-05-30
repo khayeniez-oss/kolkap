@@ -6,7 +6,6 @@ import {
   ArrowRight,
   Bot,
   Building2,
-  CalendarDays,
   Crown,
   Globe2,
   Mail,
@@ -20,11 +19,11 @@ import {
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import {
-  demoWorkspacePlanStatus,
   getKolkapPlan,
   getPlanAIStaffLabel,
   getPlanCreditLabel,
 } from "@/lib/kolkapPlan";
+import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 const translations = {
   en: {
@@ -32,16 +31,22 @@ const translations = {
     title: "Your Kolkap business overview.",
     subtitle:
       "View your business account summary, owner details, business identity, plan, credits, AI staff limit, WhatsApp status, and setup progress.",
+    loading: "Loading your business overview...",
+    failed: "Business Overview could not load.",
     back: "Back to Dashboard",
+
     ownerDetails: "Owner Details",
     ownerDetailsText:
       "The main contact connected to this Kolkap business account.",
+
     businessDetails: "Business Details",
     businessDetailsText:
       "A simple summary of the business connected to this Kolkap workspace.",
+
     workspaceSummary: "Workspace Summary",
     workspaceSummaryText:
       "A quick overview of your package, credits, AI staff, WhatsApp status, and setup progress.",
+
     currentPlan: "Current Plan",
     credits: "Credits",
     aiStaffLimit: "AI Staff Limit",
@@ -50,25 +55,25 @@ const translations = {
     accountRole: "Account Role",
     ownerName: "Owner Name",
     ownerEmail: "Owner Email",
-    ownerPhone: "Owner Phone",
     businessName: "Business Name",
-    businessTypeLabel: "Business Type",
-    businessType: "Wellness / Spa",
+    businessType: "Business Type",
     businessEmail: "Business Email",
     businessPhone: "Business Phone",
+    whatsappNumber: "WhatsApp Number",
     businessAddress: "Business Address",
     country: "Country",
     timezone: "Timezone",
-    joined: "Joined",
     planStatus: "Plan Status",
     trialDays: "Trial Days Left",
     editSettings: "Edit Settings",
     openBilling: "Open Billing",
     openInbox: "Open Inbox",
     createAI: "Create AI",
-    overviewNote: "Account Overview",
-    overviewNoteText:
-      "This page gives the business owner a clean summary of the Kolkap account. To edit business details, AI preferences, notifications, or security settings, go to Settings.",
+    notProvided: "Not provided yet",
+
+    overviewNote: "Business Summary",
+overviewNoteText:
+  "Your Kolkap account brings your business details, plan, credits, AI setup, and workspace status together in one clear overview. Update your business information and AI preferences anytime from Settings.",
     statuses: {
       trial: "Trial",
       active: "Active",
@@ -88,16 +93,22 @@ const translations = {
     title: "Ringkasan bisnis Kolkap Anda.",
     subtitle:
       "Lihat ringkasan akun bisnis, detail owner, identitas bisnis, paket, credits, limit AI staff, status WhatsApp, dan progress setup.",
+    loading: "Memuat business overview Anda...",
+    failed: "Business Overview gagal dimuat.",
     back: "Kembali ke Dashboard",
+
     ownerDetails: "Detail Owner",
     ownerDetailsText:
       "Kontak utama yang terhubung dengan akun bisnis Kolkap ini.",
+
     businessDetails: "Detail Bisnis",
     businessDetailsText:
       "Ringkasan sederhana tentang bisnis yang terhubung dengan workspace Kolkap ini.",
+
     workspaceSummary: "Ringkasan Workspace",
     workspaceSummaryText:
       "Ringkasan paket, credits, AI staff, status WhatsApp, dan progress setup.",
+
     currentPlan: "Paket Saat Ini",
     credits: "Credits",
     aiStaffLimit: "Limit AI Staff",
@@ -106,25 +117,26 @@ const translations = {
     accountRole: "Role Akun",
     ownerName: "Nama Owner",
     ownerEmail: "Email Owner",
-    ownerPhone: "Telepon Owner",
     businessName: "Nama Bisnis",
-    businessTypeLabel: "Jenis Bisnis",
-    businessType: "Wellness / Spa",
+    businessType: "Jenis Bisnis",
     businessEmail: "Email Bisnis",
     businessPhone: "Telepon Bisnis",
+    whatsappNumber: "Nomor WhatsApp",
     businessAddress: "Alamat Bisnis",
     country: "Negara",
     timezone: "Zona Waktu",
-    joined: "Bergabung",
     planStatus: "Status Paket",
     trialDays: "Sisa Hari Trial",
     editSettings: "Edit Settings",
     openBilling: "Buka Billing",
     openInbox: "Buka Inbox",
     createAI: "Create AI",
-    overviewNote: "Ringkasan Akun",
-    overviewNoteText:
-      "Halaman ini memberi pemilik bisnis ringkasan akun Kolkap yang rapi. Untuk mengubah detail bisnis, preferensi AI, notifikasi, atau security, masuk ke Settings.",
+    notProvided: "Belum diisi",
+
+    overviewNote: "Ringkasan Bisnis",
+overviewNoteText:
+  "Ringkasan akun Kolkap Anda menampilkan detail bisnis, paket, credits, setup AI, dan status workspace dalam satu tampilan yang rapi. Anda dapat memperbarui informasi bisnis dan preferensi AI kapan saja melalui Settings.",
+
     statuses: {
       trial: "Trial",
       active: "Aktif",
@@ -144,16 +156,20 @@ const translations = {
     title: "您的 Kolkap 企业概览。",
     subtitle:
       "查看企业账户摘要、owner 资料、企业身份、方案、credits、AI 员工限制、WhatsApp 状态和设置进度。",
+    loading: "正在加载企业概览...",
+    failed: "企业概览加载失败。",
     back: "返回仪表板",
+
     ownerDetails: "Owner 资料",
-    ownerDetailsText:
-      "连接到此 Kolkap 企业账户的主要联系人。",
+    ownerDetailsText: "连接到此 Kolkap 企业账户的主要联系人。",
+
     businessDetails: "企业资料",
-    businessDetailsText:
-      "连接到此 Kolkap 工作区的企业摘要。",
+    businessDetailsText: "连接到此 Kolkap 工作区的企业摘要。",
+
     workspaceSummary: "工作区摘要",
     workspaceSummaryText:
       "快速查看方案、credits、AI 员工、WhatsApp 状态和设置进度。",
+
     currentPlan: "当前方案",
     credits: "Credits",
     aiStaffLimit: "AI 员工限制",
@@ -162,25 +178,26 @@ const translations = {
     accountRole: "账户角色",
     ownerName: "Owner 名称",
     ownerEmail: "Owner 邮箱",
-    ownerPhone: "Owner 电话",
     businessName: "企业名称",
-    businessTypeLabel: "企业类型",
-    businessType: "养生 / 水疗",
+    businessType: "企业类型",
     businessEmail: "企业邮箱",
     businessPhone: "企业电话",
+    whatsappNumber: "WhatsApp 号码",
     businessAddress: "企业地址",
     country: "国家",
     timezone: "时区",
-    joined: "加入时间",
     planStatus: "方案状态",
     trialDays: "试用剩余天数",
     editSettings: "编辑设置",
     openBilling: "打开账单",
     openInbox: "打开收件箱",
     createAI: "创建 AI",
-    overviewNote: "账户概览",
-    overviewNoteText:
-      "此页面为企业主提供清晰的 Kolkap 账户摘要。如需编辑企业资料、AI 偏好、通知或安全设置，请前往 Settings。",
+    notProvided: "尚未填写",
+
+    overviewNote: "企业摘要",
+overviewNoteText:
+  "您的 Kolkap 账户会将企业资料、方案、credits、AI 设置和工作区状态集中在一个清晰的概览中。您可以随时在 Settings 中更新企业信息和 AI 偏好。",
+
     statuses: {
       trial: "试用中",
       active: "有效",
@@ -200,16 +217,22 @@ const translations = {
     title: "Ringkasan bisnes Kolkap anda.",
     subtitle:
       "Lihat ringkasan akaun bisnes, detail owner, identiti bisnes, pakej, credits, limit AI staff, status WhatsApp, dan progress setup.",
+    loading: "Memuat business overview anda...",
+    failed: "Business Overview gagal dimuat.",
     back: "Kembali ke Dashboard",
+
     ownerDetails: "Detail Owner",
     ownerDetailsText:
       "Kontak utama yang disambungkan dengan akaun bisnes Kolkap ini.",
+
     businessDetails: "Detail Bisnes",
     businessDetailsText:
       "Ringkasan mudah tentang bisnes yang disambungkan dengan workspace Kolkap ini.",
+
     workspaceSummary: "Ringkasan Workspace",
     workspaceSummaryText:
       "Ringkasan pakej, credits, AI staff, status WhatsApp, dan progress setup.",
+
     currentPlan: "Pakej Semasa",
     credits: "Credits",
     aiStaffLimit: "Limit AI Staff",
@@ -218,25 +241,26 @@ const translations = {
     accountRole: "Role Akaun",
     ownerName: "Nama Owner",
     ownerEmail: "Email Owner",
-    ownerPhone: "Telefon Owner",
     businessName: "Nama Bisnes",
-    businessTypeLabel: "Jenis Bisnes",
-    businessType: "Wellness / Spa",
+    businessType: "Jenis Bisnes",
     businessEmail: "Email Bisnes",
     businessPhone: "Telefon Bisnes",
+    whatsappNumber: "Nombor WhatsApp",
     businessAddress: "Alamat Bisnes",
     country: "Negara",
     timezone: "Zon Masa",
-    joined: "Bergabung",
     planStatus: "Status Pakej",
     trialDays: "Hari Trial Berbaki",
     editSettings: "Edit Settings",
     openBilling: "Buka Billing",
     openInbox: "Buka Inbox",
     createAI: "Create AI",
-    overviewNote: "Ringkasan Akaun",
-    overviewNoteText:
-      "Halaman ini memberi pemilik bisnes ringkasan akaun Kolkap yang kemas. Untuk mengubah detail bisnes, pilihan AI, notifikasi, atau security, pergi ke Settings.",
+    notProvided: "Belum diisi",
+
+    overviewNote: "Ringkasan Bisnes",
+overviewNoteText:
+  "Ringkasan akaun Kolkap anda memaparkan detail bisnes, pakej, credits, setup AI, dan status workspace dalam satu paparan yang kemas. Anda boleh mengemas kini maklumat bisnes dan pilihan AI bila-bila masa melalui Settings.",
+
     statuses: {
       trial: "Trial",
       active: "Aktif",
@@ -256,8 +280,39 @@ export default function BusinessOverviewPage() {
   const { language } = useKolkapLanguage();
   const t = translations[language as keyof typeof translations] || translations.en;
 
-  const workspace = demoWorkspacePlanStatus;
-  const currentPlan = getKolkapPlan(workspace.planKey);
+  const workspaceState = useKolkapWorkspace();
+  const workspace = workspaceState.workspace;
+  const currentPlan = getKolkapPlan(workspaceState.planKey);
+
+  if (workspaceState.isLoading) {
+    return (
+      <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
+        <section className="mx-auto max-w-7xl">
+          <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
+            {t.loading}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (workspaceState.error) {
+    return (
+      <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
+        <section className="mx-auto max-w-7xl">
+          <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
+            <p className="text-xl font-black">{t.failed}</p>
+            <p className="mt-2 text-base font-semibold">
+              {workspaceState.error}
+            </p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  const valueOrFallback = (value?: string | null) =>
+    value && value.trim() ? value : t.notProvided;
 
   const summaryCards = [
     {
@@ -267,7 +322,7 @@ export default function BusinessOverviewPage() {
     },
     {
       label: t.credits,
-      value: `${workspace.creditsRemaining}/${workspace.creditsTotal}`,
+      value: `${workspaceState.creditsRemaining}/${workspaceState.creditsTotal}`,
       icon: Sparkles,
     },
     {
@@ -277,7 +332,7 @@ export default function BusinessOverviewPage() {
     },
     {
       label: t.goLiveStatus,
-      value: t.statuses[workspace.goLiveStatus],
+      value: t.statuses[workspaceState.goLiveStatus],
       icon: ShieldCheck,
     },
   ];
@@ -285,18 +340,13 @@ export default function BusinessOverviewPage() {
   const ownerDetails = [
     {
       label: t.ownerName,
-      value: "Business Owner",
+      value: valueOrFallback(workspace?.business_name),
       icon: UserRound,
     },
     {
       label: t.ownerEmail,
-      value: "owner@business.com",
+      value: valueOrFallback(workspace?.business_email),
       icon: Mail,
-    },
-    {
-      label: t.ownerPhone,
-      value: "Country code + phone number",
-      icon: Phone,
     },
     {
       label: t.accountRole,
@@ -308,32 +358,42 @@ export default function BusinessOverviewPage() {
   const businessDetails = [
     {
       label: t.businessName,
-      value: "Demo Business",
+      value: valueOrFallback(workspace?.business_name),
       icon: Building2,
     },
     {
-      label: t.businessTypeLabel,
-      value: t.businessType,
+      label: t.businessType,
+      value: valueOrFallback(workspace?.business_type),
       icon: Sparkles,
     },
     {
       label: t.businessEmail,
-      value: "hello@business.com",
+      value: valueOrFallback(workspace?.business_email),
       icon: Mail,
     },
     {
       label: t.businessPhone,
-      value: "Country code + business phone",
+      value: valueOrFallback(workspace?.business_phone),
       icon: Phone,
     },
     {
+      label: t.whatsappNumber,
+      value: valueOrFallback(workspace?.whatsapp_number),
+      icon: MessageCircle,
+    },
+    {
       label: t.businessAddress,
-      value: "Business address, city, country",
+      value: valueOrFallback(workspace?.business_address),
       icon: MapPin,
     },
     {
+      label: t.country,
+      value: valueOrFallback(workspace?.country),
+      icon: Globe2,
+    },
+    {
       label: t.timezone,
-      value: "Asia/Makassar",
+      value: valueOrFallback(workspace?.timezone),
       icon: Globe2,
     },
   ];
@@ -341,23 +401,23 @@ export default function BusinessOverviewPage() {
   const workspaceDetails = [
     {
       label: t.planStatus,
-      value: t.statuses[workspace.status],
+      value: t.statuses[workspaceState.status],
     },
     {
       label: t.trialDays,
-      value: `${workspace.trialDaysRemaining}`,
+      value: `${workspaceState.trialDaysRemaining}`,
     },
     {
       label: t.whatsappStatus,
-      value: t.statuses[workspace.whatsappStatus],
+      value: t.statuses[workspaceState.whatsappStatus],
     },
     {
       label: t.goLiveStatus,
-      value: t.statuses[workspace.goLiveStatus],
+      value: t.statuses[workspaceState.goLiveStatus],
     },
     {
       label: t.credits,
-      value: `${workspace.creditsRemaining}/${workspace.creditsTotal}`,
+      value: `${workspaceState.creditsRemaining}/${workspaceState.creditsTotal}`,
     },
     {
       label: t.aiStaffLimit,
