@@ -7,10 +7,11 @@ import {
   BookOpen,
   Brain,
   CheckCircle2,
-  CircleAlert,
   Edit3,
+  ExternalLink,
   FileText,
   Filter,
+  Link2,
   Plus,
   RefreshCcw,
   Save,
@@ -27,6 +28,7 @@ import { getKolkapPlan } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 const MAX_CONTENT_LENGTH = 4000;
+const MAX_SOURCE_NOTE_LENGTH = 1000;
 
 type KnowledgeRow = {
   id: string;
@@ -40,6 +42,13 @@ type KnowledgeRow = {
   language: string;
   tags: string[];
   status: string;
+  source_type: string;
+  source_url: string | null;
+  source_note: string | null;
+  last_checked_at: string | null;
+  last_synced_at: string | null;
+  sync_status: string;
+  sync_error: string | null;
   last_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -60,20 +69,24 @@ type KnowledgeText = {
   refresh: string;
   currentPlan: string;
   totalKnowledge: string;
-  activeKnowledge: string;
   aiReady: string;
   addKnowledge: string;
   editKnowledge: string;
   addKnowledgeText: string;
+  sampleButton: string;
+  sourceType: string;
+  writeInformation: string;
+  addUrl: string;
   titleLabel: string;
   titlePlaceholder: string;
   category: string;
-  aiUsage: string;
   language: string;
-  priority: string;
-  status: string;
   tags: string;
   tagsPlaceholder: string;
+  sourceUrl: string;
+  sourceUrlPlaceholder: string;
+  sourceNote: string;
+  sourceNotePlaceholder: string;
   content: string;
   contentPlaceholder: string;
   saveKnowledge: string;
@@ -88,16 +101,17 @@ type KnowledgeText = {
   updateFailed: string;
   deleteConfirm: string;
   requiredFields: string;
+  urlRequired: string;
+  invalidUrl: string;
   tooLong: string;
+  noteTooLong: string;
   closeToLimit: string;
   listTitle: string;
   listText: string;
   search: string;
   searchPlaceholder: string;
   filterCategory: string;
-  filterStatus: string;
   allCategories: string;
-  allStatuses: string;
   noKnowledge: string;
   noKnowledgeText: string;
   reviewNow: string;
@@ -106,12 +120,15 @@ type KnowledgeText = {
   characters: string;
   aiNote: string;
   aiNoteText: string;
-  priorityHelp: string;
   shown: string;
-  activeKnowledgeNote: string;
   aiReadyNote: string;
   lastReviewed: string;
   notReviewed: string;
+  syncStatus: string;
+  source: string;
+  openUrl: string;
+  manualNote: string;
+  urlNote: string;
 };
 
 const categoryOptions: Option[] = [
@@ -123,58 +140,62 @@ const categoryOptions: Option[] = [
   { value: "sales_instruction", label: "Sales Instruction" },
   { value: "handover_rule", label: "Handover Rule" },
   { value: "do_not_say", label: "Do Not Say" },
+  { value: "important_link", label: "Important Link" },
   { value: "custom_note", label: "Custom Note" },
 ];
 
-const aiUsageOptions: Option[] = [
-  { value: "customer_answer", label: "AI Can Use for Customer Answers" },
-  { value: "internal_only", label: "Internal Note Only" },
-  { value: "handover_rule", label: "Handover Rule" },
-  { value: "do_not_say", label: "Do Not Say Rule" },
+const sourceTypeOptions: Option[] = [
+  { value: "manual", label: "Write Information" },
+  { value: "url", label: "Add Important URL" },
 ];
 
 const languageOptions: Option[] = [
-  { value: "both", label: "English + Indonesian" },
   { value: "en", label: "English" },
+  { value: "zh", label: "Chinese" },
   { value: "id", label: "Indonesian" },
   { value: "ms", label: "Malay" },
-  { value: "zh", label: "Chinese" },
   { value: "auto", label: "Auto Detect" },
 ];
 
-const statusOptions: Option[] = [
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-  { value: "archived", label: "Archived" },
-];
+const syncStatusOptions: Record<string, string> = {
+  not_synced: "Not Synced",
+  pending: "Pending",
+  synced: "Synced",
+  failed: "Failed",
+};
 
 const translations: Record<string, KnowledgeText> = {
   en: {
     badge: "Knowledge Base",
     title: "Add business information your AI can trust.",
     subtitle:
-      "Knowledge Base is where you add important facts about your company, services, pricing, policies, location, and customer rules so your AI can answer correctly.",
+      "Knowledge Base is where you add important facts and important URLs about your company, services, pricing, policies, location, and customer rules so your AI can answer correctly.",
     loading: "Loading your knowledge base...",
     failed: "Knowledge Base could not load.",
     back: "Back to Dashboard",
     refresh: "Refresh",
     currentPlan: "Current Plan",
     totalKnowledge: "Knowledge Items",
-    activeKnowledge: "Active Items",
     aiReady: "AI Ready",
     addKnowledge: "Add Knowledge",
     editKnowledge: "Edit Knowledge",
     addKnowledgeText:
-      "Create one clear knowledge entry at a time. Each entry can have up to 4,000 characters.",
+      "Choose whether to write business information directly or add an important company URL. Each written entry can have up to 4,000 characters.",
+    sampleButton: "See Sample Knowledge",
+    sourceType: "Knowledge Source",
+    writeInformation: "Write Information",
+    addUrl: "Add Important URL",
     titleLabel: "Title",
-    titlePlaceholder: "Example: Delivery Policy, Price List, Common Questions",
+    titlePlaceholder: "Example: Delivery Policy, Pricing Page, Common Questions",
     category: "Category",
-    aiUsage: "AI Usage",
     language: "Language",
-    priority: "Priority",
-    status: "Status",
     tags: "Tags",
     tagsPlaceholder: "Example: pricing, delivery, support",
+    sourceUrl: "Important URL",
+    sourceUrlPlaceholder: "https://yourcompany.com/pricing",
+    sourceNote: "What should the AI use this URL for?",
+    sourceNotePlaceholder:
+      "Example: AI should use this page when customers ask about prices, packages, subscription rules, or payment terms.",
     content: "Knowledge Content",
     contentPlaceholder:
       "Write factual information about your business, properties, services, location, pricing, policies, customer rules, and other details your AI should use to answer customers correctly.",
@@ -190,17 +211,18 @@ const translations: Record<string, KnowledgeText> = {
     updateFailed: "Knowledge could not be updated.",
     deleteConfirm: "Delete this knowledge item?",
     requiredFields: "Please add a title and knowledge content.",
+    urlRequired: "Please add a title and important URL.",
+    invalidUrl: "Please add a valid URL starting with http:// or https://.",
     tooLong: "Knowledge content must be 4,000 characters or less.",
+    noteTooLong: "URL note must be 1,000 characters or less.",
     closeToLimit: "You are close to the 4,000 character limit.",
     listTitle: "Saved Knowledge",
     listText:
-      "Manage the business information your AI can use. Active customer-answer entries will later be used by the AI Brain.",
+      "Manage the business information and important URLs your AI can use to answer customers correctly.",
     search: "Search",
     searchPlaceholder: "Search knowledge...",
     filterCategory: "Filter Category",
-    filterStatus: "Filter Status",
     allCategories: "All Categories",
-    allStatuses: "All Statuses",
     noKnowledge: "No knowledge yet.",
     noKnowledgeText:
       "Add your first knowledge item so your AI can start learning about your business.",
@@ -210,41 +232,51 @@ const translations: Record<string, KnowledgeText> = {
     characters: "characters",
     aiNote: "AI Brain Note",
     aiNoteText:
-      "This page stores the facts your AI will rely on. Keep each item specific. It is better to create several clear entries than one long mixed note.",
-    priorityHelp: "1 = highest priority, 5 = lowest priority",
+      "Keep each knowledge item specific. For example: one item for pricing, one item for refund policy, one item for handover rules, and one item for important company URLs.",
     shown: "shown",
-    activeKnowledgeNote: "Active knowledge",
-    aiReadyNote: "Customer-answer ready",
+    aiReadyNote: "Ready for AI",
     lastReviewed: "Last reviewed",
     notReviewed: "Not reviewed yet",
+    syncStatus: "Sync Status",
+    source: "Source",
+    openUrl: "Open URL",
+    manualNote:
+      "Use this when you want to write the business information directly.",
+    urlNote:
+      "Use this when the business already has an official page, such as pricing, FAQ, terms, policy, or service page.",
   },
 
   id: {
     badge: "Knowledge Base",
     title: "Tambahkan informasi bisnis yang bisa dipercaya AI.",
     subtitle:
-      "Knowledge Base adalah tempat Anda menambahkan fakta penting tentang perusahaan, layanan, pricing, policy, lokasi, dan aturan customer agar AI bisa menjawab dengan benar.",
+      "Knowledge Base adalah tempat Anda menambahkan fakta penting dan URL penting tentang perusahaan, layanan, pricing, policy, lokasi, dan aturan customer agar AI bisa menjawab dengan benar.",
     loading: "Memuat knowledge base Anda...",
     failed: "Knowledge Base gagal dimuat.",
     back: "Kembali ke Dashboard",
     refresh: "Refresh",
     currentPlan: "Paket Saat Ini",
     totalKnowledge: "Knowledge Items",
-    activeKnowledge: "Item Aktif",
     aiReady: "AI Ready",
     addKnowledge: "Add Knowledge",
     editKnowledge: "Edit Knowledge",
     addKnowledgeText:
-      "Buat satu knowledge entry yang jelas. Setiap entry maksimal 4.000 karakter.",
+      "Pilih apakah ingin menulis informasi bisnis langsung atau menambahkan URL penting perusahaan. Setiap written entry maksimal 4.000 karakter.",
+    sampleButton: "See Sample Knowledge",
+    sourceType: "Knowledge Source",
+    writeInformation: "Write Information",
+    addUrl: "Add Important URL",
     titleLabel: "Judul",
-    titlePlaceholder: "Contoh: Delivery Policy, Price List, Common Questions",
+    titlePlaceholder: "Contoh: Delivery Policy, Pricing Page, Common Questions",
     category: "Category",
-    aiUsage: "AI Usage",
     language: "Language",
-    priority: "Priority",
-    status: "Status",
     tags: "Tags",
     tagsPlaceholder: "Contoh: pricing, delivery, support",
+    sourceUrl: "Important URL",
+    sourceUrlPlaceholder: "https://yourcompany.com/pricing",
+    sourceNote: "AI harus menggunakan URL ini untuk apa?",
+    sourceNotePlaceholder:
+      "Contoh: AI harus menggunakan halaman ini saat customer bertanya tentang harga, paket, subscription rules, atau payment terms.",
     content: "Knowledge Content",
     contentPlaceholder:
       "Tulis informasi faktual tentang bisnis, properti, layanan, lokasi, pricing, policy, aturan customer, dan detail penting lain yang harus digunakan AI untuk menjawab customer dengan benar.",
@@ -260,17 +292,18 @@ const translations: Record<string, KnowledgeText> = {
     updateFailed: "Knowledge gagal diperbarui.",
     deleteConfirm: "Hapus knowledge item ini?",
     requiredFields: "Mohon isi judul dan knowledge content.",
+    urlRequired: "Mohon isi judul dan important URL.",
+    invalidUrl: "Mohon masukkan URL valid yang dimulai dengan http:// atau https://.",
     tooLong: "Knowledge content maksimal 4.000 karakter.",
+    noteTooLong: "URL note maksimal 1.000 karakter.",
     closeToLimit: "Anda hampir mencapai limit 4.000 karakter.",
     listTitle: "Saved Knowledge",
     listText:
-      "Kelola informasi bisnis yang bisa digunakan AI. Entry aktif untuk customer-answer nanti akan digunakan oleh AI Brain.",
+      "Kelola informasi bisnis dan URL penting yang bisa digunakan AI untuk menjawab customer dengan benar.",
     search: "Search",
     searchPlaceholder: "Cari knowledge...",
     filterCategory: "Filter Category",
-    filterStatus: "Filter Status",
     allCategories: "Semua Category",
-    allStatuses: "Semua Status",
     noKnowledge: "Belum ada knowledge.",
     noKnowledgeText:
       "Tambahkan knowledge pertama agar AI mulai memahami bisnis Anda.",
@@ -280,13 +313,18 @@ const translations: Record<string, KnowledgeText> = {
     characters: "characters",
     aiNote: "AI Brain Note",
     aiNoteText:
-      "Halaman ini menyimpan fakta yang akan digunakan AI. Buat setiap item spesifik. Lebih baik membuat beberapa entry yang jelas daripada satu catatan panjang yang campur-campur.",
-    priorityHelp: "1 = priority tertinggi, 5 = priority terendah",
+      "Buat setiap knowledge item secara spesifik. Contoh: satu item untuk pricing, satu item untuk refund policy, satu item untuk handover rules, dan satu item untuk URL penting perusahaan.",
     shown: "ditampilkan",
-    activeKnowledgeNote: "Active knowledge",
-    aiReadyNote: "Customer-answer ready",
+    aiReadyNote: "Ready for AI",
     lastReviewed: "Last reviewed",
     notReviewed: "Belum direview",
+    syncStatus: "Sync Status",
+    source: "Source",
+    openUrl: "Open URL",
+    manualNote:
+      "Gunakan ini jika Anda ingin menulis informasi bisnis secara langsung.",
+    urlNote:
+      "Gunakan ini jika bisnis sudah memiliki halaman resmi seperti pricing, FAQ, terms, policy, atau service page.",
   },
 };
 
@@ -314,9 +352,27 @@ function formatDate(value: string | null, fallback: string) {
   return date.toLocaleString();
 }
 
+function isValidUrl(value: string) {
+  return /^https?:\/\/.+/i.test(value.trim());
+}
+
+function getCategoryPriority(category: string) {
+  if (category === "do_not_say") return 1;
+  if (category === "handover_rule") return 1;
+  if (category === "policy") return 2;
+  if (category === "pricing") return 2;
+  if (category === "product_service") return 3;
+  if (category === "faq") return 3;
+  if (category === "sales_instruction") return 3;
+  if (category === "important_link") return 3;
+  if (category === "business_info") return 4;
+  return 4;
+}
+
 export default function KnowledgeBasePage() {
   const { language } = useKolkapLanguage();
-  const t = translations[language] || translations.en;
+  const t =
+    translations[language as keyof typeof translations] || translations.en;
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
@@ -328,18 +384,17 @@ export default function KnowledgeBasePage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   const [editingId, setEditingId] = useState("");
+  const [sourceType, setSourceType] = useState("manual");
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("business_info");
-  const [aiUsage, setAiUsage] = useState("customer_answer");
-  const [entryLanguage, setEntryLanguage] = useState("both");
-  const [priority, setPriority] = useState("3");
-  const [status, setStatus] = useState("active");
+  const [entryLanguage, setEntryLanguage] = useState("auto");
   const [tagsText, setTagsText] = useState("");
   const [content, setContent] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [sourceNote, setSourceNote] = useState("");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
 
   const [isSaving, setIsSaving] = useState(false);
   const [savingItemId, setSavingItemId] = useState("");
@@ -347,9 +402,12 @@ export default function KnowledgeBasePage() {
   const [actionError, setActionError] = useState("");
 
   const characterCount = content.length;
+  const noteCount = sourceNote.length;
+
   const isOverLimit = characterCount > MAX_CONTENT_LENGTH;
   const isCloseToLimit =
     characterCount >= 3700 && characterCount <= MAX_CONTENT_LENGTH;
+  const isNoteOverLimit = noteCount > MAX_SOURCE_NOTE_LENGTH;
 
   useEffect(() => {
     let isMounted = true;
@@ -366,6 +424,7 @@ export default function KnowledgeBasePage() {
         .from("workspace_knowledge_base")
         .select("*")
         .eq("workspace_id", workspace.id)
+        .neq("status", "archived")
         .order("priority", { ascending: true })
         .order("updated_at", { ascending: false });
 
@@ -396,24 +455,19 @@ export default function KnowledgeBasePage() {
         !search ||
         item.title.toLowerCase().includes(search) ||
         item.content.toLowerCase().includes(search) ||
+        String(item.source_url || "").toLowerCase().includes(search) ||
+        String(item.source_note || "").toLowerCase().includes(search) ||
         item.tags.some((tag) => tag.toLowerCase().includes(search));
 
       const matchesCategory =
         filterCategory === "all" || item.category === filterCategory;
 
-      const matchesStatus =
-        filterStatus === "all" || item.status === filterStatus;
-
-      return matchesSearch && matchesCategory && matchesStatus;
+      return matchesSearch && matchesCategory;
     });
-  }, [knowledgeItems, searchTerm, filterCategory, filterStatus]);
-
-  const activeCount = knowledgeItems.filter(
-    (item) => item.status === "active"
-  ).length;
+  }, [knowledgeItems, searchTerm, filterCategory]);
 
   const aiReadyCount = knowledgeItems.filter(
-    (item) => item.status === "active" && item.ai_usage === "customer_answer"
+    (item) => item.status === "active"
   ).length;
 
   const summaryCards = [
@@ -430,12 +484,6 @@ export default function KnowledgeBasePage() {
       icon: BookOpen,
     },
     {
-      label: t.activeKnowledge,
-      value: `${activeCount}`,
-      note: t.activeKnowledgeNote,
-      icon: CheckCircle2,
-    },
-    {
       label: t.aiReady,
       value: `${aiReadyCount}`,
       note: t.aiReadyNote,
@@ -445,27 +493,27 @@ export default function KnowledgeBasePage() {
 
   function resetForm() {
     setEditingId("");
+    setSourceType("manual");
     setTitle("");
     setCategory("business_info");
-    setAiUsage("customer_answer");
-    setEntryLanguage("both");
-    setPriority("3");
-    setStatus("active");
+    setEntryLanguage("auto");
     setTagsText("");
     setContent("");
+    setSourceUrl("");
+    setSourceNote("");
     setActionError("");
   }
 
   function startEdit(item: KnowledgeRow) {
     setEditingId(item.id);
+    setSourceType(item.source_type || "manual");
     setTitle(item.title);
     setCategory(item.category);
-    setAiUsage(item.ai_usage);
-    setEntryLanguage(item.language);
-    setPriority(String(item.priority));
-    setStatus(item.status);
+    setEntryLanguage(item.language || "auto");
     setTagsText((item.tags || []).join(", "));
-    setContent(item.content);
+    setContent(item.source_type === "url" ? "" : item.content);
+    setSourceUrl(item.source_url || "");
+    setSourceNote(item.source_note || "");
     setActionMessage("");
     setActionError("");
 
@@ -486,13 +534,35 @@ export default function KnowledgeBasePage() {
       return;
     }
 
-    if (!title.trim() || !content.trim()) {
+    if (!title.trim()) {
+      setActionError(
+        sourceType === "url" ? t.urlRequired : t.requiredFields
+      );
+      return;
+    }
+
+    if (sourceType === "manual" && !content.trim()) {
       setActionError(t.requiredFields);
       return;
     }
 
-    if (content.length > MAX_CONTENT_LENGTH) {
+    if (sourceType === "manual" && content.length > MAX_CONTENT_LENGTH) {
       setActionError(t.tooLong);
+      return;
+    }
+
+    if (sourceType === "url" && !sourceUrl.trim()) {
+      setActionError(t.urlRequired);
+      return;
+    }
+
+    if (sourceType === "url" && !isValidUrl(sourceUrl)) {
+      setActionError(t.invalidUrl);
+      return;
+    }
+
+    if (sourceType === "url" && sourceNote.length > MAX_SOURCE_NOTE_LENGTH) {
+      setActionError(t.noteTooLong);
       return;
     }
 
@@ -501,17 +571,30 @@ export default function KnowledgeBasePage() {
     const supabase = createClient();
     const now = new Date().toISOString();
 
+    const cleanUrl = sourceUrl.trim();
+    const cleanNote = sourceNote.trim();
+
+    const finalContent =
+      sourceType === "url"
+        ? cleanNote ||
+          `Important company URL: ${cleanUrl}. AI should use this official page when answering related customer questions.`
+        : content.trim();
+
     const payload = {
       workspace_id: workspace.id,
       owner_user_id: workspace.owner_user_id,
       title: title.trim(),
       category,
-      content: content.trim(),
-      priority: Number(priority),
-      ai_usage: aiUsage,
+      content: finalContent,
+      priority: getCategoryPriority(category),
+      ai_usage: "customer_answer",
       language: entryLanguage,
       tags: normalizeTags(tagsText),
-      status,
+      status: "active",
+      source_type: sourceType,
+      source_url: sourceType === "url" ? cleanUrl : null,
+      source_note: sourceType === "url" ? cleanNote || null : null,
+      sync_status: "not_synced",
       updated_at: now,
     };
 
@@ -560,12 +643,7 @@ export default function KnowledgeBasePage() {
     setIsSaving(false);
   }
 
-  async function updateKnowledgeItem(
-    itemId: string,
-    updates: Partial<
-      Pick<KnowledgeRow, "status" | "priority" | "last_reviewed_at">
-    >
-  ) {
+  async function markReviewed(itemId: string) {
     if (!workspace) return;
 
     setActionMessage("");
@@ -578,7 +656,7 @@ export default function KnowledgeBasePage() {
     const { data, error } = await supabase
       .from("workspace_knowledge_base")
       .update({
-        ...updates,
+        last_reviewed_at: now,
         updated_at: now,
       })
       .eq("id", itemId)
@@ -596,7 +674,7 @@ export default function KnowledgeBasePage() {
       current.map((item) => (item.id === itemId ? (data as KnowledgeRow) : item))
     );
 
-    setActionMessage(updates.last_reviewed_at ? t.reviewed : t.updated);
+    setActionMessage(t.reviewed);
     setSavingItemId("");
   }
 
@@ -697,7 +775,7 @@ export default function KnowledgeBasePage() {
           </p>
         </div>
 
-        <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {summaryCards.map((card) => {
             const Icon = card.icon;
 
@@ -761,6 +839,28 @@ export default function KnowledgeBasePage() {
             </div>
 
             <form onSubmit={handleSaveKnowledge} className="grid gap-5">
+              <SelectInput
+                label={t.sourceType}
+                value={sourceType}
+                onChange={setSourceType}
+                options={sourceTypeOptions}
+              />
+
+              <div
+                className={`rounded-3xl border p-5 ${
+                  sourceType === "url"
+                    ? "border-blue-100 bg-blue-50 text-blue-950"
+                    : "border-slate-200 bg-[#F7F9FA] text-slate-700"
+                }`}
+              >
+                <p className="text-base font-black">
+                  {sourceType === "url" ? t.addUrl : t.writeInformation}
+                </p>
+                <p className="mt-2 text-sm font-bold leading-6">
+                  {sourceType === "url" ? t.urlNote : t.manualNote}
+                </p>
+              </div>
+
               <TextInput
                 label={t.titleLabel}
                 value={title}
@@ -776,44 +876,11 @@ export default function KnowledgeBasePage() {
               />
 
               <SelectInput
-                label={t.aiUsage}
-                value={aiUsage}
-                onChange={setAiUsage}
-                options={aiUsageOptions}
-              />
-
-              <SelectInput
                 label={t.language}
                 value={entryLanguage}
                 onChange={setEntryLanguage}
                 options={languageOptions}
               />
-
-              <SelectInput
-                label={t.status}
-                value={status}
-                onChange={setStatus}
-                options={statusOptions}
-              />
-
-              <label className="grid gap-2">
-                <span className="text-base font-black text-slate-700">
-                  {t.priority}
-                </span>
-
-                <input
-                  type="number"
-                  min={1}
-                  max={5}
-                  value={priority}
-                  onChange={(event) => setPriority(event.target.value)}
-                  className="h-14 w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
-                />
-
-                <span className="text-xs font-bold text-slate-500">
-                  {t.priorityHelp}
-                </span>
-              </label>
 
               <TextInput
                 label={t.tags}
@@ -822,50 +889,88 @@ export default function KnowledgeBasePage() {
                 placeholder={t.tagsPlaceholder}
               />
 
-              <label className="grid gap-2">
-                <span className="text-base font-black text-slate-700">
-                  {t.content}
-                </span>
+              {sourceType === "url" ? (
+                <>
+                  <TextInput
+                    label={t.sourceUrl}
+                    value={sourceUrl}
+                    onChange={setSourceUrl}
+                    placeholder={t.sourceUrlPlaceholder}
+                  />
 
-                <textarea
-                  rows={10}
-                  value={content}
-                  maxLength={MAX_CONTENT_LENGTH + 200}
-                  onChange={(event) => setContent(event.target.value)}
-                  placeholder={t.contentPlaceholder}
-                  className={`w-full rounded-2xl border px-5 py-4 text-lg font-semibold leading-8 outline-none transition ${
-                    isOverLimit
-                      ? "border-red-300 bg-red-50"
-                      : "border-slate-200 bg-[#F7F9FA] focus:border-blue-500 focus:bg-white"
-                  }`}
-                />
+                  <label className="grid gap-2">
+                    <span className="text-base font-black text-slate-700">
+                      {t.sourceNote}
+                    </span>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <span
-                    className={`text-sm font-black ${
-                      isOverLimit
-                        ? "text-red-600"
-                        : isCloseToLimit
-                          ? "text-amber-600"
-                          : "text-slate-500"
-                    }`}
-                  >
-                    {characterCount} / {MAX_CONTENT_LENGTH} {t.characters}
+                    <textarea
+                      rows={5}
+                      value={sourceNote}
+                      maxLength={MAX_SOURCE_NOTE_LENGTH + 100}
+                      onChange={(event) => setSourceNote(event.target.value)}
+                      placeholder={t.sourceNotePlaceholder}
+                      className={`w-full rounded-2xl border px-5 py-4 text-lg font-semibold leading-8 outline-none transition ${
+                        isNoteOverLimit
+                          ? "border-red-300 bg-red-50"
+                          : "border-slate-200 bg-[#F7F9FA] focus:border-blue-500 focus:bg-white"
+                      }`}
+                    />
+
+                    <span
+                      className={`text-sm font-black ${
+                        isNoteOverLimit ? "text-red-600" : "text-slate-500"
+                      }`}
+                    >
+                      {noteCount} / {MAX_SOURCE_NOTE_LENGTH} {t.characters}
+                    </span>
+                  </label>
+                </>
+              ) : (
+                <label className="grid gap-2">
+                  <span className="text-base font-black text-slate-700">
+                    {t.content}
                   </span>
 
-                  {isCloseToLimit ? (
-                    <span className="text-sm font-black text-amber-600">
-                      {t.closeToLimit}
-                    </span>
-                  ) : null}
+                  <textarea
+                    rows={10}
+                    value={content}
+                    maxLength={MAX_CONTENT_LENGTH + 200}
+                    onChange={(event) => setContent(event.target.value)}
+                    placeholder={t.contentPlaceholder}
+                    className={`w-full rounded-2xl border px-5 py-4 text-lg font-semibold leading-8 outline-none transition ${
+                      isOverLimit
+                        ? "border-red-300 bg-red-50"
+                        : "border-slate-200 bg-[#F7F9FA] focus:border-blue-500 focus:bg-white"
+                    }`}
+                  />
 
-                  {isOverLimit ? (
-                    <span className="text-sm font-black text-red-600">
-                      {t.tooLong}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span
+                      className={`text-sm font-black ${
+                        isOverLimit
+                          ? "text-red-600"
+                          : isCloseToLimit
+                            ? "text-amber-600"
+                            : "text-slate-500"
+                      }`}
+                    >
+                      {characterCount} / {MAX_CONTENT_LENGTH} {t.characters}
                     </span>
-                  ) : null}
-                </div>
-              </label>
+
+                    {isCloseToLimit ? (
+                      <span className="text-sm font-black text-amber-600">
+                        {t.closeToLimit}
+                      </span>
+                    ) : null}
+
+                    {isOverLimit ? (
+                      <span className="text-sm font-black text-red-600">
+                        {t.tooLong}
+                      </span>
+                    ) : null}
+                  </div>
+                </label>
+              )}
 
               {actionMessage ? (
                 <div className="rounded-3xl border border-green-200 bg-green-50 p-5 text-green-800">
@@ -885,7 +990,7 @@ export default function KnowledgeBasePage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="submit"
-                  disabled={isSaving || isOverLimit}
+                  disabled={isSaving || isOverLimit || isNoteOverLimit}
                   className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Save className="h-6 w-6" />
@@ -896,11 +1001,19 @@ export default function KnowledgeBasePage() {
                       : t.saveKnowledge}
                 </button>
 
+                <Link
+                  href="/education/knowledge-base-guide"
+                  className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-8 py-5 text-xl font-black text-[#07111F] transition hover:-translate-y-0.5"
+                >
+                  <Sparkles className="h-6 w-6" />
+                  {t.sampleButton}
+                </Link>
+
                 {editingId ? (
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-8 py-5 text-xl font-black text-[#07111F]"
+                    className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-white px-8 py-5 text-xl font-black text-[#07111F] sm:col-span-2"
                   >
                     {t.cancelEdit}
                   </button>
@@ -951,13 +1064,6 @@ export default function KnowledgeBasePage() {
                   ...categoryOptions,
                 ]}
               />
-
-              <SelectInput
-                label={t.filterStatus}
-                value={filterStatus}
-                onChange={setFilterStatus}
-                options={[{ value: "all", label: t.allStatuses }, ...statusOptions]}
-              />
             </div>
 
             {pageError ? (
@@ -1002,11 +1108,25 @@ export default function KnowledgeBasePage() {
                             </h3>
 
                             <div className="mt-3 flex flex-wrap gap-2">
-                              <Badge text={getOptionLabel(categoryOptions, item.category)} />
-                              <Badge text={getOptionLabel(aiUsageOptions, item.ai_usage)} />
-                              <Badge text={getOptionLabel(languageOptions, item.language)} />
-                              <Badge text={`Priority ${item.priority}`} />
-                              <Badge text={getOptionLabel(statusOptions, item.status)} />
+                              <Badge
+                                text={
+                                  item.source_type === "url"
+                                    ? t.addUrl
+                                    : t.writeInformation
+                                }
+                              />
+                              <Badge
+                                text={getOptionLabel(
+                                  categoryOptions,
+                                  item.category
+                                )}
+                              />
+                              <Badge
+                                text={getOptionLabel(
+                                  languageOptions,
+                                  item.language
+                                )}
+                              />
                             </div>
                           </div>
 
@@ -1023,11 +1143,7 @@ export default function KnowledgeBasePage() {
                             <button
                               type="button"
                               disabled={isSavingItem}
-                              onClick={() =>
-                                updateKnowledgeItem(item.id, {
-                                  last_reviewed_at: new Date().toISOString(),
-                                })
-                              }
+                              onClick={() => markReviewed(item.id)}
                               className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 disabled:opacity-60"
                             >
                               <ShieldCheck className="h-4 w-4" />
@@ -1046,9 +1162,51 @@ export default function KnowledgeBasePage() {
                           </div>
                         </div>
 
-                        <p className="whitespace-pre-wrap text-base font-semibold leading-8 text-slate-700">
-                          {item.content}
-                        </p>
+                        {item.source_type === "url" && item.source_url ? (
+                          <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5">
+                            <p className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-blue-700">
+                              <Link2 className="h-4 w-4" />
+                              {t.source}
+                            </p>
+
+                            <a
+                              href={item.source_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex break-all text-lg font-black text-blue-700 hover:underline"
+                            >
+                              {item.source_url}
+                            </a>
+
+                            {item.source_note ? (
+                              <p className="mt-4 whitespace-pre-wrap text-base font-semibold leading-8 text-slate-700">
+                                {item.source_note}
+                              </p>
+                            ) : null}
+
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-blue-700">
+                                {t.syncStatus}:{" "}
+                                {syncStatusOptions[item.sync_status] ||
+                                  item.sync_status}
+                              </span>
+
+                              <a
+                                href={item.source_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-black text-blue-700"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                {t.openUrl}
+                              </a>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap text-base font-semibold leading-8 text-slate-700">
+                            {item.content}
+                          </p>
+                        )}
 
                         {item.tags?.length ? (
                           <div className="flex flex-wrap gap-2">
