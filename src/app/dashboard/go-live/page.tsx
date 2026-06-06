@@ -11,22 +11,18 @@ import {
   CircleAlert,
   Clock3,
   CreditCard,
-  MessageCircle,
   RefreshCcw,
   Rocket,
   ShieldCheck,
-  Sparkles,
   WalletCards,
   Zap,
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
-import {
-  getKolkapPlan,
-  getPlanAIStaffLabel,
-  getPlanCreditLabel,
-} from "@/lib/kolkapPlan";
+import { getKolkapPlan } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
+
+type SupportedLanguage = "en" | "id" | "zh" | "ms";
 
 type AiStaffRow = {
   id: string;
@@ -70,7 +66,66 @@ type CreditBalanceRow = {
   updated_at: string;
 };
 
-const translations = {
+type GoLiveTranslation = {
+  badge: string;
+  title: string;
+  subtitle: string;
+  loading: string;
+  failed: string;
+  back: string;
+  refresh: string;
+  currentPlan: string;
+  aiStaff: string;
+  aiStaffIncluded: string;
+  customAIStaffLimit: string;
+  creditsLeft: string;
+  creditsUsed: string;
+  creditUnit: string;
+  planCredits: string;
+  topUpCredits: string;
+  creditCost: string;
+  goLiveStatus: string;
+  whatsappStatus: string;
+  selectAI: string;
+  selectAIText: string;
+  readiness: string;
+  readinessText: string;
+  creditRuleTitle: string;
+  creditRuleText: string;
+  businessReady: string;
+  aiReady: string;
+  testReady: string;
+  creditsReady: string;
+  activePlanReady: string;
+  whatsappReady: string;
+  activateTitle: string;
+  activateText: string;
+  activateAI: string;
+  activating: string;
+  activated: string;
+  activateFailed: string;
+  cannotActivate: string;
+  noAI: string;
+  createAI: string;
+  testAI: string;
+  openSettings: string;
+  selectedAI: string;
+  recentTest: string;
+  noTest: string;
+  required: string;
+  recommended: string;
+  complete: string;
+  needsAction: string;
+  topUp: string;
+  usage: string;
+  billing: string;
+  oneCredit: string;
+  noCreditBalance: string;
+  planNames: Record<string, string>;
+  statuses: Record<string, string>;
+};
+
+const translations: Record<SupportedLanguage, GoLiveTranslation> = {
   en: {
     badge: "Go Live",
     title: "Review your AI setup before going live.",
@@ -82,8 +137,13 @@ const translations = {
     refresh: "Refresh",
     currentPlan: "Current Plan",
     aiStaff: "AI Staff",
+    aiStaffIncluded: "AI staff included",
+    customAIStaffLimit: "Custom AI staff limit",
     creditsLeft: "Credits Left",
     creditsUsed: "Credits Used",
+    creditUnit: "Credit",
+    planCredits: "Plan credits",
+    topUpCredits: "Top-Up credits",
     creditCost: "Auto-Reply Cost",
     goLiveStatus: "Go Live Status",
     whatsappStatus: "WhatsApp Status",
@@ -129,6 +189,12 @@ const translations = {
     oneCredit: "1 AI reply = 1 credit",
     noCreditBalance:
       "Credit balance has not been created for this workspace yet.",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
     statuses: {
       draft: "Draft",
       testing: "Testing",
@@ -147,16 +213,21 @@ const translations = {
     badge: "Go Live",
     title: "Review setup AI sebelum go live.",
     subtitle:
-      "Cek AI staff, test yang tersimpan, detail bisnis, credits, dan status workspace sebelum mengaktifkan AI.",
+      "Cek AI staff, test yang tersimpan, detail bisnis, kredit, dan status workspace sebelum mengaktifkan AI.",
     loading: "Memuat setup go-live Anda...",
-    failed: "Halaman Go Live gagal dimuat.",
+    failed: "Halaman Go Live tidak dapat dimuat.",
     back: "Kembali ke Dashboard",
-    refresh: "Refresh",
+    refresh: "Muat Ulang",
     currentPlan: "Paket Saat Ini",
     aiStaff: "AI Staff",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
-    creditCost: "Auto-Reply Cost",
+    aiStaffIncluded: "AI staff termasuk",
+    customAIStaffLimit: "Limit AI staff custom",
+    creditsLeft: "Sisa Kredit",
+    creditsUsed: "Kredit Terpakai",
+    creditUnit: "Kredit",
+    planCredits: "Kredit paket",
+    topUpCredits: "Kredit Top-Up",
+    creditCost: "Biaya Auto-Reply",
     goLiveStatus: "Status Go Live",
     whatsappStatus: "Status WhatsApp",
     selectAI: "Pilih AI Staff",
@@ -165,22 +236,22 @@ const translations = {
     readiness: "Kesiapan Go-Live",
     readinessText:
       "AI Anda siap saat bagian setup penting sudah lengkap.",
-    creditRuleTitle: "Aturan Credit Penting",
+    creditRuleTitle: "Aturan Kredit Penting",
     creditRuleText:
-      "Saat auto-reply live, setiap successful AI reply menggunakan 1 credit. Jika credits habis, auto-reply harus pause sampai workspace top up atau upgrade.",
+      "Saat auto-reply live, setiap balasan AI yang berhasil menggunakan 1 kredit. Jika kredit habis, auto-reply harus pause sampai workspace melakukan top up atau upgrade.",
     businessReady: "Detail bisnis sudah ditambahkan",
     aiReady: "AI staff sudah dibuat",
     testReady: "Test AI sudah disimpan",
-    creditsReady: "Credits tersedia",
-    activePlanReady: "Active plan atau trial",
+    creditsReady: "Kredit tersedia",
+    activePlanReady: "Paket aktif atau trial",
     whatsappReady: "Nomor WhatsApp sudah ditambahkan",
     activateTitle: "Aktifkan AI",
     activateText:
-      "Setelah diaktifkan, AI staff ini akan ditandai live di workspace Kolkap Anda. Auto-reply menggunakan credits, jadi pastikan credits cukup sebelum go live.",
+      "Setelah diaktifkan, AI staff ini akan ditandai live di workspace Kolkap Anda. Auto-reply menggunakan kredit, jadi pastikan kredit cukup sebelum go live.",
     activateAI: "Aktifkan AI",
     activating: "Mengaktifkan...",
     activated: "AI staff sekarang live di workspace Anda.",
-    activateFailed: "AI staff gagal diaktifkan.",
+    activateFailed: "AI staff tidak dapat diaktifkan.",
     cannotActivate:
       "Lengkapi setup yang dibutuhkan sebelum mengaktifkan AI.",
     noAI: "Belum ada AI staff.",
@@ -196,10 +267,16 @@ const translations = {
     complete: "Lengkap",
     needsAction: "Perlu dilengkapi",
     topUp: "Top Up",
-    usage: "Usage",
+    usage: "Penggunaan",
     billing: "Billing",
-    oneCredit: "1 AI reply = 1 credit",
-    noCreditBalance: "Credit balance belum dibuat untuk workspace ini.",
+    oneCredit: "1 balasan AI = 1 kredit",
+    noCreditBalance: "Saldo kredit belum dibuat untuk workspace ini.",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
     statuses: {
       draft: "Draft",
       testing: "Testing",
@@ -213,7 +290,178 @@ const translations = {
       cancelled: "Dibatalkan",
     },
   },
+
+  zh: {
+    badge: "Go Live",
+    title: "上线前检查您的 AI 设置。",
+    subtitle:
+      "启用 AI 前，请检查 AI staff、已保存测试、业务资料、积分和 workspace 状态。",
+    loading: "正在加载 go-live 设置...",
+    failed: "Go Live 页面无法加载。",
+    back: "返回 Dashboard",
+    refresh: "刷新",
+    currentPlan: "当前套餐",
+    aiStaff: "AI Staff",
+    aiStaffIncluded: "包含 AI staff",
+    customAIStaffLimit: "自定义 AI staff 数量",
+    creditsLeft: "剩余积分",
+    creditsUsed: "已用积分",
+    creditUnit: "积分",
+    planCredits: "套餐积分",
+    topUpCredits: "充值积分",
+    creditCost: "Auto-Reply 积分费用",
+    goLiveStatus: "Go Live 状态",
+    whatsappStatus: "WhatsApp 状态",
+    selectAI: "选择 AI Staff",
+    selectAIText:
+      "选择您要为业务 workspace 启用的 AI staff。",
+    readiness: "Go-Live 准备情况",
+    readinessText:
+      "当重要设置项目完成后，您的 AI 就可以准备上线。",
+    creditRuleTitle: "重要积分规则",
+    creditRuleText:
+      "Auto-reply 上线后，每次成功的 AI 回复会使用 1 积分。如果积分用完，auto-reply 应暂停，直到 workspace top up 或升级。",
+    businessReady: "业务资料已添加",
+    aiReady: "AI staff 已创建",
+    testReady: "AI 测试已保存",
+    creditsReady: "积分可用",
+    activePlanReady: "有效套餐或 trial",
+    whatsappReady: "WhatsApp 号码已添加",
+    activateTitle: "启用 AI",
+    activateText:
+      "启用后，此 AI staff 会在您的 Kolkap workspace 中标记为 live。Auto-reply 会使用积分，请确保上线前积分充足。",
+    activateAI: "启用 AI",
+    activating: "正在启用...",
+    activated: "AI staff 现在已在您的 workspace 中 live。",
+    activateFailed: "AI staff 无法启用。",
+    cannotActivate: "请先完成所需设置，再启用 AI。",
+    noAI: "尚未找到 AI staff。",
+    createAI: "创建 AI Staff",
+    testAI: "Test AI",
+    openSettings: "打开 Settings",
+    selectedAI: "已选择 AI",
+    recentTest: "最新已保存测试",
+    noTest:
+      "此 AI 尚未保存测试。请先测试 AI，再 go live。",
+    required: "必需",
+    recommended: "建议",
+    complete: "完成",
+    needsAction: "需要处理",
+    topUp: "Top Up",
+    usage: "使用量",
+    billing: "Billing",
+    oneCredit: "1 个 AI 回复 = 1 积分",
+    noCreditBalance: "此 workspace 尚未创建积分余额。",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    statuses: {
+      draft: "Draft",
+      testing: "Testing",
+      live: "Live",
+      pending: "待处理",
+      not_connected: "未连接",
+      connected: "已连接",
+      trial: "Trial",
+      active: "有效",
+      past_due: "逾期",
+      cancelled: "已取消",
+    },
+  },
+
+  ms: {
+    badge: "Go Live",
+    title: "Review setup AI sebelum go live.",
+    subtitle:
+      "Semak AI staff, test yang disimpan, detail bisnes, kredit, dan status workspace sebelum mengaktifkan AI.",
+    loading: "Memuatkan setup go-live anda...",
+    failed: "Halaman Go Live tidak dapat dimuatkan.",
+    back: "Kembali ke Dashboard",
+    refresh: "Segar Semula",
+    currentPlan: "Pelan Semasa",
+    aiStaff: "AI Staff",
+    aiStaffIncluded: "AI staff termasuk",
+    customAIStaffLimit: "Had AI staff custom",
+    creditsLeft: "Baki Kredit",
+    creditsUsed: "Kredit Digunakan",
+    creditUnit: "Kredit",
+    planCredits: "Kredit pelan",
+    topUpCredits: "Kredit Top-Up",
+    creditCost: "Kos Auto-Reply",
+    goLiveStatus: "Status Go Live",
+    whatsappStatus: "Status WhatsApp",
+    selectAI: "Pilih AI Staff",
+    selectAIText:
+      "Pilih AI staff yang anda mahu aktifkan untuk workspace bisnes anda.",
+    readiness: "Kesiapan Go-Live",
+    readinessText:
+      "AI anda sedia apabila item setup penting sudah lengkap.",
+    creditRuleTitle: "Peraturan Kredit Penting",
+    creditRuleText:
+      "Apabila auto-reply live, setiap balasan AI yang berjaya menggunakan 1 kredit. Jika kredit habis, auto-reply harus pause sehingga workspace top up atau upgrade.",
+    businessReady: "Detail bisnes sudah ditambah",
+    aiReady: "AI staff sudah dibuat",
+    testReady: "Test AI sudah disimpan",
+    creditsReady: "Kredit tersedia",
+    activePlanReady: "Pelan aktif atau trial",
+    whatsappReady: "Nombor WhatsApp sudah ditambah",
+    activateTitle: "Aktifkan AI",
+    activateText:
+      "Selepas diaktifkan, AI staff ini akan ditanda live dalam workspace Kolkap anda. Auto-reply menggunakan kredit, jadi pastikan kredit mencukupi sebelum go live.",
+    activateAI: "Aktifkan AI",
+    activating: "Mengaktifkan...",
+    activated: "AI staff kini live dalam workspace anda.",
+    activateFailed: "AI staff tidak dapat diaktifkan.",
+    cannotActivate:
+      "Lengkapkan setup yang diperlukan sebelum mengaktifkan AI.",
+    noAI: "Belum ada AI staff.",
+    createAI: "Cipta AI Staff",
+    testAI: "Test AI",
+    openSettings: "Buka Settings",
+    selectedAI: "AI Dipilih",
+    recentTest: "Test Tersimpan Terkini",
+    noTest:
+      "Belum ada test tersimpan untuk AI ini. Sila test AI sebelum go live.",
+    required: "Wajib",
+    recommended: "Disarankan",
+    complete: "Lengkap",
+    needsAction: "Perlu dilengkapkan",
+    topUp: "Top Up",
+    usage: "Penggunaan",
+    billing: "Billing",
+    oneCredit: "1 balasan AI = 1 kredit",
+    noCreditBalance: "Baki kredit belum dibuat untuk workspace ini.",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    statuses: {
+      draft: "Draft",
+      testing: "Testing",
+      live: "Live",
+      pending: "Menunggu",
+      not_connected: "Belum bersambung",
+      connected: "Bersambung",
+      trial: "Trial",
+      active: "Aktif",
+      past_due: "Tertunda",
+      cancelled: "Dibatalkan",
+    },
+  },
 };
+
+function getSupportedLanguage(language: string): SupportedLanguage {
+  if (language === "id" || language === "zh" || language === "ms") {
+    return language;
+  }
+
+  return "en";
+}
 
 function statusLabel(
   statuses: Record<string, string>,
@@ -234,14 +482,39 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
   );
 }
 
+function localizePlanName(
+  planKey: string | null | undefined,
+  fallback: string,
+  t: GoLiveTranslation
+) {
+  if (!planKey) return fallback;
+  return t.planNames[planKey] || fallback;
+}
+
+function getAIStaffLimitLabel(
+  plan: ReturnType<typeof getKolkapPlan>,
+  t: GoLiveTranslation
+) {
+  if (plan.aiStaffLimit === "custom") {
+    return t.customAIStaffLimit;
+  }
+
+  return `${plan.aiStaffLimit} ${t.aiStaffIncluded}`;
+}
+
 export default function GoLivePage() {
   const { language } = useKolkapLanguage();
-  const t =
-    translations[language as keyof typeof translations] || translations.en;
+  const activeLanguage = getSupportedLanguage(language);
+  const t = translations[activeLanguage];
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
+  const currentPlanName = localizePlanName(
+    workspaceState.planKey,
+    currentPlan.name,
+    t
+  );
 
   const [aiStaffRows, setAiStaffRows] = useState<AiStaffRow[]>([]);
   const [testRuns, setTestRuns] = useState<AiTestRunRow[]>([]);
@@ -424,28 +697,28 @@ export default function GoLivePage() {
   const summaryCards = [
     {
       label: t.currentPlan,
-      value: currentPlan.name,
+      value: currentPlanName,
       note: currentPlan.priceLabel,
       icon: WalletCards,
     },
     {
       label: t.aiStaff,
       value: `${aiStaffRows.length}`,
-      note: getPlanAIStaffLabel(currentPlan),
+      note: getAIStaffLimitLabel(currentPlan, t),
       icon: Bot,
     },
     {
       label: t.creditsLeft,
       value: creditsLeft === null ? "—" : creditsLeft.toLocaleString(),
       note: creditBalance
-        ? `${usedCredits.toLocaleString()} ${t.creditsUsed}`
+        ? `${t.creditsUsed}: ${usedCredits.toLocaleString()}`
         : t.noCreditBalance,
       icon: CreditCard,
       dark: true,
     },
     {
       label: t.creditCost,
-      value: "1 Credit",
+      value: `1 ${t.creditUnit}`,
       note: t.oneCredit,
       icon: Zap,
     },
@@ -855,10 +1128,11 @@ export default function GoLivePage() {
                   </h2>
 
                   <p className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-5 text-base font-semibold leading-8 text-slate-300">
-                    {t.oneCredit} • {getPlanCreditLabel(currentPlan)} •{" "}
+                    {t.oneCredit} • {t.planCredits}:{" "}
+                    {totalCredits.toLocaleString()} •{" "}
                     {creditsLeft === null
                       ? t.noCreditBalance
-                      : `${creditsLeft.toLocaleString()} ${t.creditsLeft}`}
+                      : `${t.creditsLeft}: ${creditsLeft.toLocaleString()}`}
                   </p>
 
                   {activateMessage ? (
