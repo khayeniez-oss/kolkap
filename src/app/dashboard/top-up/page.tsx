@@ -24,6 +24,8 @@ import {
 } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
+type SupportedLanguage = "en" | "id" | "zh" | "ms";
+
 type CreditBalanceRow = {
   id: string;
   workspace_id: string;
@@ -39,7 +41,43 @@ type CreditBalanceRow = {
   updated_at: string;
 };
 
-const translations = {
+type TopUpTranslation = {
+  badge: string;
+  title: string;
+  subtitle: string;
+  loading: string;
+  failed: string;
+  back: string;
+  refresh: string;
+  currentPlan: string;
+  creditsLeft: string;
+  planCredits: string;
+  purchasedCredits: string;
+  purchasedCreditsNote: string;
+  creditsUsed: string;
+  creditsUsedNote: string;
+  aiStaffLimit: string;
+  creditBalance: string;
+  creditBalanceText: string;
+  topUpPackages: string;
+  topUpPackagesText: string;
+  howCreditsWork: string;
+  howCreditsWorkText: string;
+  checkout: string;
+  comingSoon: string;
+  openBilling: string;
+  choosePackage: string;
+  bestValue: string;
+  secureCheckout: string;
+  secureCheckoutText: string;
+  noCreditBalance: string;
+  creditUnit: string;
+  topUpPackageDescription: string;
+  usageRules: string[];
+  planNames: Record<string, string>;
+};
+
+const translations: Record<SupportedLanguage, TopUpTranslation> = {
   en: {
     badge: "Top Up Credits",
     title: "Add more AI credits when your business needs them.",
@@ -53,7 +91,9 @@ const translations = {
     creditsLeft: "Credits Left",
     planCredits: "Plan Credits",
     purchasedCredits: "Top-Up Credits",
+    purchasedCreditsNote: "Purchased extra credits",
     creditsUsed: "Credits Used",
+    creditsUsedNote: "credits used",
     aiStaffLimit: "AI Staff Limit",
     creditBalance: "Credit Balance",
     creditBalanceText:
@@ -73,6 +113,9 @@ const translations = {
     secureCheckoutText:
       "Payment checkout will be connected here. Once active, credits will be added to your workspace after successful payment.",
     noCreditBalance: "Credit balance has not been created for this workspace yet.",
+    creditUnit: "credits",
+    topUpPackageDescription:
+      "Extra credits added on top of your monthly plan credits.",
     usageRules: [
       "Generate Test AI Reply = 1 credit.",
       "Generate Inbox AI Reply = 1 credit.",
@@ -80,50 +123,181 @@ const translations = {
       "Website chat or WhatsApp AI reply = 1 credit.",
       "Long content or campaign packs may use more credits later.",
     ],
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
   },
 
   id: {
-    badge: "Top Up Credits",
-    title: "Tambah AI credits saat bisnis Anda membutuhkannya.",
+    badge: "Top Up Kredit",
+    title: "Tambah kredit AI saat bisnis Anda membutuhkannya.",
     subtitle:
-      "Jaga AI tetap siap untuk balasan pelanggan, content generation, inbox support, WhatsApp replies, follow-up, dan campaign support.",
-    loading: "Memuat saldo credits Anda...",
-    failed: "Halaman top-up gagal dimuat.",
+      "Pastikan AI Anda tetap siap untuk membalas pelanggan, membuat konten, membantu inbox, membalas WhatsApp, follow-up, dan mendukung campaign.",
+    loading: "Memuat saldo kredit Anda...",
+    failed: "Halaman top-up tidak dapat dimuat.",
     back: "Kembali ke Dashboard",
-    refresh: "Refresh",
+    refresh: "Muat Ulang",
     currentPlan: "Paket Saat Ini",
-    creditsLeft: "Credits Left",
-    planCredits: "Plan Credits",
-    purchasedCredits: "Top-Up Credits",
-    creditsUsed: "Credits Used",
+    creditsLeft: "Sisa Kredit",
+    planCredits: "Kredit Paket",
+    purchasedCredits: "Kredit Top-Up",
+    purchasedCreditsNote: "Kredit tambahan yang dibeli",
+    creditsUsed: "Kredit Terpakai",
+    creditsUsedNote: "kredit terpakai",
     aiStaffLimit: "Limit AI Staff",
-    creditBalance: "Saldo Credits",
+    creditBalance: "Saldo Kredit",
     creditBalanceText:
-      "Monthly plan credits dan purchased top-up credits terhubung dengan workspace Kolkap Anda.",
+      "Kredit bulanan dari paket Anda dan kredit top-up yang dibeli terhubung dengan workspace Kolkap Anda.",
     topUpPackages: "Paket Top-Up",
     topUpPackagesText:
-      "Pilih credits tambahan saat bisnis Anda membutuhkan lebih banyak AI replies, content, atau campaign support sebelum billing cycle berikutnya.",
-    howCreditsWork: "Cara Credits Digunakan",
+      "Pilih kredit tambahan saat bisnis Anda membutuhkan lebih banyak balasan AI, konten, atau dukungan campaign sebelum siklus billing berikutnya.",
+    howCreditsWork: "Cara Kredit Digunakan",
     howCreditsWorkText:
-      "Credits digunakan setiap kali Kolkap menghasilkan AI output untuk bisnis Anda.",
+      "Kredit digunakan setiap kali Kolkap menghasilkan output AI untuk bisnis Anda.",
     checkout: "Checkout",
     comingSoon: "Checkout segera hadir",
     openBilling: "Buka Billing",
     choosePackage: "Pilih Paket",
-    bestValue: "Best Value",
-    secureCheckout: "Secure Checkout",
+    bestValue: "Nilai Terbaik",
+    secureCheckout: "Checkout Aman",
     secureCheckoutText:
-      "Checkout pembayaran akan terhubung di sini. Setelah aktif, credits akan masuk ke workspace Anda setelah pembayaran berhasil.",
-    noCreditBalance: "Credit balance belum dibuat untuk workspace ini.",
+      "Checkout pembayaran akan terhubung di sini. Setelah aktif, kredit akan ditambahkan ke workspace Anda setelah pembayaran berhasil.",
+    noCreditBalance: "Saldo kredit belum dibuat untuk workspace ini.",
+    creditUnit: "kredit",
+    topUpPackageDescription:
+      "Kredit tambahan yang ditambahkan di atas kredit bulanan paket Anda.",
     usageRules: [
-      "Generate Test AI Reply = 1 credit.",
-      "Generate Inbox AI Reply = 1 credit.",
-      "Generate Content Studio content = 1 credit.",
-      "Website chat atau WhatsApp AI reply = 1 credit.",
-      "Long content atau campaign packs bisa menggunakan lebih banyak credits nanti.",
+      "Generate Test AI Reply = 1 kredit.",
+      "Generate Inbox AI Reply = 1 kredit.",
+      "Generate Content Studio content = 1 kredit.",
+      "Balasan AI dari website chat atau WhatsApp = 1 kredit.",
+      "Konten panjang atau paket campaign dapat menggunakan lebih banyak kredit nanti.",
     ],
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+  },
+
+  zh: {
+    badge: "充值积分",
+    title: "当业务需要更多支持时，随时添加 AI 积分。",
+    subtitle:
+      "让您的 AI 随时准备好处理客户回复、内容生成、收件箱支持、WhatsApp 回复、跟进和营销活动支持。",
+    loading: "正在加载您的积分余额...",
+    failed: "充值页面无法加载。",
+    back: "返回 Dashboard",
+    refresh: "刷新",
+    currentPlan: "当前套餐",
+    creditsLeft: "剩余积分",
+    planCredits: "套餐积分",
+    purchasedCredits: "充值积分",
+    purchasedCreditsNote: "已购买的额外积分",
+    creditsUsed: "已使用积分",
+    creditsUsedNote: "已使用积分",
+    aiStaffLimit: "AI 员工数量",
+    creditBalance: "积分余额",
+    creditBalanceText:
+      "您的月度套餐积分和购买的充值积分都会连接到您的 Kolkap workspace。",
+    topUpPackages: "充值套餐",
+    topUpPackagesText:
+      "当您的业务在下一个账单周期前需要更多 AI 回复、内容或营销支持时，可以购买额外积分。",
+    howCreditsWork: "积分如何使用",
+    howCreditsWorkText:
+      "每当 Kolkap 为您的业务生成 AI 输出时，都会使用积分。",
+    checkout: "付款",
+    comingSoon: "付款功能即将推出",
+    openBilling: "打开 Billing",
+    choosePackage: "选择套餐",
+    bestValue: "最划算",
+    secureCheckout: "安全付款",
+    secureCheckoutText:
+      "付款功能将在这里连接。启用后，付款成功后积分会加入您的 workspace。",
+    noCreditBalance: "此 workspace 尚未创建积分余额。",
+    creditUnit: "积分",
+    topUpPackageDescription:
+      "额外积分会添加到您的月度套餐积分之上。",
+    usageRules: [
+      "生成 Test AI Reply = 1 积分。",
+      "生成 Inbox AI Reply = 1 积分。",
+      "生成 Content Studio 内容 = 1 积分。",
+      "网站聊天或 WhatsApp AI 回复 = 1 积分。",
+      "长内容或营销活动套餐之后可能会使用更多积分。",
+    ],
+    planNames: {
+      starter: "入门",
+      growth: "成长",
+      professional: "专业",
+      business: "商业",
+    },
+  },
+
+  ms: {
+    badge: "Tambah Nilai Kredit",
+    title: "Tambah kredit AI apabila bisnes anda memerlukannya.",
+    subtitle:
+      "Pastikan AI anda sentiasa bersedia untuk balasan pelanggan, penjanaan kandungan, sokongan inbox, balasan WhatsApp, follow-up, dan sokongan kempen.",
+    loading: "Memuatkan baki kredit anda...",
+    failed: "Halaman top-up tidak dapat dimuatkan.",
+    back: "Kembali ke Dashboard",
+    refresh: "Segar Semula",
+    currentPlan: "Pelan Semasa",
+    creditsLeft: "Baki Kredit",
+    planCredits: "Kredit Pelan",
+    purchasedCredits: "Kredit Top-Up",
+    purchasedCreditsNote: "Kredit tambahan yang dibeli",
+    creditsUsed: "Kredit Digunakan",
+    creditsUsedNote: "kredit digunakan",
+    aiStaffLimit: "Had AI Staff",
+    creditBalance: "Baki Kredit",
+    creditBalanceText:
+      "Kredit bulanan daripada pelan anda dan kredit top-up yang dibeli disambungkan kepada workspace Kolkap anda.",
+    topUpPackages: "Pakej Top-Up",
+    topUpPackagesText:
+      "Pilih kredit tambahan apabila bisnes anda memerlukan lebih banyak balasan AI, kandungan, atau sokongan kempen sebelum kitaran bil seterusnya.",
+    howCreditsWork: "Cara Kredit Digunakan",
+    howCreditsWorkText:
+      "Kredit digunakan setiap kali Kolkap menghasilkan output AI untuk bisnes anda.",
+    checkout: "Checkout",
+    comingSoon: "Checkout akan datang",
+    openBilling: "Buka Billing",
+    choosePackage: "Pilih Pakej",
+    bestValue: "Nilai Terbaik",
+    secureCheckout: "Checkout Selamat",
+    secureCheckoutText:
+      "Checkout pembayaran akan disambungkan di sini. Selepas aktif, kredit akan ditambah ke workspace anda selepas pembayaran berjaya.",
+    noCreditBalance: "Baki kredit belum dibuat untuk workspace ini.",
+    creditUnit: "kredit",
+    topUpPackageDescription:
+      "Kredit tambahan ditambah di atas kredit bulanan pelan anda.",
+    usageRules: [
+      "Generate Test AI Reply = 1 kredit.",
+      "Generate Inbox AI Reply = 1 kredit.",
+      "Generate Content Studio content = 1 kredit.",
+      "Balasan AI website chat atau WhatsApp = 1 kredit.",
+      "Kandungan panjang atau pakej kempen mungkin menggunakan lebih banyak kredit nanti.",
+    ],
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
   },
 };
+
+function getSupportedLanguage(language: string): SupportedLanguage {
+  if (language === "id" || language === "zh" || language === "ms") {
+    return language;
+  }
+
+  return "en";
+}
 
 function getCreditsLeft(balance: CreditBalanceRow | null) {
   if (!balance) return null;
@@ -136,14 +310,33 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
   );
 }
 
+function formatCredits(amount: number, t: TopUpTranslation) {
+  return `${amount.toLocaleString()} ${t.creditUnit}`;
+}
+
+function localizePlanName(
+  planKey: string | null | undefined,
+  fallback: string,
+  t: TopUpTranslation
+) {
+  if (!planKey) return fallback;
+
+  return t.planNames[planKey] || fallback;
+}
+
 export default function TopUpPage() {
   const { language } = useKolkapLanguage();
-  const t =
-    translations[language as keyof typeof translations] || translations.en;
+  const activeLanguage = getSupportedLanguage(language);
+  const t = translations[activeLanguage];
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
+  const currentPlanName = localizePlanName(
+    workspaceState.planKey,
+    currentPlan.name,
+    t
+  );
 
   const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
     null
@@ -221,14 +414,16 @@ export default function TopUpPage() {
   const summaryCards = [
     {
       label: t.currentPlan,
-      value: currentPlan.name,
+      value: currentPlanName,
       note: currentPlan.priceLabel,
       icon: WalletCards,
     },
     {
       label: t.creditsLeft,
       value: creditsLeft === null ? "—" : creditsLeft.toLocaleString(),
-      note: creditBalance ? `${usedCredits.toLocaleString()} ${t.creditsUsed}` : t.noCreditBalance,
+      note: creditBalance
+        ? `${usedCredits.toLocaleString()} ${t.creditsUsedNote}`
+        : t.noCreditBalance,
       icon: Zap,
       dark: true,
     },
@@ -241,13 +436,13 @@ export default function TopUpPage() {
     {
       label: t.purchasedCredits,
       value: purchasedCredits.toLocaleString(),
-      note: "Purchased extra credits",
+      note: t.purchasedCreditsNote,
       icon: CreditCard,
     },
     {
       label: t.aiStaffLimit,
       value: getPlanAIStaffLabel(currentPlan),
-      note: currentPlan.name,
+      note: currentPlanName,
       icon: Bot,
     },
   ];
@@ -389,7 +584,7 @@ export default function TopUpPage() {
                     {t.currentPlan}
                   </p>
                   <p className="mt-2 text-4xl font-black tracking-[-0.06em]">
-                    {currentPlan.name}
+                    {currentPlanName}
                   </p>
                 </div>
               </div>
@@ -446,7 +641,7 @@ export default function TopUpPage() {
                       isBestValue ? "text-[#7CFF3D]" : "text-blue-600"
                     }`}
                   >
-                    {pack.credits.toLocaleString()} credits
+                    {formatCredits(pack.credits, t)}
                   </p>
 
                   <p
@@ -454,7 +649,7 @@ export default function TopUpPage() {
                       isBestValue ? "text-slate-300" : "text-slate-600"
                     }`}
                   >
-                    Extra credits added on top of your monthly plan credits.
+                    {t.topUpPackageDescription}
                   </p>
 
                   <button
