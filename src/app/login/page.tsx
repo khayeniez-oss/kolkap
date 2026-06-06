@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowRight,
   BarChart3,
   Bot,
-  CheckCircle2,
   Eye,
   EyeOff,
   Inbox,
@@ -15,7 +14,6 @@ import {
   Mail,
   ShieldCheck,
   Sparkles,
-  Zap,
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
@@ -48,13 +46,15 @@ const translations = {
     secureTitle: "Private business dashboard",
     secureText:
       "Only logged-in business owners and team members can access this workspace.",
+    loading: "Loading login...",
+    togglePassword: "Toggle password visibility",
   },
 
   id: {
-    badge: "Welcome Back",
-    title: "Continue managing your AI staff.",
+    badge: "Selamat Datang Kembali",
+    title: "Lanjutkan mengelola AI staff Anda.",
     subtitle:
-      "Login untuk mengelola AI staff, customer replies, credits, usage, inbox, leads, billing, dan business settings.",
+      "Login untuk mengelola AI staff, balasan pelanggan, credits, usage, inbox, leads, billing, dan pengaturan bisnis.",
     email: "Alamat email",
     emailPlaceholder: "anda@bisnis.com",
     password: "Password",
@@ -63,53 +63,58 @@ const translations = {
     loggingIn: "Sedang login...",
     forgotPassword: "Lupa password?",
     noAccount: "Belum punya akun?",
-    signUp: "Start Free Trial",
+    signUp: "Mulai Free Trial",
     errorTitle: "Login gagal",
     emptyError: "Masukkan email dan password Anda.",
     success: "Login berhasil. Mengarahkan...",
-    noteTitle: "Your AI staff workspace",
+    noteTitle: "Workspace AI staff Anda",
     noteText:
       "Dashboard Anda membantu membuat AI staff, menambahkan business knowledge, test replies, track usage, monitor credits, mengelola inbox conversations, dan go live saat sudah siap.",
-    point1: "Manage AI staff",
-    point2: "Track credits and usage",
-    point3: "Review inbox replies",
-    secureTitle: "Private business dashboard",
+    point1: "Kelola AI staff",
+    point2: "Pantau credits dan usage",
+    point3: "Review balasan inbox",
+    secureTitle: "Dashboard bisnis pribadi",
     secureText:
       "Hanya business owner dan team member yang sudah login yang bisa mengakses workspace ini.",
+    loading: "Memuat login...",
+    togglePassword: "Tampilkan atau sembunyikan password",
   },
 
   zh: {
-    badge: "Welcome Back",
-    title: "Continue managing your AI staff.",
+    badge: "欢迎回来",
+    title: "继续管理您的 AI 员工。",
     subtitle:
-      "登录以管理您的 AI 员工、客户回复、credits、usage、inbox、leads、账单和企业设置。",
+      "登录以管理 AI 员工、客户回复、credits、usage、inbox、leads、账单和业务设置。",
     email: "邮箱地址",
     emailPlaceholder: "you@business.com",
     password: "密码",
-    passwordPlaceholder: "输入您的密码",
+    passwordPlaceholder: "请输入您的密码",
     login: "登录",
     loggingIn: "正在登录...",
     forgotPassword: "忘记密码？",
     noAccount: "还没有账户？",
-    signUp: "Start Free Trial",
+    signUp: "开始免费试用",
     errorTitle: "登录失败",
     emptyError: "请输入邮箱和密码。",
-    success: "登录成功，正在跳转...",
-    noteTitle: "Your AI staff workspace",
+    success: "登录成功。正在跳转...",
+    noteTitle: "您的 AI 员工工作区",
     noteText:
-      "您的 dashboard 可帮助您创建 AI 员工、添加企业知识、测试回复、追踪 usage、管理 credits、查看 inbox conversations，并在准备好后 go live。",
-    point1: "Manage AI staff",
-    point2: "Track credits and usage",
-    point3: "Review inbox replies",
-    secureTitle: "Private business dashboard",
-    secureText: "只有已登录的企业主和团队成员可以访问此 workspace。",
+      "您的 dashboard 可帮助您创建 AI 员工、添加业务知识、测试回复、追踪 usage、管理 credits、查看 inbox conversations，并在准备好后 go live。",
+    point1: "管理 AI 员工",
+    point2: "追踪 credits 和 usage",
+    point3: "查看 inbox 回复",
+    secureTitle: "私人业务 dashboard",
+    secureText:
+      "只有已登录的 business owner 和 team member 可以访问此 workspace。",
+    loading: "正在加载登录页面...",
+    togglePassword: "显示或隐藏密码",
   },
 
   ms: {
-    badge: "Welcome Back",
-    title: "Continue managing your AI staff.",
+    badge: "Selamat Kembali",
+    title: "Teruskan mengurus AI staff anda.",
     subtitle:
-      "Login untuk mengurus AI staff, customer replies, credits, usage, inbox, leads, billing, dan business settings.",
+      "Login untuk mengurus AI staff, balasan pelanggan, credits, usage, inbox, leads, billing, dan tetapan bisnes.",
     email: "Alamat email",
     emailPlaceholder: "anda@bisnes.com",
     password: "Kata laluan",
@@ -118,19 +123,21 @@ const translations = {
     loggingIn: "Sedang login...",
     forgotPassword: "Lupa kata laluan?",
     noAccount: "Belum ada akaun?",
-    signUp: "Start Free Trial",
+    signUp: "Mulakan Free Trial",
     errorTitle: "Login gagal",
     emptyError: "Masukkan email dan kata laluan anda.",
     success: "Login berjaya. Mengarahkan...",
-    noteTitle: "Your AI staff workspace",
+    noteTitle: "Workspace AI staff anda",
     noteText:
-      "Dashboard anda membantu mencipta AI staff, tambah business knowledge, test replies, track usage, monitor credits, urus inbox conversations, dan go live apabila sudah siap.",
-    point1: "Manage AI staff",
-    point2: "Track credits and usage",
-    point3: "Review inbox replies",
-    secureTitle: "Private business dashboard",
+      "Dashboard anda membantu mencipta AI staff, tambah business knowledge, test replies, track usage, monitor credits, urus inbox conversations, dan go live apabila sudah bersedia.",
+    point1: "Urus AI staff",
+    point2: "Pantau credits dan usage",
+    point3: "Review balasan inbox",
+    secureTitle: "Dashboard bisnes peribadi",
     secureText:
       "Hanya business owner dan team member yang sudah login boleh mengakses workspace ini.",
+    loading: "Memuat login...",
+    togglePassword: "Tunjuk atau sembunyikan kata laluan",
   },
 };
 
@@ -225,9 +232,20 @@ function LoginContent() {
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <FeaturePoint icon={<Bot className="h-5 w-5" />} text={t.point1} />
-              <FeaturePoint icon={<BarChart3 className="h-5 w-5" />} text={t.point2} />
-              <FeaturePoint icon={<Inbox className="h-5 w-5" />} text={t.point3} />
+              <FeaturePoint
+                icon={<Bot className="h-5 w-5" />}
+                text={t.point1}
+              />
+
+              <FeaturePoint
+                icon={<BarChart3 className="h-5 w-5" />}
+                text={t.point2}
+              />
+
+              <FeaturePoint
+                icon={<Inbox className="h-5 w-5" />}
+                text={t.point3}
+              />
             </div>
           </div>
 
@@ -296,7 +314,7 @@ function LoginContent() {
                   type="button"
                   onClick={() => setShowPassword((value) => !value)}
                   className="ml-3 text-slate-500"
-                  aria-label="Toggle password visibility"
+                  aria-label={t.togglePassword}
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5" />
@@ -353,13 +371,7 @@ function LoginContent() {
   );
 }
 
-function FeaturePoint({
-  icon,
-  text,
-}: {
-  icon: React.ReactNode;
-  text: string;
-}) {
+function FeaturePoint({ icon, text }: { icon: ReactNode; text: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
       <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#07111F]">
