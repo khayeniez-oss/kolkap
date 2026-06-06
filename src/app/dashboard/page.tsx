@@ -15,7 +15,6 @@ import {
   RefreshCcw,
   Rocket,
   Settings,
-  ShieldCheck,
   Sparkles,
   TestTube2,
   UserRound,
@@ -25,13 +24,10 @@ import {
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
-import {
-  getKolkapPlan,
-  getPlanAIStaffLabel,
-  getPlanCreditLabel,
-  type KolkapPlanKey,
-} from "@/lib/kolkapPlan";
+import { getKolkapPlan, type KolkapPlanKey } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
+
+type SupportedLanguage = "en" | "id" | "zh" | "ms";
 
 type DashboardStats = {
   aiStaffCount: number;
@@ -67,6 +63,7 @@ type DashboardTranslation = {
   refresh: string;
   currentPlan: string;
   credits: string;
+  creditUnit: string;
   creditsLeft: string;
   creditsUsed: string;
   usage: string;
@@ -88,7 +85,6 @@ type DashboardTranslation = {
   latestActivityText: string;
   noActivity: string;
   openPage: string;
-  continue: string;
   viewLeads: string;
   openInbox: string;
   createAI: string;
@@ -115,14 +111,20 @@ type DashboardTranslation = {
   stepInboxText: string;
   stepLeads: string;
   stepLeadsText: string;
+  contentStudioQuickText: string;
+  usageQuickText: string;
   noCreditBalance: string;
   usedFromBalance: string;
-  remainingBalance: string;
   includedCredits: string;
+  monthlyIncluded: string;
+  custom: string;
+  aiStaffIncluded: string;
+  customAIStaffLimit: string;
+  planNames: Record<string, string>;
   status: Record<string, string>;
 };
 
-const translations: Record<string, DashboardTranslation> = {
+const translations: Record<SupportedLanguage, DashboardTranslation> = {
   en: {
     badge: "User Dashboard",
     title: "Your Kolkap workspace is ready.",
@@ -133,10 +135,11 @@ const translations: Record<string, DashboardTranslation> = {
     refresh: "Refresh",
     currentPlan: "Current Plan",
     credits: "Credits",
+    creditUnit: "credits",
     creditsLeft: "Credits Left",
     creditsUsed: "Credits Used",
     usage: "Usage",
-    usageToday: "Credits used today",
+    usageToday: "credits used today",
     aiStaff: "AI Staff",
     conversations: "Conversations",
     leads: "Leads",
@@ -158,7 +161,6 @@ const translations: Record<string, DashboardTranslation> = {
       "Your latest customer activity will appear here once your inbox starts receiving conversations.",
     noActivity: "No customer conversation yet.",
     openPage: "Open Page",
-    continue: "Continue",
     viewLeads: "View Leads",
     openInbox: "Open Inbox",
     createAI: "Create AI",
@@ -178,7 +180,7 @@ const translations: Record<string, DashboardTranslation> = {
       "Check your business profile, contact details, WhatsApp number, and workspace summary.",
     stepCreateAI: "2. Create AI",
     stepCreateAIText:
-      "Create your AI staff and define its role, tone, channel, business knowledge, and instruction.",
+      "Create your AI staff and define its role, tone, channel, business knowledge, and instructions.",
     stepTestAI: "3. Test AI",
     stepTestAIText:
       "Send sample customer questions and check how your AI replies before going live.",
@@ -190,11 +192,24 @@ const translations: Record<string, DashboardTranslation> = {
       "View customer conversations, AI replies, human replies, and handover requests.",
     stepLeads: "6. Leads",
     stepLeadsText:
-      "Track customer opportunities, update lead status, and follow up with potential buyers.",
+      "Track customer opportunities, update lead status, and follow up with potential customers.",
+    contentStudioQuickText:
+      "Generate business content for 1 credit per successful generation.",
+    usageQuickText:
+      "Track credits used, credits left, AI actions, and workspace activity.",
     noCreditBalance: "Credit balance not found yet.",
-    usedFromBalance: "Used from balance",
-    remainingBalance: "Remaining balance",
-    includedCredits: "Included credits",
+    usedFromBalance: "used from balance",
+    includedCredits: "total credits",
+    monthlyIncluded: "monthly included",
+    custom: "Custom",
+    aiStaffIncluded: "AI staff included",
+    customAIStaffLimit: "Custom AI staff limit",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
     status: {
       trial: "Trial",
       active: "Active",
@@ -210,19 +225,20 @@ const translations: Record<string, DashboardTranslation> = {
   },
 
   id: {
-    badge: "User Dashboard",
+    badge: "Dashboard Pengguna",
     title: "Workspace Kolkap Anda sudah siap.",
     subtitle:
-      "Kelola AI staff, test balasan, aktifkan AI, pantau usage, monitor credits, dan follow up leads pelanggan dari satu dashboard yang jelas.",
+      "Kelola AI staff, tes balasan, aktifkan AI, pantau penggunaan, monitor kredit, dan follow up leads pelanggan dari satu dashboard yang jelas.",
     loading: "Memuat dashboard Anda...",
-    failed: "Dashboard gagal dimuat.",
-    refresh: "Refresh",
+    failed: "Dashboard tidak dapat dimuat.",
+    refresh: "Muat Ulang",
     currentPlan: "Paket Saat Ini",
-    credits: "Credits",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
-    usage: "Usage",
-    usageToday: "Credits used today",
+    credits: "Kredit",
+    creditUnit: "kredit",
+    creditsLeft: "Sisa Kredit",
+    creditsUsed: "Kredit Terpakai",
+    usage: "Penggunaan",
+    usageToday: "kredit digunakan hari ini",
     aiStaff: "AI Staff",
     conversations: "Percakapan",
     leads: "Leads",
@@ -235,52 +251,64 @@ const translations: Record<string, DashboardTranslation> = {
       "Masuk langsung ke aksi paling penting di workspace Kolkap Anda.",
     businessFlow: "Alur Utama Bisnis",
     businessFlowText:
-      "Ini adalah alur setup yang disarankan untuk setiap pemilik bisnis di Kolkap.",
+      "Ini adalah alur setup yang disarankan untuk setiap pemilik bisnis yang menggunakan Kolkap.",
     management: "Manajemen Workspace",
     managementText:
-      "Kelola billing, credits, usage, settings, reports, team access, dan business knowledge.",
+      "Kelola billing, kredit, penggunaan, pengaturan, laporan, akses tim, dan business knowledge.",
     latestActivity: "Aktivitas Terbaru",
     latestActivityText:
       "Aktivitas pelanggan terbaru akan muncul di sini setelah inbox mulai menerima percakapan.",
     noActivity: "Belum ada percakapan pelanggan.",
     openPage: "Buka Halaman",
-    continue: "Lanjutkan",
     viewLeads: "Lihat Leads",
     openInbox: "Buka Inbox",
-    createAI: "Create AI",
-    testAI: "Test AI",
+    createAI: "Buat AI",
+    testAI: "Tes AI",
     goLive: "Go Live",
-    settings: "Settings",
+    settings: "Pengaturan",
     billing: "Billing",
     topUp: "Top Up",
-    businessOverview: "Business Overview",
-    reports: "Reports",
-    team: "Team",
+    businessOverview: "Ringkasan Bisnis",
+    reports: "Laporan",
+    team: "Tim",
     contentStudio: "Content Studio",
     knowledgeBase: "Knowledge Base",
-    usagePage: "Usage",
+    usagePage: "Penggunaan",
     stepBusiness: "1. Review Bisnis",
     stepBusinessText:
       "Cek profil bisnis, detail kontak, nomor WhatsApp, dan ringkasan workspace.",
     stepCreateAI: "2. Buat AI",
     stepCreateAIText:
       "Buat AI staff dan atur role, tone, channel, business knowledge, dan instruksinya.",
-    stepTestAI: "3. Test AI",
+    stepTestAI: "3. Tes AI",
     stepTestAIText:
-      "Kirim contoh pertanyaan customer dan cek balasan AI sebelum go live.",
+      "Kirim contoh pertanyaan pelanggan dan cek balasan AI sebelum go live.",
     stepGoLive: "4. Go Live",
     stepGoLiveText:
       "Review kesiapan, pilih AI staff, dan aktifkan AI di workspace Kolkap.",
     stepInbox: "5. Inbox",
     stepInboxText:
-      "Lihat percakapan customer, balasan AI, balasan human, dan request handover.",
+      "Lihat percakapan pelanggan, balasan AI, balasan human, dan request handover.",
     stepLeads: "6. Leads",
     stepLeadsText:
-      "Pantau peluang customer, update status lead, dan follow up calon pembeli.",
-    noCreditBalance: "Credit balance belum ditemukan.",
-    usedFromBalance: "Used from balance",
-    remainingBalance: "Remaining balance",
-    includedCredits: "Included credits",
+      "Pantau peluang pelanggan, update status lead, dan follow up calon pelanggan.",
+    contentStudioQuickText:
+      "Buat konten bisnis dengan 1 kredit untuk setiap hasil yang berhasil dibuat.",
+    usageQuickText:
+      "Pantau kredit terpakai, sisa kredit, aktivitas AI, dan aktivitas workspace.",
+    noCreditBalance: "Saldo kredit belum ditemukan.",
+    usedFromBalance: "digunakan dari saldo",
+    includedCredits: "total kredit",
+    monthlyIncluded: "termasuk bulanan",
+    custom: "Custom",
+    aiStaffIncluded: "AI staff termasuk",
+    customAIStaffLimit: "Limit AI staff custom",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
     status: {
       trial: "Trial",
       active: "Aktif",
@@ -297,71 +325,88 @@ const translations: Record<string, DashboardTranslation> = {
 
   zh: {
     badge: "用户仪表板",
-    title: "您的 Kolkap 工作区已准备好。",
+    title: "您的 Kolkap workspace 已准备好。",
     subtitle:
-      "在一个清晰的仪表板中管理 AI 员工、测试回复、启用 AI、查看 usage、监控 credits 并跟进客户线索。",
-    loading: "正在加载仪表板...",
-    failed: "仪表板加载失败。",
+      "在一个清晰的 dashboard 中管理 AI 员工、测试回复、启用 AI、查看使用量、监控积分，并跟进客户线索。",
+    loading: "正在加载 dashboard...",
+    failed: "Dashboard 无法加载。",
     refresh: "刷新",
-    currentPlan: "当前方案",
-    credits: "Credits",
-    creditsLeft: "剩余 Credits",
-    creditsUsed: "已用 Credits",
-    usage: "Usage",
-    usageToday: "今日使用 Credits",
+    currentPlan: "当前套餐",
+    credits: "积分",
+    creditUnit: "积分",
+    creditsLeft: "剩余积分",
+    creditsUsed: "已用积分",
+    usage: "使用量",
+    usageToday: "今日已用积分",
     aiStaff: "AI 员工",
     conversations: "对话",
     leads: "线索",
     handover: "人工接手",
     goLiveStatus: "上线状态",
-    workspaceStatus: "工作区状态",
+    workspaceStatus: "Workspace 状态",
     trialDays: "试用剩余天数",
     quickActions: "快速操作",
-    quickActionsText: "快速进入 Kolkap 工作区中最重要的操作。",
+    quickActionsText: "快速进入 Kolkap workspace 中最重要的操作。",
     businessFlow: "主要业务流程",
-    businessFlowText: "这是每位 Kolkap 企业主推荐的设置流程。",
-    management: "工作区管理",
-    managementText: "管理账单、credits、usage、设置、报告、团队和企业知识。",
+    businessFlowText: "这是每位 Kolkap 企业用户推荐的设置流程。",
+    management: "Workspace 管理",
+    managementText:
+      "管理 billing、积分、使用量、设置、报告、团队权限和企业知识。",
     latestActivity: "最新活动",
-    latestActivityText: "客户对话开始进入收件箱后，最新活动会显示在这里。",
+    latestActivityText:
+      "当 inbox 开始收到客户对话后，最新客户活动会显示在这里。",
     noActivity: "暂无客户对话。",
     openPage: "打开页面",
-    continue: "继续",
     viewLeads: "查看线索",
-    openInbox: "打开收件箱",
+    openInbox: "打开 Inbox",
     createAI: "创建 AI",
     testAI: "测试 AI",
     goLive: "上线",
     settings: "设置",
-    billing: "账单",
+    billing: "Billing",
     topUp: "充值",
     businessOverview: "企业概览",
     reports: "报告",
     team: "团队",
-    contentStudio: "内容工作室",
-    knowledgeBase: "知识库",
-    usagePage: "Usage",
+    contentStudio: "Content Studio",
+    knowledgeBase: "Knowledge Base",
+    usagePage: "使用量",
     stepBusiness: "1. 查看企业资料",
-    stepBusinessText: "检查企业资料、联系方式、WhatsApp 号码和工作区摘要。",
+    stepBusinessText:
+      "检查企业资料、联系方式、WhatsApp 号码和 workspace 摘要。",
     stepCreateAI: "2. 创建 AI",
-    stepCreateAIText: "创建 AI 员工并设置角色、语气、渠道、企业知识和指令。",
+    stepCreateAIText:
+      "创建 AI 员工，并设置角色、语气、渠道、企业知识和指令。",
     stepTestAI: "3. 测试 AI",
     stepTestAIText: "发送客户问题示例，在上线前检查 AI 回复。",
     stepGoLive: "4. 上线",
-    stepGoLiveText: "检查准备情况，选择 AI 员工，并在工作区启用。",
-    stepInbox: "5. 收件箱",
+    stepGoLiveText:
+      "检查准备情况，选择 AI 员工，并在 Kolkap workspace 中启用。",
+    stepInbox: "5. Inbox",
     stepInboxText: "查看客户对话、AI 回复、人工回复和接手请求。",
     stepLeads: "6. 线索",
     stepLeadsText: "追踪客户机会，更新线索状态，并跟进潜在客户。",
-    noCreditBalance: "尚未找到 credit balance。",
-    usedFromBalance: "已使用",
-    remainingBalance: "剩余余额",
-    includedCredits: "包含 credits",
+    contentStudioQuickText: "每次成功生成业务内容会使用 1 积分。",
+    usageQuickText:
+      "追踪已用积分、剩余积分、AI 操作和 workspace 活动。",
+    noCreditBalance: "尚未找到积分余额。",
+    usedFromBalance: "已从余额使用",
+    includedCredits: "总积分",
+    monthlyIncluded: "每月包含",
+    custom: "自定义",
+    aiStaffIncluded: "包含 AI 员工",
+    customAIStaffLimit: "自定义 AI 员工数量",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
     status: {
       trial: "试用",
       active: "有效",
       past_due: "逾期",
-      cancelled: "取消",
+      cancelled: "已取消",
       draft: "草稿",
       testing: "测试中",
       live: "已上线",
@@ -372,19 +417,20 @@ const translations: Record<string, DashboardTranslation> = {
   },
 
   ms: {
-    badge: "User Dashboard",
+    badge: "Dashboard Pengguna",
     title: "Workspace Kolkap anda sudah siap.",
     subtitle:
-      "Urus AI staff, test balasan, aktifkan AI, pantau usage, monitor credits, dan follow up leads pelanggan dari satu dashboard yang jelas.",
-    loading: "Memuat dashboard anda...",
-    failed: "Dashboard gagal dimuat.",
-    refresh: "Refresh",
-    currentPlan: "Pakej Semasa",
-    credits: "Credits",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
-    usage: "Usage",
-    usageToday: "Credits used today",
+      "Urus AI staff, test balasan, aktifkan AI, pantau penggunaan, monitor kredit, dan follow up leads pelanggan dari satu dashboard yang jelas.",
+    loading: "Memuatkan dashboard anda...",
+    failed: "Dashboard tidak dapat dimuatkan.",
+    refresh: "Segar Semula",
+    currentPlan: "Pelan Semasa",
+    credits: "Kredit",
+    creditUnit: "kredit",
+    creditsLeft: "Baki Kredit",
+    creditsUsed: "Kredit Digunakan",
+    usage: "Penggunaan",
+    usageToday: "kredit digunakan hari ini",
     aiStaff: "AI Staff",
     conversations: "Perbualan",
     leads: "Leads",
@@ -397,30 +443,29 @@ const translations: Record<string, DashboardTranslation> = {
       "Masuk terus ke aksi paling penting dalam workspace Kolkap anda.",
     businessFlow: "Alur Utama Bisnes",
     businessFlowText:
-      "Ini ialah alur setup yang disarankan untuk setiap pemilik bisnes di Kolkap.",
+      "Ini ialah alur setup yang disarankan untuk setiap pemilik bisnes yang menggunakan Kolkap.",
     management: "Pengurusan Workspace",
     managementText:
-      "Urus billing, credits, usage, settings, reports, team access, dan business knowledge.",
+      "Urus billing, kredit, penggunaan, tetapan, laporan, akses team, dan business knowledge.",
     latestActivity: "Aktiviti Terbaru",
     latestActivityText:
       "Aktiviti pelanggan terbaru akan muncul di sini selepas inbox mula menerima perbualan.",
     noActivity: "Belum ada perbualan pelanggan.",
     openPage: "Buka Halaman",
-    continue: "Teruskan",
     viewLeads: "Lihat Leads",
     openInbox: "Buka Inbox",
-    createAI: "Create AI",
+    createAI: "Cipta AI",
     testAI: "Test AI",
     goLive: "Go Live",
-    settings: "Settings",
+    settings: "Tetapan",
     billing: "Billing",
     topUp: "Top Up",
-    businessOverview: "Business Overview",
-    reports: "Reports",
+    businessOverview: "Ringkasan Bisnes",
+    reports: "Laporan",
     team: "Team",
     contentStudio: "Content Studio",
     knowledgeBase: "Knowledge Base",
-    usagePage: "Usage",
+    usagePage: "Penggunaan",
     stepBusiness: "1. Review Bisnes",
     stepBusinessText:
       "Semak profil bisnes, detail kontak, nombor WhatsApp, dan ringkasan workspace.",
@@ -429,20 +474,33 @@ const translations: Record<string, DashboardTranslation> = {
       "Cipta AI staff dan tetapkan role, tone, channel, business knowledge, dan arahan.",
     stepTestAI: "3. Test AI",
     stepTestAIText:
-      "Hantar contoh soalan customer dan semak balasan AI sebelum go live.",
+      "Hantar contoh soalan pelanggan dan semak balasan AI sebelum go live.",
     stepGoLive: "4. Go Live",
     stepGoLiveText:
       "Review kesiapan, pilih AI staff, dan aktifkan AI dalam workspace Kolkap.",
     stepInbox: "5. Inbox",
     stepInboxText:
-      "Lihat perbualan customer, balasan AI, balasan human, dan request handover.",
+      "Lihat perbualan pelanggan, balasan AI, balasan human, dan request handover.",
     stepLeads: "6. Leads",
     stepLeadsText:
-      "Pantau peluang customer, update status lead, dan follow up bakal pelanggan.",
-    noCreditBalance: "Credit balance belum dijumpai.",
-    usedFromBalance: "Used from balance",
-    remainingBalance: "Remaining balance",
-    includedCredits: "Included credits",
+      "Pantau peluang pelanggan, update status lead, dan follow up bakal pelanggan.",
+    contentStudioQuickText:
+      "Jana kandungan bisnes dengan 1 kredit untuk setiap hasil yang berjaya dijana.",
+    usageQuickText:
+      "Pantau kredit digunakan, baki kredit, aksi AI, dan aktiviti workspace.",
+    noCreditBalance: "Baki kredit belum dijumpai.",
+    usedFromBalance: "digunakan daripada baki",
+    includedCredits: "jumlah kredit",
+    monthlyIncluded: "termasuk bulanan",
+    custom: "Custom",
+    aiStaffIncluded: "AI staff termasuk",
+    customAIStaffLimit: "Had AI staff custom",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
     status: {
       trial: "Trial",
       active: "Aktif",
@@ -458,6 +516,14 @@ const translations: Record<string, DashboardTranslation> = {
   },
 };
 
+function getSupportedLanguage(language: string): SupportedLanguage {
+  if (language === "id" || language === "zh" || language === "ms") {
+    return language;
+  }
+
+  return "en";
+}
+
 function getAIStaffLimit(planKey: KolkapPlanKey) {
   const plan = getKolkapPlan(planKey);
 
@@ -468,6 +534,16 @@ function getAIStaffLimit(planKey: KolkapPlanKey) {
 
 function statusLabel(t: DashboardTranslation, value: string) {
   return t.status[value] || value;
+}
+
+function localizePlanName(
+  planKey: string | null | undefined,
+  fallback: string,
+  t: DashboardTranslation
+) {
+  if (!planKey) return fallback;
+
+  return t.planNames[planKey] || fallback;
 }
 
 function getCreditsLeft(balance: CreditBalanceRow | null) {
@@ -481,6 +557,10 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
   );
 }
 
+function formatCredits(amount: number, t: DashboardTranslation) {
+  return `${amount.toLocaleString()} ${t.creditUnit}`;
+}
+
 function getTodayStartIso() {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
@@ -489,11 +569,17 @@ function getTodayStartIso() {
 
 export default function DashboardPage() {
   const { language } = useKolkapLanguage();
-  const t = translations[language] || translations.en;
+  const activeLanguage = getSupportedLanguage(language);
+  const t = translations[activeLanguage];
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
+  const currentPlanName = localizePlanName(
+    workspaceState.planKey,
+    currentPlan.name,
+    t
+  );
   const aiLimit = getAIStaffLimit(workspaceState.planKey);
 
   const [stats, setStats] = useState<DashboardStats>({
@@ -519,6 +605,19 @@ export default function DashboardPage() {
   const planCredits = Number(creditBalance?.plan_credits || 0);
   const purchasedCredits = Number(creditBalance?.purchased_credits || 0);
   const totalCredits = planCredits + purchasedCredits;
+
+  const aiLimitValue =
+    aiLimit === "custom" ? `${stats.aiStaffCount}/${t.custom}` : `${stats.aiStaffCount}/${aiLimit}`;
+
+  const aiLimitNote =
+    aiLimit === "custom"
+      ? t.customAIStaffLimit
+      : `${aiLimit} ${t.aiStaffIncluded}`;
+
+  const planCreditNote =
+    planCredits > 0
+      ? `${formatCredits(planCredits, t)} ${t.monthlyIncluded}`
+      : t.includedCredits;
 
   useEffect(() => {
     let isMounted = true;
@@ -632,7 +731,7 @@ export default function DashboardPage() {
   const summaryCards = [
     {
       label: t.currentPlan,
-      value: currentPlan.name,
+      value: currentPlanName,
       note: currentPlan.priceLabel,
       icon: WalletCards,
       href: "/dashboard/billing",
@@ -656,11 +755,8 @@ export default function DashboardPage() {
     },
     {
       label: t.aiStaff,
-      value:
-        aiLimit === "custom"
-          ? `${stats.aiStaffCount}/Custom`
-          : `${stats.aiStaffCount}/${aiLimit}`,
-      note: getPlanAIStaffLabel(currentPlan),
+      value: aiLimitValue,
+      note: aiLimitNote,
       icon: Bot,
       href: "/dashboard/create-ai",
     },
@@ -688,7 +784,7 @@ export default function DashboardPage() {
     },
     {
       title: t.contentStudio,
-      text: "Generate business content for 1 credit per successful generation.",
+      text: t.contentStudioQuickText,
       href: "/dashboard/content-studio",
       icon: FileText,
     },
@@ -700,7 +796,7 @@ export default function DashboardPage() {
     },
     {
       title: t.usagePage,
-      text: "Track credits used, credits left, AI actions, and workspace activity.",
+      text: t.usageQuickText,
       href: "/dashboard/usage",
       icon: BarChart3,
     },
@@ -982,7 +1078,9 @@ export default function DashboardPage() {
 
               <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
                 {creditBalance
-                  ? `${usedCredits.toLocaleString()} ${t.usedFromBalance} • ${totalCredits.toLocaleString()} ${t.includedCredits}`
+                  ? `${usedCredits.toLocaleString()} ${
+                      t.usedFromBalance
+                    } • ${totalCredits.toLocaleString()} ${t.includedCredits}`
                   : t.noCreditBalance}
               </p>
             </div>
@@ -1017,7 +1115,7 @@ export default function DashboardPage() {
                 <WalletCards className="mb-5 h-9 w-9 text-[#07111F]" />
                 <p className="text-xl font-black">{t.topUp}</p>
                 <p className="mt-2 text-sm font-semibold text-slate-600">
-                  {getPlanCreditLabel(currentPlan)}
+                  {planCreditNote}
                 </p>
               </Link>
             </div>
