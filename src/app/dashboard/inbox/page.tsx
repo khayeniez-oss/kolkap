@@ -24,16 +24,14 @@ import {
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
-import {
-  getGenerateButtonLabel,
-  getKolkapPlan,
-  getPlanAIStaffLabel,
-} from "@/lib/kolkapPlan";
+import { getKolkapPlan } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 const CONVERSATIONS_PER_PAGE = 8;
 const MESSAGES_STEP = 10;
 const INBOX_AI_REPLY_CREDIT_COST = 1;
+
+type SupportedLanguage = "en" | "id" | "zh" | "ms";
 
 type AiStaffRow = {
   id: string;
@@ -96,6 +94,7 @@ type InboxTranslation = {
   creditsLeft: string;
   creditsUsed: string;
   creditCost: string;
+  creditUnit: string;
   noCreditBalance: string;
   oneCreditNote: string;
   refreshCredits: string;
@@ -111,16 +110,23 @@ type InboxTranslation = {
   noMessages: string;
   selectConversation: string;
   allAI: string;
+  aiStaffFallback: string;
+  aiStaffIncluded: string;
+  customAIStaffLimit: string;
   filterAI: string;
   customer: string;
   aiReply: string;
   humanReply: string;
   generateAiReply: string;
+  generateAiReplyForCredit: string;
   generatingAiReply: string;
   aiSuggestionReady: string;
+  aiReplyCouldNotGenerate: string;
+  knowledgeItemsUsed: string;
   noCustomerMessageForAI: string;
   sendReply: string;
   sending: string;
+  replySent: string;
   replyPlaceholder: string;
   messageRequired: string;
   requestHandover: string;
@@ -144,10 +150,14 @@ type InboxTranslation = {
   humanMessageLabel: string;
   replyBoxTitle: string;
   suggestedModeNote: string;
+  goLive: string;
+  openPage: string;
+  planNames: Record<string, string>;
+  channelLabels: Record<string, string>;
   status: Record<string, string>;
 };
 
-const translations: Record<string, InboxTranslation> = {
+const translations: Record<SupportedLanguage, InboxTranslation> = {
   en: {
     badge: "Inbox",
     title: "Manage customer conversations in one place.",
@@ -160,6 +170,7 @@ const translations: Record<string, InboxTranslation> = {
     creditsLeft: "Credits Left",
     creditsUsed: "Credits Used",
     creditCost: "Credit Cost",
+    creditUnit: "Credit",
     noCreditBalance: "Credit balance not found yet.",
     oneCreditNote: "Every successful AI reply generation uses 1 credit.",
     refreshCredits: "Refresh credits",
@@ -178,17 +189,24 @@ const translations: Record<string, InboxTranslation> = {
     noMessages: "No messages yet.",
     selectConversation: "Select a conversation to view messages.",
     allAI: "All AI Staff",
+    aiStaffFallback: "AI Staff",
+    aiStaffIncluded: "AI staff included",
+    customAIStaffLimit: "Custom AI staff limit",
     filterAI: "Filter by AI Staff",
     customer: "Customer",
     aiReply: "AI Reply",
     humanReply: "Human Reply",
     generateAiReply: "Generate AI Reply",
+    generateAiReplyForCredit: "Generate AI Reply for 1 Credit",
     generatingAiReply: "Generating AI Reply...",
     aiSuggestionReady:
       "AI suggested reply is ready. 1 credit has been used. Review it before sending.",
+    aiReplyCouldNotGenerate: "AI reply could not be generated.",
+    knowledgeItemsUsed: "knowledge item(s) used.",
     noCustomerMessageForAI: "No customer message found for AI to reply to.",
     sendReply: "Send Reply",
     sending: "Sending...",
+    replySent: "Reply sent.",
     replyPlaceholder:
       "Write a human reply or generate an AI suggested reply first...",
     messageRequired: "Please write a reply first.",
@@ -214,6 +232,28 @@ const translations: Record<string, InboxTranslation> = {
     replyBoxTitle: "Reply Box",
     suggestedModeNote:
       "This is manual review mode. AI writes the suggestion, but it only sends after you click Send Reply.",
+    goLive: "Go Live",
+    openPage: "Open Page",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    channelLabels: {
+      dashboard: "Dashboard",
+      inbox: "Inbox",
+      whatsapp: "WhatsApp",
+      website_chat: "Website Chat",
+      content_studio: "Content Studio",
+      test_ai: "Test AI",
+      knowledge_base: "Knowledge Base",
+      team: "Team",
+      go_live: "Go Live",
+      email: "Email",
+      api: "API",
+      system: "System",
+    },
     status: {
       open: "Open",
       handover: "Handover",
@@ -229,17 +269,18 @@ const translations: Record<string, InboxTranslation> = {
     badge: "Inbox",
     title: "Kelola percakapan pelanggan dalam satu tempat.",
     subtitle:
-      "Lihat pesan pelanggan, generate AI suggested reply, kirim balasan human, update status lead, dan kelola handover dari workspace Kolkap Anda.",
+      "Lihat pesan pelanggan, buat saran balasan AI, kirim balasan human, update status lead, dan kelola handover dari workspace Kolkap Anda.",
     loading: "Memuat inbox Anda...",
-    failed: "Inbox gagal dimuat.",
+    failed: "Inbox tidak dapat dimuat.",
     back: "Kembali ke Dashboard",
     currentPlan: "Paket Saat Ini",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
-    creditCost: "Credit Cost",
-    noCreditBalance: "Credit balance belum ditemukan.",
-    oneCreditNote: "Setiap successful AI reply generation menggunakan 1 credit.",
-    refreshCredits: "Refresh credits",
+    creditsLeft: "Sisa Kredit",
+    creditsUsed: "Kredit Terpakai",
+    creditCost: "Biaya Kredit",
+    creditUnit: "Kredit",
+    noCreditBalance: "Saldo kredit belum ditemukan.",
+    oneCreditNote: "Setiap balasan AI yang berhasil dibuat menggunakan 1 kredit.",
+    refreshCredits: "Muat ulang kredit",
     conversations: "Percakapan",
     leads: "Leads",
     needsHandover: "Butuh Handover",
@@ -248,26 +289,33 @@ const translations: Record<string, InboxTranslation> = {
       "Percakapan pelanggan akan muncul di sini setelah channel bisnis menerima pesan.",
     conversationThread: "Thread Percakapan",
     conversationThreadText:
-      "Buka percakapan customer, review pesan, generate AI suggested reply, edit jika perlu, lalu kirim sebagai human.",
+      "Buka percakapan pelanggan, review pesan, buat saran balasan AI, edit jika perlu, lalu kirim sebagai human.",
     noConversations: "Belum ada percakapan.",
     noConversationsText:
-      "Inbox Anda sudah siap. Pesan WhatsApp, website chat, atau customer message akan muncul di sini setelah terhubung.",
+      "Inbox Anda sudah siap. Pesan WhatsApp, website chat, atau pesan pelanggan akan muncul di sini setelah terhubung.",
     noMessages: "Belum ada pesan.",
     selectConversation: "Pilih percakapan untuk melihat pesan.",
     allAI: "Semua AI Staff",
+    aiStaffFallback: "AI Staff",
+    aiStaffIncluded: "AI staff termasuk",
+    customAIStaffLimit: "Limit AI staff custom",
     filterAI: "Filter berdasarkan AI Staff",
-    customer: "Customer",
+    customer: "Pelanggan",
     aiReply: "Balasan AI",
     humanReply: "Balasan Human",
-    generateAiReply: "Generate AI Reply",
-    generatingAiReply: "Generating AI Reply...",
+    generateAiReply: "Buat Balasan AI",
+    generateAiReplyForCredit: "Buat Balasan AI untuk 1 Kredit",
+    generatingAiReply: "Membuat balasan AI...",
     aiSuggestionReady:
-      "AI suggested reply sudah siap. 1 credit sudah digunakan. Review sebelum dikirim.",
-    noCustomerMessageForAI: "Tidak ada customer message untuk dibalas AI.",
+      "Saran balasan AI sudah siap. 1 kredit sudah digunakan. Review sebelum dikirim.",
+    aiReplyCouldNotGenerate: "Balasan AI tidak dapat dibuat.",
+    knowledgeItemsUsed: "knowledge item digunakan.",
+    noCustomerMessageForAI: "Tidak ada pesan pelanggan untuk dibalas AI.",
     sendReply: "Kirim Balasan",
     sending: "Mengirim...",
+    replySent: "Balasan terkirim.",
     replyPlaceholder:
-      "Tulis balasan human atau generate AI suggested reply terlebih dahulu...",
+      "Tulis balasan human atau buat saran balasan AI terlebih dahulu...",
     messageRequired: "Mohon tulis balasan terlebih dahulu.",
     requestHandover: "Tandai Handover",
     handoverMarked: "Handover sudah ditandai untuk percakapan ini.",
@@ -275,22 +323,44 @@ const translations: Record<string, InboxTranslation> = {
     qualified: "Qualified",
     followUp: "Follow Up",
     closed: "Closed",
-    loadMore: "Load pesan sebelumnya",
+    loadMore: "Muat pesan sebelumnya",
     previous: "Sebelumnya",
     next: "Berikutnya",
     page: "Halaman",
-    refresh: "Refresh",
+    refresh: "Muat Ulang",
     inboxReady: "Inbox Siap",
     openLeads: "Buka Leads",
     viewAllLeads: "Lihat Semua Leads",
     leadStatus: "Status Lead",
     active: "Aktif",
-    customerMessageLabel: "Customer Message",
+    customerMessageLabel: "Pesan Pelanggan",
     aiMessageLabel: "Balasan AI",
     humanMessageLabel: "Balasan Human",
-    replyBoxTitle: "Reply Box",
+    replyBoxTitle: "Kotak Balasan",
     suggestedModeNote:
-      "Ini manual review mode. AI menulis suggestion, tapi hanya terkirim setelah Anda klik Kirim Balasan.",
+      "Ini mode review manual. AI menulis saran, tetapi balasan hanya terkirim setelah Anda klik Kirim Balasan.",
+    goLive: "Go Live",
+    openPage: "Buka Halaman",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    channelLabels: {
+      dashboard: "Dashboard",
+      inbox: "Inbox",
+      whatsapp: "WhatsApp",
+      website_chat: "Website Chat",
+      content_studio: "Content Studio",
+      test_ai: "Test AI",
+      knowledge_base: "Knowledge Base",
+      team: "Team",
+      go_live: "Go Live",
+      email: "Email",
+      api: "API",
+      system: "System",
+    },
     status: {
       open: "Open",
       handover: "Handover",
@@ -306,41 +376,51 @@ const translations: Record<string, InboxTranslation> = {
     badge: "收件箱",
     title: "在一个地方管理客户对话。",
     subtitle:
-      "查看客户消息、生成 AI 建议回复、发送人工回复、更新线索状态并管理人工接手。",
+      "查看客户消息、生成 AI 建议回复、发送人工回复、更新线索状态，并从 Kolkap workspace 管理人工接手。",
     loading: "正在加载收件箱...",
-    failed: "收件箱加载失败。",
-    back: "返回仪表板",
-    currentPlan: "当前方案",
-    creditsLeft: "剩余点数",
-    creditsUsed: "已用点数",
-    creditCost: "点数费用",
-    noCreditBalance: "尚未找到点数余额。",
-    oneCreditNote: "每次成功生成 AI 回复会使用 1 个点数。",
-    refreshCredits: "刷新点数",
+    failed: "收件箱无法加载。",
+    back: "返回 Dashboard",
+    currentPlan: "当前套餐",
+    creditsLeft: "剩余积分",
+    creditsUsed: "已用积分",
+    creditCost: "积分费用",
+    creditUnit: "积分",
+    noCreditBalance: "尚未找到积分余额。",
+    oneCreditNote: "每次成功生成 AI 回复会使用 1 积分。",
+    refreshCredits: "刷新积分",
     conversations: "对话",
     leads: "线索",
     needsHandover: "需要人工接手",
     conversationList: "对话",
-    conversationListText: "当业务渠道收到客户消息后，对话会显示在这里。",
+    conversationListText:
+      "当您的业务渠道收到客户消息后，对话会显示在这里。",
     conversationThread: "对话内容",
     conversationThreadText:
       "打开客户对话、查看消息、生成 AI 建议回复、需要时编辑，然后作为人工回复发送。",
     noConversations: "尚无对话。",
     noConversationsText:
-      "您的收件箱已准备好。WhatsApp、网站聊天或客户消息连接后会显示在这里。",
+      "您的收件箱已准备好。WhatsApp、website chat 或客户消息连接后会显示在这里。",
     noMessages: "尚无消息。",
     selectConversation: "请选择一个对话查看消息。",
-    allAI: "所有 AI 员工",
-    filterAI: "按 AI 员工筛选",
+    allAI: "所有 AI Staff",
+    aiStaffFallback: "AI Staff",
+    aiStaffIncluded: "包含 AI staff",
+    customAIStaffLimit: "自定义 AI staff 数量",
+    filterAI: "按 AI Staff 筛选",
     customer: "客户",
     aiReply: "AI 回复",
     humanReply: "人工回复",
     generateAiReply: "生成 AI 回复",
+    generateAiReplyForCredit: "用 1 积分生成 AI 回复",
     generatingAiReply: "正在生成 AI 回复...",
-    aiSuggestionReady: "AI 建议回复已准备好。已使用 1 个点数。发送前请先检查。",
+    aiSuggestionReady:
+      "AI 建议回复已准备好。已使用 1 积分。发送前请先检查。",
+    aiReplyCouldNotGenerate: "无法生成 AI 回复。",
+    knowledgeItemsUsed: "个 knowledge item 已使用。",
     noCustomerMessageForAI: "没有找到可供 AI 回复的客户消息。",
     sendReply: "发送回复",
     sending: "正在发送...",
+    replySent: "回复已发送。",
     replyPlaceholder: "输入人工回复或先生成 AI 建议回复...",
     messageRequired: "请先填写回复内容。",
     requestHandover: "标记人工接手",
@@ -365,8 +445,30 @@ const translations: Record<string, InboxTranslation> = {
     replyBoxTitle: "回复框",
     suggestedModeNote:
       "这是人工审核模式。AI 只生成建议，只有点击发送后才会发送。",
+    goLive: "Go Live",
+    openPage: "打开页面",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    channelLabels: {
+      dashboard: "Dashboard",
+      inbox: "Inbox",
+      whatsapp: "WhatsApp",
+      website_chat: "Website Chat",
+      content_studio: "Content Studio",
+      test_ai: "Test AI",
+      knowledge_base: "Knowledge Base",
+      team: "Team",
+      go_live: "Go Live",
+      email: "Email",
+      api: "API",
+      system: "System",
+    },
     status: {
-      open: "打开",
+      open: "Open",
       handover: "人工接手",
       closed: "已关闭",
       new: "新线索",
@@ -380,17 +482,18 @@ const translations: Record<string, InboxTranslation> = {
     badge: "Inbox",
     title: "Urus perbualan pelanggan dalam satu tempat.",
     subtitle:
-      "Lihat mesej pelanggan, generate AI suggested reply, hantar balasan human, update status lead, dan urus handover dari workspace Kolkap anda.",
-    loading: "Memuat inbox anda...",
-    failed: "Inbox gagal dimuat.",
+      "Lihat mesej pelanggan, jana cadangan balasan AI, hantar balasan human, update status lead, dan urus handover dari workspace Kolkap anda.",
+    loading: "Memuatkan inbox anda...",
+    failed: "Inbox tidak dapat dimuatkan.",
     back: "Kembali ke Dashboard",
-    currentPlan: "Pakej Semasa",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
-    creditCost: "Credit Cost",
-    noCreditBalance: "Credit balance belum dijumpai.",
-    oneCreditNote: "Setiap successful AI reply generation menggunakan 1 credit.",
-    refreshCredits: "Refresh credits",
+    currentPlan: "Pelan Semasa",
+    creditsLeft: "Baki Kredit",
+    creditsUsed: "Kredit Digunakan",
+    creditCost: "Kos Kredit",
+    creditUnit: "Kredit",
+    noCreditBalance: "Baki kredit belum dijumpai.",
+    oneCreditNote: "Setiap balasan AI yang berjaya dijana menggunakan 1 kredit.",
+    refreshCredits: "Segar semula kredit",
     conversations: "Perbualan",
     leads: "Leads",
     needsHandover: "Perlu Handover",
@@ -399,26 +502,33 @@ const translations: Record<string, InboxTranslation> = {
       "Perbualan pelanggan akan muncul di sini selepas channel bisnes menerima mesej.",
     conversationThread: "Thread Perbualan",
     conversationThreadText:
-      "Buka perbualan customer, review mesej, generate AI suggested reply, edit jika perlu, lalu hantar sebagai human.",
+      "Buka perbualan pelanggan, review mesej, jana cadangan balasan AI, edit jika perlu, lalu hantar sebagai human.",
     noConversations: "Belum ada perbualan.",
     noConversationsText:
-      "Inbox anda sudah siap. Mesej WhatsApp, website chat, atau customer message akan muncul di sini selepas disambungkan.",
+      "Inbox anda sudah siap. Mesej WhatsApp, website chat, atau mesej pelanggan akan muncul di sini selepas disambungkan.",
     noMessages: "Belum ada mesej.",
     selectConversation: "Pilih perbualan untuk melihat mesej.",
     allAI: "Semua AI Staff",
+    aiStaffFallback: "AI Staff",
+    aiStaffIncluded: "AI staff termasuk",
+    customAIStaffLimit: "Had AI staff custom",
     filterAI: "Filter berdasarkan AI Staff",
-    customer: "Customer",
+    customer: "Pelanggan",
     aiReply: "Balasan AI",
     humanReply: "Balasan Human",
-    generateAiReply: "Generate AI Reply",
-    generatingAiReply: "Generating AI Reply...",
+    generateAiReply: "Jana Balasan AI",
+    generateAiReplyForCredit: "Jana Balasan AI untuk 1 Kredit",
+    generatingAiReply: "Menjana balasan AI...",
     aiSuggestionReady:
-      "AI suggested reply sudah siap. 1 credit sudah digunakan. Review sebelum dihantar.",
-    noCustomerMessageForAI: "Tiada customer message untuk dibalas AI.",
+      "Cadangan balasan AI sudah siap. 1 kredit sudah digunakan. Review sebelum dihantar.",
+    aiReplyCouldNotGenerate: "Balasan AI tidak dapat dijana.",
+    knowledgeItemsUsed: "knowledge item digunakan.",
+    noCustomerMessageForAI: "Tiada mesej pelanggan untuk dibalas AI.",
     sendReply: "Hantar Balasan",
     sending: "Menghantar...",
+    replySent: "Balasan dihantar.",
     replyPlaceholder:
-      "Tulis balasan human atau generate AI suggested reply terlebih dahulu...",
+      "Tulis balasan human atau jana cadangan balasan AI terlebih dahulu...",
     messageRequired: "Sila tulis balasan dahulu.",
     requestHandover: "Tanda Handover",
     handoverMarked: "Handover sudah ditanda untuk perbualan ini.",
@@ -426,22 +536,44 @@ const translations: Record<string, InboxTranslation> = {
     qualified: "Qualified",
     followUp: "Follow Up",
     closed: "Closed",
-    loadMore: "Load mesej sebelumnya",
+    loadMore: "Muat mesej sebelumnya",
     previous: "Sebelumnya",
     next: "Seterusnya",
     page: "Halaman",
-    refresh: "Refresh",
+    refresh: "Segar Semula",
     inboxReady: "Inbox Siap",
     openLeads: "Buka Leads",
     viewAllLeads: "Lihat Semua Leads",
     leadStatus: "Status Lead",
     active: "Aktif",
-    customerMessageLabel: "Customer Message",
+    customerMessageLabel: "Mesej Pelanggan",
     aiMessageLabel: "Balasan AI",
     humanMessageLabel: "Balasan Human",
-    replyBoxTitle: "Reply Box",
+    replyBoxTitle: "Kotak Balasan",
     suggestedModeNote:
-      "Ini manual review mode. AI tulis suggestion, tapi hanya dihantar selepas anda klik Hantar Balasan.",
+      "Ini mode review manual. AI tulis cadangan, tetapi balasan hanya dihantar selepas anda klik Hantar Balasan.",
+    goLive: "Go Live",
+    openPage: "Buka Halaman",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    channelLabels: {
+      dashboard: "Dashboard",
+      inbox: "Inbox",
+      whatsapp: "WhatsApp",
+      website_chat: "Website Chat",
+      content_studio: "Content Studio",
+      test_ai: "Test AI",
+      knowledge_base: "Knowledge Base",
+      team: "Team",
+      go_live: "Go Live",
+      email: "Email",
+      api: "API",
+      system: "System",
+    },
     status: {
       open: "Open",
       handover: "Handover",
@@ -453,6 +585,14 @@ const translations: Record<string, InboxTranslation> = {
     },
   },
 };
+
+function getSupportedLanguage(language: string): SupportedLanguage {
+  if (language === "id" || language === "zh" || language === "ms") {
+    return language;
+  }
+
+  return "en";
+}
 
 function formatDate(value: string | null) {
   if (!value) return "";
@@ -466,10 +606,19 @@ function statusText(statuses: Record<string, string>, value: string | null) {
   return statuses[value] || value;
 }
 
+function channelText(labels: Record<string, string>, value: string | null) {
+  if (!value) return "";
+  return labels[value] || String(value).replace(/_/g, " ");
+}
+
 function normalizeSenderType(value: string) {
   const normalized = String(value || "").toLowerCase().trim();
 
-  if (normalized === "customer" || normalized === "user" || normalized === "client") {
+  if (
+    normalized === "customer" ||
+    normalized === "user" ||
+    normalized === "client"
+  ) {
     return "customer";
   }
 
@@ -491,13 +640,39 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
   );
 }
 
+function localizePlanName(
+  planKey: string | null | undefined,
+  fallback: string,
+  t: InboxTranslation
+) {
+  if (!planKey) return fallback;
+  return t.planNames[planKey] || fallback;
+}
+
+function getAIStaffLimitLabel(
+  plan: ReturnType<typeof getKolkapPlan>,
+  t: InboxTranslation
+) {
+  if (plan.aiStaffLimit === "custom") {
+    return t.customAIStaffLimit;
+  }
+
+  return `${plan.aiStaffLimit} ${t.aiStaffIncluded}`;
+}
+
 export default function InboxPage() {
   const { language } = useKolkapLanguage();
-  const t = translations[language] || translations.en;
+  const activeLanguage = getSupportedLanguage(language);
+  const t = translations[activeLanguage];
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
+  const currentPlanName = localizePlanName(
+    workspaceState.planKey,
+    currentPlan.name,
+    t
+  );
 
   const [aiStaffRows, setAiStaffRows] = useState<AiStaffRow[]>([]);
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
@@ -698,7 +873,7 @@ export default function InboxPage() {
   const summaryCards = [
     {
       label: t.currentPlan,
-      value: currentPlan.name,
+      value: currentPlanName,
       note: currentPlan.priceLabel,
       icon: WalletCards,
       href: "/dashboard/billing",
@@ -715,7 +890,7 @@ export default function InboxPage() {
     },
     {
       label: t.creditCost,
-      value: "1 Credit",
+      value: `1 ${t.creditUnit}`,
       note: t.oneCreditNote,
       icon: Zap,
       href: "/dashboard/usage",
@@ -737,7 +912,7 @@ export default function InboxPage() {
     {
       label: t.needsHandover,
       value: `${handoverCount}`,
-      note: getPlanAIStaffLabel(currentPlan),
+      note: getAIStaffLimitLabel(currentPlan, t),
       icon: ShieldCheck,
       href: "/dashboard/leads",
     },
@@ -746,7 +921,9 @@ export default function InboxPage() {
   function getLatestCustomerMessage() {
     const latestCustomerMessage = [...messages]
       .reverse()
-      .find((message) => normalizeSenderType(message.sender_type) === "customer");
+      .find(
+        (message) => normalizeSenderType(message.sender_type) === "customer"
+      );
 
     return latestCustomerMessage?.message_text || "";
   }
@@ -779,14 +956,14 @@ export default function InboxPage() {
           tone: "professional",
           extra_instructions:
             "Create a helpful suggested inbox reply for the business owner or team to review before sending. Do not make it sound robotic. Use the business profile and Knowledge Base.",
-          ui_language: language,
+          ui_language: activeLanguage,
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        setActionError(result.error || "AI reply could not be generated.");
+        setActionError(result.error || t.aiReplyCouldNotGenerate);
         setIsGeneratingAiReply(false);
         return;
       }
@@ -795,9 +972,7 @@ export default function InboxPage() {
 
       const knowledgeText =
         typeof result.knowledge_count === "number"
-          ? ` ${result.knowledge_count} knowledge item${
-              result.knowledge_count === 1 ? "" : "s"
-            } used.`
+          ? ` ${result.knowledge_count} ${t.knowledgeItemsUsed}`
           : "";
 
       setActionMessage(`${t.aiSuggestionReady}${knowledgeText}`);
@@ -806,7 +981,7 @@ export default function InboxPage() {
       const message =
         generateError instanceof Error
           ? generateError.message
-          : "AI reply could not be generated.";
+          : t.aiReplyCouldNotGenerate;
 
       setActionError(message);
     }
@@ -876,6 +1051,7 @@ export default function InboxPage() {
     );
 
     setReplyText("");
+    setActionMessage(t.replySent);
     setIsSending(false);
   }
 
@@ -1071,6 +1247,7 @@ export default function InboxPage() {
                 </p>
 
                 <div className="mt-5 inline-flex items-center gap-2 text-sm font-black text-blue-600">
+                  {t.openPage}
                   <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
                 </div>
               </Link>
@@ -1157,7 +1334,7 @@ export default function InboxPage() {
                     href="/dashboard/go-live"
                     className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-base font-black text-white"
                   >
-                    Go Live
+                    {t.goLive}
                     <ArrowRight className="h-5 w-5" />
                   </Link>
 
@@ -1251,11 +1428,14 @@ export default function InboxPage() {
                               isSelected ? "text-[#7CFF3D]" : "text-blue-600"
                             }`}
                           >
-                            {conversation.customer_channel}
+                            {channelText(
+                              t.channelLabels,
+                              conversation.customer_channel
+                            )}
                             {conversation.ai_staff_id
                               ? ` • ${
                                   aiNameMap[conversation.ai_staff_id] ||
-                                  "AI Staff"
+                                  t.aiStaffFallback
                                 }`
                               : ""}
                           </p>
@@ -1336,7 +1516,10 @@ export default function InboxPage() {
 
                       <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
                         {selectedConversation.customer_phone ||
-                          selectedConversation.customer_channel}
+                          channelText(
+                            t.channelLabels,
+                            selectedConversation.customer_channel
+                          )}
                       </p>
 
                       <p className="mt-1 text-sm font-bold text-slate-500">
@@ -1487,10 +1670,7 @@ export default function InboxPage() {
                     <Sparkles className="h-6 w-6" />
                     {isGeneratingAiReply
                       ? t.generatingAiReply
-                      : getGenerateButtonLabel(
-                          "Generate AI Reply",
-                          INBOX_AI_REPLY_CREDIT_COST
-                        )}
+                      : t.generateAiReplyForCredit}
                   </button>
 
                   <button
