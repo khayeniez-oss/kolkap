@@ -2,15 +2,20 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import {
   ArrowRight,
+  BarChart3,
+  Bot,
+  CheckCircle2,
   Eye,
   EyeOff,
+  Inbox,
   LockKeyhole,
   Mail,
   ShieldCheck,
   Sparkles,
+  Zap,
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
@@ -18,10 +23,10 @@ import { ensureKolkapWorkspace } from "@/lib/kolkapWorkspace";
 
 const translations = {
   en: {
-    badge: "Login",
-    title: "Welcome back to Kolkap.",
+    badge: "Welcome Back",
+    title: "Continue managing your AI staff.",
     subtitle:
-      "Log in to manage your AI staff, inbox, leads, credits, billing, and business settings.",
+      "Log in to manage your AI staff, customer replies, credits, usage, inbox, leads, billing, and business settings.",
     email: "Email address",
     emailPlaceholder: "you@business.com",
     password: "Password",
@@ -30,20 +35,26 @@ const translations = {
     loggingIn: "Logging in...",
     forgotPassword: "Forgot password?",
     noAccount: "Don’t have an account?",
-    signUp: "Sign up",
+    signUp: "Start Free Trial",
     errorTitle: "Login failed",
     emptyError: "Please enter your email and password.",
     success: "Login successful. Redirecting...",
-    noteTitle: "Private business dashboard",
+    noteTitle: "Your AI staff workspace",
     noteText:
-      "Your dashboard is protected. Only logged-in business owners can access it.",
+      "Your dashboard helps you create AI staff, add business knowledge, test replies, track usage, monitor credits, manage inbox conversations, and go live when ready.",
+    point1: "Manage AI staff",
+    point2: "Track credits and usage",
+    point3: "Review inbox replies",
+    secureTitle: "Private business dashboard",
+    secureText:
+      "Only logged-in business owners and team members can access this workspace.",
   },
 
   id: {
-    badge: "Login",
-    title: "Selamat datang kembali di Kolkap.",
+    badge: "Welcome Back",
+    title: "Continue managing your AI staff.",
     subtitle:
-      "Login untuk mengelola AI staff, inbox, leads, credits, billing, dan pengaturan bisnis.",
+      "Login untuk mengelola AI staff, customer replies, credits, usage, inbox, leads, billing, dan business settings.",
     email: "Alamat email",
     emailPlaceholder: "anda@bisnis.com",
     password: "Password",
@@ -52,20 +63,26 @@ const translations = {
     loggingIn: "Sedang login...",
     forgotPassword: "Lupa password?",
     noAccount: "Belum punya akun?",
-    signUp: "Daftar",
+    signUp: "Start Free Trial",
     errorTitle: "Login gagal",
     emptyError: "Masukkan email dan password Anda.",
     success: "Login berhasil. Mengarahkan...",
-    noteTitle: "Dashboard bisnis pribadi",
+    noteTitle: "Your AI staff workspace",
     noteText:
-      "Dashboard Anda terlindungi. Hanya pemilik bisnis yang sudah login yang dapat mengaksesnya.",
+      "Dashboard Anda membantu membuat AI staff, menambahkan business knowledge, test replies, track usage, monitor credits, mengelola inbox conversations, dan go live saat sudah siap.",
+    point1: "Manage AI staff",
+    point2: "Track credits and usage",
+    point3: "Review inbox replies",
+    secureTitle: "Private business dashboard",
+    secureText:
+      "Hanya business owner dan team member yang sudah login yang bisa mengakses workspace ini.",
   },
 
   zh: {
-    badge: "登录",
-    title: "欢迎回到 Kolkap。",
+    badge: "Welcome Back",
+    title: "Continue managing your AI staff.",
     subtitle:
-      "登录以管理您的 AI 员工、收件箱、线索、credits、账单和企业设置。",
+      "登录以管理您的 AI 员工、客户回复、credits、usage、inbox、leads、账单和企业设置。",
     email: "邮箱地址",
     emailPlaceholder: "you@business.com",
     password: "密码",
@@ -74,19 +91,25 @@ const translations = {
     loggingIn: "正在登录...",
     forgotPassword: "忘记密码？",
     noAccount: "还没有账户？",
-    signUp: "注册",
+    signUp: "Start Free Trial",
     errorTitle: "登录失败",
     emptyError: "请输入邮箱和密码。",
     success: "登录成功，正在跳转...",
-    noteTitle: "私人企业仪表板",
-    noteText: "您的仪表板受到保护。只有已登录的企业主可以访问。",
+    noteTitle: "Your AI staff workspace",
+    noteText:
+      "您的 dashboard 可帮助您创建 AI 员工、添加企业知识、测试回复、追踪 usage、管理 credits、查看 inbox conversations，并在准备好后 go live。",
+    point1: "Manage AI staff",
+    point2: "Track credits and usage",
+    point3: "Review inbox replies",
+    secureTitle: "Private business dashboard",
+    secureText: "只有已登录的企业主和团队成员可以访问此 workspace。",
   },
 
   ms: {
-    badge: "Login",
-    title: "Selamat kembali ke Kolkap.",
+    badge: "Welcome Back",
+    title: "Continue managing your AI staff.",
     subtitle:
-      "Login untuk mengurus AI staff, inbox, leads, credits, billing, dan tetapan bisnes.",
+      "Login untuk mengurus AI staff, customer replies, credits, usage, inbox, leads, billing, dan business settings.",
     email: "Alamat email",
     emailPlaceholder: "anda@bisnes.com",
     password: "Kata laluan",
@@ -95,13 +118,19 @@ const translations = {
     loggingIn: "Sedang login...",
     forgotPassword: "Lupa kata laluan?",
     noAccount: "Belum ada akaun?",
-    signUp: "Daftar",
+    signUp: "Start Free Trial",
     errorTitle: "Login gagal",
     emptyError: "Masukkan email dan kata laluan anda.",
     success: "Login berjaya. Mengarahkan...",
-    noteTitle: "Dashboard bisnes peribadi",
+    noteTitle: "Your AI staff workspace",
     noteText:
-      "Dashboard anda dilindungi. Hanya pemilik bisnes yang sudah login boleh mengaksesnya.",
+      "Dashboard anda membantu mencipta AI staff, tambah business knowledge, test replies, track usage, monitor credits, urus inbox conversations, dan go live apabila sudah siap.",
+    point1: "Manage AI staff",
+    point2: "Track credits and usage",
+    point3: "Review inbox replies",
+    secureTitle: "Private business dashboard",
+    secureText:
+      "Hanya business owner dan team member yang sudah login boleh mengakses workspace ini.",
   },
 };
 
@@ -109,7 +138,8 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { language } = useKolkapLanguage();
-  const t = translations[language as keyof typeof translations] || translations.en;
+  const t =
+    translations[language as keyof typeof translations] || translations.en;
 
   const rawNextPath = searchParams.get("next") || "/dashboard";
   const nextPath =
@@ -124,7 +154,7 @@ function LoginContent() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setMessage("");
@@ -141,21 +171,21 @@ function LoginContent() {
       const supabase = createClient();
 
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password,
       });
 
       if (signInError) {
-  setError(signInError.message);
-  setIsSubmitting(false);
-  return;
-}
+        setError(signInError.message);
+        setIsSubmitting(false);
+        return;
+      }
 
-await ensureKolkapWorkspace(supabase);
+      await ensureKolkapWorkspace(supabase);
 
-setMessage(t.success);
-router.replace(nextPath);
-router.refresh();
+      setMessage(t.success);
+      router.replace(nextPath);
+      router.refresh();
     } catch (loginError) {
       setError(
         loginError instanceof Error
@@ -185,23 +215,57 @@ router.refresh();
 
           <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/5 p-6">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
-              <ShieldCheck className="h-7 w-7" />
+              <Bot className="h-7 w-7" />
             </div>
 
             <h2 className="text-2xl font-black">{t.noteTitle}</h2>
+
             <p className="mt-3 text-lg font-semibold leading-8 text-slate-300">
               {t.noteText}
+            </p>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <FeaturePoint icon={<Bot className="h-5 w-5" />} text={t.point1} />
+              <FeaturePoint icon={<BarChart3 className="h-5 w-5" />} text={t.point2} />
+              <FeaturePoint icon={<Inbox className="h-5 w-5" />} text={t.point3} />
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-6">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#07111F]">
+              <ShieldCheck className="h-7 w-7" />
+            </div>
+
+            <h2 className="text-2xl font-black">{t.secureTitle}</h2>
+
+            <p className="mt-3 text-lg font-semibold leading-8 text-slate-300">
+              {t.secureText}
             </p>
           </div>
         </div>
 
         <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
           <form onSubmit={handleLogin} className="grid gap-5">
+            <div className="mb-2">
+              <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+                {t.badge}
+              </p>
+
+              <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
+                {t.login}
+              </h2>
+
+              <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
+                {t.subtitle}
+              </p>
+            </div>
+
             <label className="grid gap-2">
               <span className="flex items-center gap-2 text-base font-black text-slate-700">
                 <Mail className="h-5 w-5 text-slate-400" />
                 {t.email}
               </span>
+
               <input
                 type="email"
                 value={email}
@@ -286,6 +350,24 @@ router.refresh();
         </div>
       </section>
     </main>
+  );
+}
+
+function FeaturePoint({
+  icon,
+  text,
+}: {
+  icon: React.ReactNode;
+  text: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#07111F]">
+        {icon}
+      </div>
+
+      <p className="text-sm font-black leading-5 text-white">{text}</p>
+    </div>
   );
 }
 

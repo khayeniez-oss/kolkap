@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  CreditCard,
   Inbox,
   MessageCircle,
   RefreshCcw,
@@ -24,20 +25,36 @@ import {
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import {
+  getGenerateButtonLabel,
   getKolkapPlan,
   getPlanAIStaffLabel,
-  getPlanCreditLabel,
 } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 const CONVERSATIONS_PER_PAGE = 8;
 const MESSAGES_STEP = 10;
+const INBOX_AI_REPLY_CREDIT_COST = 1;
 
 type AiStaffRow = {
   id: string;
   name: string;
   role: string;
   status: string;
+};
+
+type CreditBalanceRow = {
+  id: string;
+  workspace_id: string;
+  owner_user_id: string;
+  plan_name: string;
+  plan_credits: number;
+  purchased_credits: number;
+  used_credits: number;
+  billing_period_start: string | null;
+  billing_period_end: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
 };
 
 type ConversationRow = {
@@ -76,8 +93,13 @@ type InboxTranslation = {
   failed: string;
   back: string;
   currentPlan: string;
+  creditsLeft: string;
+  creditsUsed: string;
+  creditCost: string;
+  noCreditBalance: string;
+  oneCreditNote: string;
+  refreshCredits: string;
   conversations: string;
-  credits: string;
   leads: string;
   needsHandover: string;
   conversationList: string;
@@ -93,6 +115,10 @@ type InboxTranslation = {
   customer: string;
   aiReply: string;
   humanReply: string;
+  generateAiReply: string;
+  generatingAiReply: string;
+  aiSuggestionReady: string;
+  noCustomerMessageForAI: string;
   sendReply: string;
   sending: string;
   replyPlaceholder: string;
@@ -112,8 +138,12 @@ type InboxTranslation = {
   openLeads: string;
   viewAllLeads: string;
   leadStatus: string;
-  conversationStatus: string;
   active: string;
+  customerMessageLabel: string;
+  aiMessageLabel: string;
+  humanMessageLabel: string;
+  replyBoxTitle: string;
+  suggestedModeNote: string;
   status: Record<string, string>;
 };
 
@@ -122,13 +152,18 @@ const translations: Record<string, InboxTranslation> = {
     badge: "Inbox",
     title: "Manage customer conversations in one place.",
     subtitle:
-      "View customer messages, AI replies, human replies, lead status, and handover activity from your Kolkap workspace.",
+      "View customer messages, generate AI suggested replies, send human replies, update lead status, and manage handover activity from your Kolkap workspace.",
     loading: "Loading your inbox...",
     failed: "Inbox could not load.",
     back: "Back to Dashboard",
     currentPlan: "Current Plan",
+    creditsLeft: "Credits Left",
+    creditsUsed: "Credits Used",
+    creditCost: "Credit Cost",
+    noCreditBalance: "Credit balance not found yet.",
+    oneCreditNote: "Every successful AI reply generation uses 1 credit.",
+    refreshCredits: "Refresh credits",
     conversations: "Conversations",
-    credits: "Credits",
     leads: "Leads",
     needsHandover: "Needs Handover",
     conversationList: "Conversations",
@@ -136,7 +171,7 @@ const translations: Record<string, InboxTranslation> = {
       "Customer conversations will appear here once your business channels receive messages.",
     conversationThread: "Conversation Thread",
     conversationThreadText:
-      "Review the conversation, reply as human, update the lead status, and manage handover.",
+      "Open a customer conversation, review the messages, generate an AI suggested reply, edit if needed, then send as human.",
     noConversations: "No conversations yet.",
     noConversationsText:
       "Your inbox is ready. New WhatsApp, website chat, or customer messages will appear here once connected.",
@@ -147,9 +182,15 @@ const translations: Record<string, InboxTranslation> = {
     customer: "Customer",
     aiReply: "AI Reply",
     humanReply: "Human Reply",
+    generateAiReply: "Generate AI Reply",
+    generatingAiReply: "Generating AI Reply...",
+    aiSuggestionReady:
+      "AI suggested reply is ready. 1 credit has been used. Review it before sending.",
+    noCustomerMessageForAI: "No customer message found for AI to reply to.",
     sendReply: "Send Reply",
     sending: "Sending...",
-    replyPlaceholder: "Write a human reply...",
+    replyPlaceholder:
+      "Write a human reply or generate an AI suggested reply first...",
     messageRequired: "Please write a reply first.",
     requestHandover: "Mark Handover",
     handoverMarked: "Handover marked for this conversation.",
@@ -166,8 +207,13 @@ const translations: Record<string, InboxTranslation> = {
     openLeads: "Open Leads",
     viewAllLeads: "View All Leads",
     leadStatus: "Lead Status",
-    conversationStatus: "Conversation Status",
     active: "Active",
+    customerMessageLabel: "Customer Message",
+    aiMessageLabel: "AI Reply",
+    humanMessageLabel: "Human Reply",
+    replyBoxTitle: "Reply Box",
+    suggestedModeNote:
+      "This is manual review mode. AI writes the suggestion, but it only sends after you click Send Reply.",
     status: {
       open: "Open",
       handover: "Handover",
@@ -183,13 +229,18 @@ const translations: Record<string, InboxTranslation> = {
     badge: "Inbox",
     title: "Kelola percakapan pelanggan dalam satu tempat.",
     subtitle:
-      "Lihat pesan pelanggan, balasan AI, balasan human, status lead, dan aktivitas handover dari workspace Kolkap Anda.",
+      "Lihat pesan pelanggan, generate AI suggested reply, kirim balasan human, update status lead, dan kelola handover dari workspace Kolkap Anda.",
     loading: "Memuat inbox Anda...",
     failed: "Inbox gagal dimuat.",
     back: "Kembali ke Dashboard",
     currentPlan: "Paket Saat Ini",
+    creditsLeft: "Credits Left",
+    creditsUsed: "Credits Used",
+    creditCost: "Credit Cost",
+    noCreditBalance: "Credit balance belum ditemukan.",
+    oneCreditNote: "Setiap successful AI reply generation menggunakan 1 credit.",
+    refreshCredits: "Refresh credits",
     conversations: "Percakapan",
-    credits: "Credits",
     leads: "Leads",
     needsHandover: "Butuh Handover",
     conversationList: "Percakapan",
@@ -197,7 +248,7 @@ const translations: Record<string, InboxTranslation> = {
       "Percakapan pelanggan akan muncul di sini setelah channel bisnis menerima pesan.",
     conversationThread: "Thread Percakapan",
     conversationThreadText:
-      "Review percakapan, balas sebagai human, update status lead, dan kelola handover.",
+      "Buka percakapan customer, review pesan, generate AI suggested reply, edit jika perlu, lalu kirim sebagai human.",
     noConversations: "Belum ada percakapan.",
     noConversationsText:
       "Inbox Anda sudah siap. Pesan WhatsApp, website chat, atau customer message akan muncul di sini setelah terhubung.",
@@ -208,9 +259,15 @@ const translations: Record<string, InboxTranslation> = {
     customer: "Customer",
     aiReply: "Balasan AI",
     humanReply: "Balasan Human",
+    generateAiReply: "Generate AI Reply",
+    generatingAiReply: "Generating AI Reply...",
+    aiSuggestionReady:
+      "AI suggested reply sudah siap. 1 credit sudah digunakan. Review sebelum dikirim.",
+    noCustomerMessageForAI: "Tidak ada customer message untuk dibalas AI.",
     sendReply: "Kirim Balasan",
     sending: "Mengirim...",
-    replyPlaceholder: "Tulis balasan human...",
+    replyPlaceholder:
+      "Tulis balasan human atau generate AI suggested reply terlebih dahulu...",
     messageRequired: "Mohon tulis balasan terlebih dahulu.",
     requestHandover: "Tandai Handover",
     handoverMarked: "Handover sudah ditandai untuk percakapan ini.",
@@ -227,8 +284,13 @@ const translations: Record<string, InboxTranslation> = {
     openLeads: "Buka Leads",
     viewAllLeads: "Lihat Semua Leads",
     leadStatus: "Status Lead",
-    conversationStatus: "Status Percakapan",
     active: "Aktif",
+    customerMessageLabel: "Customer Message",
+    aiMessageLabel: "Balasan AI",
+    humanMessageLabel: "Balasan Human",
+    replyBoxTitle: "Reply Box",
+    suggestedModeNote:
+      "Ini manual review mode. AI menulis suggestion, tapi hanya terkirim setelah Anda klik Kirim Balasan.",
     status: {
       open: "Open",
       handover: "Handover",
@@ -244,19 +306,25 @@ const translations: Record<string, InboxTranslation> = {
     badge: "收件箱",
     title: "在一个地方管理客户对话。",
     subtitle:
-      "查看客户消息、AI 回复、人工回复、线索状态和人工接手活动。",
+      "查看客户消息、生成 AI 建议回复、发送人工回复、更新线索状态并管理人工接手。",
     loading: "正在加载收件箱...",
     failed: "收件箱加载失败。",
     back: "返回仪表板",
     currentPlan: "当前方案",
+    creditsLeft: "剩余点数",
+    creditsUsed: "已用点数",
+    creditCost: "点数费用",
+    noCreditBalance: "尚未找到点数余额。",
+    oneCreditNote: "每次成功生成 AI 回复会使用 1 个点数。",
+    refreshCredits: "刷新点数",
     conversations: "对话",
-    credits: "Credits",
     leads: "线索",
     needsHandover: "需要人工接手",
     conversationList: "对话",
     conversationListText: "当业务渠道收到客户消息后，对话会显示在这里。",
     conversationThread: "对话内容",
-    conversationThreadText: "查看对话、人工回复、更新线索状态并管理接手。",
+    conversationThreadText:
+      "打开客户对话、查看消息、生成 AI 建议回复、需要时编辑，然后作为人工回复发送。",
     noConversations: "尚无对话。",
     noConversationsText:
       "您的收件箱已准备好。WhatsApp、网站聊天或客户消息连接后会显示在这里。",
@@ -267,9 +335,13 @@ const translations: Record<string, InboxTranslation> = {
     customer: "客户",
     aiReply: "AI 回复",
     humanReply: "人工回复",
+    generateAiReply: "生成 AI 回复",
+    generatingAiReply: "正在生成 AI 回复...",
+    aiSuggestionReady: "AI 建议回复已准备好。已使用 1 个点数。发送前请先检查。",
+    noCustomerMessageForAI: "没有找到可供 AI 回复的客户消息。",
     sendReply: "发送回复",
     sending: "正在发送...",
-    replyPlaceholder: "输入人工回复...",
+    replyPlaceholder: "输入人工回复或先生成 AI 建议回复...",
     messageRequired: "请先填写回复内容。",
     requestHandover: "标记人工接手",
     handoverMarked: "此对话已标记需要人工接手。",
@@ -286,8 +358,13 @@ const translations: Record<string, InboxTranslation> = {
     openLeads: "打开线索",
     viewAllLeads: "查看所有线索",
     leadStatus: "线索状态",
-    conversationStatus: "对话状态",
     active: "活跃",
+    customerMessageLabel: "客户消息",
+    aiMessageLabel: "AI 回复",
+    humanMessageLabel: "人工回复",
+    replyBoxTitle: "回复框",
+    suggestedModeNote:
+      "这是人工审核模式。AI 只生成建议，只有点击发送后才会发送。",
     status: {
       open: "打开",
       handover: "人工接手",
@@ -303,13 +380,18 @@ const translations: Record<string, InboxTranslation> = {
     badge: "Inbox",
     title: "Urus perbualan pelanggan dalam satu tempat.",
     subtitle:
-      "Lihat mesej pelanggan, balasan AI, balasan human, status lead, dan aktiviti handover dari workspace Kolkap anda.",
+      "Lihat mesej pelanggan, generate AI suggested reply, hantar balasan human, update status lead, dan urus handover dari workspace Kolkap anda.",
     loading: "Memuat inbox anda...",
     failed: "Inbox gagal dimuat.",
     back: "Kembali ke Dashboard",
     currentPlan: "Pakej Semasa",
+    creditsLeft: "Credits Left",
+    creditsUsed: "Credits Used",
+    creditCost: "Credit Cost",
+    noCreditBalance: "Credit balance belum dijumpai.",
+    oneCreditNote: "Setiap successful AI reply generation menggunakan 1 credit.",
+    refreshCredits: "Refresh credits",
     conversations: "Perbualan",
-    credits: "Credits",
     leads: "Leads",
     needsHandover: "Perlu Handover",
     conversationList: "Perbualan",
@@ -317,7 +399,7 @@ const translations: Record<string, InboxTranslation> = {
       "Perbualan pelanggan akan muncul di sini selepas channel bisnes menerima mesej.",
     conversationThread: "Thread Perbualan",
     conversationThreadText:
-      "Review perbualan, balas sebagai human, update status lead, dan urus handover.",
+      "Buka perbualan customer, review mesej, generate AI suggested reply, edit jika perlu, lalu hantar sebagai human.",
     noConversations: "Belum ada perbualan.",
     noConversationsText:
       "Inbox anda sudah siap. Mesej WhatsApp, website chat, atau customer message akan muncul di sini selepas disambungkan.",
@@ -328,9 +410,15 @@ const translations: Record<string, InboxTranslation> = {
     customer: "Customer",
     aiReply: "Balasan AI",
     humanReply: "Balasan Human",
+    generateAiReply: "Generate AI Reply",
+    generatingAiReply: "Generating AI Reply...",
+    aiSuggestionReady:
+      "AI suggested reply sudah siap. 1 credit sudah digunakan. Review sebelum dihantar.",
+    noCustomerMessageForAI: "Tiada customer message untuk dibalas AI.",
     sendReply: "Hantar Balasan",
     sending: "Menghantar...",
-    replyPlaceholder: "Tulis balasan human...",
+    replyPlaceholder:
+      "Tulis balasan human atau generate AI suggested reply terlebih dahulu...",
     messageRequired: "Sila tulis balasan dahulu.",
     requestHandover: "Tanda Handover",
     handoverMarked: "Handover sudah ditanda untuk perbualan ini.",
@@ -347,8 +435,13 @@ const translations: Record<string, InboxTranslation> = {
     openLeads: "Buka Leads",
     viewAllLeads: "Lihat Semua Leads",
     leadStatus: "Status Lead",
-    conversationStatus: "Status Perbualan",
     active: "Aktif",
+    customerMessageLabel: "Customer Message",
+    aiMessageLabel: "Balasan AI",
+    humanMessageLabel: "Balasan Human",
+    replyBoxTitle: "Reply Box",
+    suggestedModeNote:
+      "Ini manual review mode. AI tulis suggestion, tapi hanya dihantar selepas anda klik Hantar Balasan.",
     status: {
       open: "Open",
       handover: "Handover",
@@ -373,6 +466,31 @@ function statusText(statuses: Record<string, string>, value: string | null) {
   return statuses[value] || value;
 }
 
+function normalizeSenderType(value: string) {
+  const normalized = String(value || "").toLowerCase().trim();
+
+  if (normalized === "customer" || normalized === "user" || normalized === "client") {
+    return "customer";
+  }
+
+  if (normalized === "ai" || normalized === "assistant" || normalized === "bot") {
+    return "ai";
+  }
+
+  return "human";
+}
+
+function getCreditsLeft(balance: CreditBalanceRow | null) {
+  if (!balance) return null;
+
+  return Math.max(
+    0,
+    Number(balance.plan_credits || 0) +
+      Number(balance.purchased_credits || 0) -
+      Number(balance.used_credits || 0)
+  );
+}
+
 export default function InboxPage() {
   const { language } = useKolkapLanguage();
   const t = translations[language] || translations.en;
@@ -384,6 +502,9 @@ export default function InboxPage() {
   const [aiStaffRows, setAiStaffRows] = useState<AiStaffRow[]>([]);
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
   const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
+    null
+  );
 
   const [selectedAiFilter, setSelectedAiFilter] = useState("all");
   const [selectedConversationId, setSelectedConversationId] = useState("");
@@ -393,17 +514,39 @@ export default function InboxPage() {
 
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingCredits, setIsLoadingCredits] = useState(false);
   const [error, setError] = useState("");
   const [replyText, setReplyText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isGeneratingAiReply, setIsGeneratingAiReply] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+
+  const creditsLeft = getCreditsLeft(creditBalance);
+  const usedCredits = Number(creditBalance?.used_credits || 0);
 
   const totalPages = Math.max(
     1,
     Math.ceil(conversationCount / CONVERSATIONS_PER_PAGE)
   );
+
+  async function loadCreditBalance() {
+    if (!workspace?.id) return;
+
+    setIsLoadingCredits(true);
+
+    const supabase = createClient();
+
+    const { data } = await supabase
+      .from("workspace_credit_balances")
+      .select("*")
+      .eq("workspace_id", workspace.id)
+      .maybeSingle();
+
+    setCreditBalance((data ?? null) as CreditBalanceRow | null);
+    setIsLoadingCredits(false);
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -430,6 +573,11 @@ export default function InboxPage() {
       isMounted = false;
     };
   }, [workspace]);
+
+  useEffect(() => {
+    loadCreditBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspace?.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -556,6 +704,23 @@ export default function InboxPage() {
       href: "/dashboard/billing",
     },
     {
+      label: t.creditsLeft,
+      value: creditsLeft === null ? "—" : creditsLeft.toLocaleString(),
+      note: creditBalance
+        ? `${t.creditsUsed}: ${usedCredits.toLocaleString()}`
+        : t.noCreditBalance,
+      icon: CreditCard,
+      href: "/dashboard/usage",
+      dark: true,
+    },
+    {
+      label: t.creditCost,
+      value: "1 Credit",
+      note: t.oneCreditNote,
+      icon: Zap,
+      href: "/dashboard/usage",
+    },
+    {
       label: t.conversations,
       value: `${conversationCount}`,
       note: `${conversations.length} ${t.active}`,
@@ -577,6 +742,77 @@ export default function InboxPage() {
       href: "/dashboard/leads",
     },
   ];
+
+  function getLatestCustomerMessage() {
+    const latestCustomerMessage = [...messages]
+      .reverse()
+      .find((message) => normalizeSenderType(message.sender_type) === "customer");
+
+    return latestCustomerMessage?.message_text || "";
+  }
+
+  async function handleGenerateAiReply() {
+    setActionMessage("");
+    setActionError("");
+
+    if (!selectedConversation) return;
+
+    const customerMessage = getLatestCustomerMessage();
+
+    if (!customerMessage.trim()) {
+      setActionError(t.noCustomerMessageForAI);
+      return;
+    }
+
+    setIsGeneratingAiReply(true);
+
+    try {
+      const response = await fetch("/api/inbox/ai-reply", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          conversation_id: selectedConversation.id,
+          customer_message: customerMessage,
+          language: "auto",
+          tone: "professional",
+          extra_instructions:
+            "Create a helpful suggested inbox reply for the business owner or team to review before sending. Do not make it sound robotic. Use the business profile and Knowledge Base.",
+          ui_language: language,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setActionError(result.error || "AI reply could not be generated.");
+        setIsGeneratingAiReply(false);
+        return;
+      }
+
+      setReplyText(result.reply || "");
+
+      const knowledgeText =
+        typeof result.knowledge_count === "number"
+          ? ` ${result.knowledge_count} knowledge item${
+              result.knowledge_count === 1 ? "" : "s"
+            } used.`
+          : "";
+
+      setActionMessage(`${t.aiSuggestionReady}${knowledgeText}`);
+      await loadCreditBalance();
+    } catch (generateError) {
+      const message =
+        generateError instanceof Error
+          ? generateError.message
+          : "AI reply could not be generated.";
+
+      setActionError(message);
+    }
+
+    setIsGeneratingAiReply(false);
+  }
 
   async function handleSendReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -624,6 +860,7 @@ export default function InboxPage() {
       .eq("id", selectedConversation.id);
 
     setMessages((current) => [...current, data as MessageRow]);
+
     setConversations((current) =>
       current.map((conversation) =>
         conversation.id === selectedConversation.id
@@ -715,7 +952,7 @@ export default function InboxPage() {
   if (workspaceState.isLoading) {
     return (
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
-        <section className="mx-auto max-w-7xl">
+        <section className="mx-auto max-w-6xl">
           <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
             {t.loading}
           </div>
@@ -727,7 +964,7 @@ export default function InboxPage() {
   if (workspaceState.error) {
     return (
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
-        <section className="mx-auto max-w-7xl">
+        <section className="mx-auto max-w-6xl">
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
             <p className="text-xl font-black">{t.failed}</p>
             <p className="mt-2 text-base font-semibold">
@@ -741,7 +978,7 @@ export default function InboxPage() {
 
   return (
     <main className="bg-[#F7F9FA] text-[#07111F]">
-      <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8 lg:py-14">
+      <section className="mx-auto max-w-6xl px-5 py-10 sm:px-6 lg:px-8 lg:py-14">
         <div className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9 lg:p-10">
           <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <Link
@@ -763,7 +1000,10 @@ export default function InboxPage() {
 
               <button
                 type="button"
-                onClick={() => setReloadKey((value) => value + 1)}
+                onClick={() => {
+                  setReloadKey((value) => value + 1);
+                  loadCreditBalance();
+                }}
                 className="inline-flex items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10"
               >
                 <RefreshCcw className="h-5 w-5" />
@@ -786,7 +1026,7 @@ export default function InboxPage() {
           </p>
         </div>
 
-        <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {summaryCards.map((card) => {
             const Icon = card.icon;
 
@@ -794,18 +1034,42 @@ export default function InboxPage() {
               <Link
                 key={card.label}
                 href={card.href}
-                className="group rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-900/10"
+                className={`group rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-900/10 ${
+                  card.dark
+                    ? "border-[#7CFF3D] bg-[#07111F] text-white"
+                    : "border-slate-200 bg-white text-[#07111F]"
+                }`}
               >
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+                <div
+                  className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
+                    card.dark
+                      ? "bg-[#7CFF3D] text-[#07111F]"
+                      : "bg-[#07111F] text-[#7CFF3D]"
+                  }`}
+                >
                   <Icon className="h-7 w-7" />
                 </div>
-                <p className="text-lg font-black text-slate-500">{card.label}</p>
+
+                <p
+                  className={`text-lg font-black ${
+                    card.dark ? "text-slate-300" : "text-slate-500"
+                  }`}
+                >
+                  {card.label}
+                </p>
+
                 <p className="mt-2 text-3xl font-black tracking-[-0.04em]">
                   {card.value}
                 </p>
-                <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
+
+                <p
+                  className={`mt-2 text-base font-semibold leading-7 ${
+                    card.dark ? "text-slate-300" : "text-slate-600"
+                  }`}
+                >
                   {card.note}
                 </p>
+
                 <div className="mt-5 inline-flex items-center gap-2 text-sm font-black text-blue-600">
                   <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
                 </div>
@@ -814,7 +1078,7 @@ export default function InboxPage() {
           })}
         </div>
 
-        <div className="grid gap-8 xl:grid-cols-[0.85fr_1.15fr]">
+        <div className="grid gap-8">
           <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
             <div className="mb-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
               <div>
@@ -826,7 +1090,7 @@ export default function InboxPage() {
                   {t.conversationList}
                 </p>
 
-                <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
+                <h2 className="mt-3 max-w-3xl text-3xl font-black leading-tight tracking-[-0.04em] sm:text-4xl">
                   {t.conversationListText}
                 </h2>
               </div>
@@ -844,12 +1108,14 @@ export default function InboxPage() {
               <span className="text-base font-black text-slate-700">
                 {t.filterAI}
               </span>
+
               <select
                 value={selectedAiFilter}
                 onChange={(event) => {
                   setSelectedAiFilter(event.target.value);
                   setConversationPage(1);
                   setSelectedConversationId("");
+                  setReplyText("");
                 }}
                 className="h-14 rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
               >
@@ -877,9 +1143,11 @@ export default function InboxPage() {
                 <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#07111F]">
                   <Inbox className="h-7 w-7" />
                 </div>
+
                 <h3 className="text-3xl font-black tracking-[-0.04em]">
                   {t.inboxReady}
                 </h3>
+
                 <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
                   {t.noConversationsText}
                 </p>
@@ -916,6 +1184,7 @@ export default function InboxPage() {
                         setMessageLimit(MESSAGES_STEP);
                         setActionMessage("");
                         setActionError("");
+                        setReplyText("");
                       }}
                       className={`rounded-3xl border p-5 text-left transition ${
                         isSelected
@@ -923,7 +1192,7 @@ export default function InboxPage() {
                           : "border-slate-200 bg-[#F7F9FA] text-[#07111F] hover:bg-white"
                       }`}
                     >
-                      <div className="flex items-start gap-4">
+                      <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-start">
                         <div
                           className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
                             isSelected
@@ -934,31 +1203,48 @@ export default function InboxPage() {
                           <UserRound className="h-6 w-6" />
                         </div>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="truncate text-xl font-black">
-                              {conversation.customer_name || t.customer}
-                            </p>
-                            <span
-                              className={`shrink-0 rounded-full px-4 py-2 text-xs font-black ${
-                                conversation.handover_requested
-                                  ? "bg-amber-100 text-amber-700"
-                                  : isSelected
+                        <div className="min-w-0">
+                          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
+                            <div>
+                              <p className="truncate text-xl font-black">
+                                {conversation.customer_name || t.customer}
+                              </p>
+
+                              <p
+                                className={`mt-2 line-clamp-2 text-base font-semibold leading-7 ${
+                                  isSelected
+                                    ? "text-slate-300"
+                                    : "text-slate-600"
+                                }`}
+                              >
+                                {conversation.last_message || t.noMessages}
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 md:justify-end">
+                              <span
+                                className={`rounded-full px-4 py-2 text-xs font-black ${
+                                  conversation.handover_requested
+                                    ? "bg-amber-100 text-amber-700"
+                                    : isSelected
+                                      ? "bg-white/10 text-white"
+                                      : "bg-white text-slate-700"
+                                }`}
+                              >
+                                {statusText(t.status, conversation.status)}
+                              </span>
+
+                              <span
+                                className={`rounded-full px-4 py-2 text-xs font-black ${
+                                  isSelected
                                     ? "bg-white/10 text-white"
                                     : "bg-white text-slate-700"
-                              }`}
-                            >
-                              {statusText(t.status, conversation.status)}
-                            </span>
+                                }`}
+                              >
+                                {statusText(t.status, conversation.lead_status)}
+                              </span>
+                            </div>
                           </div>
-
-                          <p
-                            className={`mt-2 line-clamp-2 text-base font-semibold leading-7 ${
-                              isSelected ? "text-slate-300" : "text-slate-600"
-                            }`}
-                          >
-                            {conversation.last_message || t.noMessages}
-                          </p>
 
                           <p
                             className={`mt-3 text-sm font-black ${
@@ -972,6 +1258,14 @@ export default function InboxPage() {
                                   "AI Staff"
                                 }`
                               : ""}
+                          </p>
+
+                          <p
+                            className={`mt-2 text-xs font-bold ${
+                              isSelected ? "text-slate-400" : "text-slate-500"
+                            }`}
+                          >
+                            {formatDate(conversation.last_message_at)}
                           </p>
                         </div>
                       </div>
@@ -1023,7 +1317,7 @@ export default function InboxPage() {
               {t.conversationThread}
             </p>
 
-            <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
+            <h2 className="mt-3 max-w-4xl text-3xl font-black leading-tight tracking-[-0.04em] sm:text-4xl">
               {t.conversationThreadText}
             </h2>
 
@@ -1034,19 +1328,23 @@ export default function InboxPage() {
             ) : (
               <div className="mt-8 grid gap-5">
                 <div className="rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-5">
-                  <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+                  <div className="grid gap-5">
                     <div>
                       <h3 className="text-3xl font-black tracking-[-0.04em]">
                         {selectedConversation.customer_name || t.customer}
                       </h3>
+
                       <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
                         {selectedConversation.customer_phone ||
-                          selectedConversation.customer_channel}{" "}
-                        • {formatDate(selectedConversation.last_message_at)}
+                          selectedConversation.customer_channel}
+                      </p>
+
+                      <p className="mt-1 text-sm font-bold text-slate-500">
+                        {formatDate(selectedConversation.last_message_at)}
                       </p>
                     </div>
 
-                    <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       <button
                         type="button"
                         onClick={handleMarkHandover}
@@ -1080,7 +1378,7 @@ export default function InboxPage() {
                   </div>
                 </div>
 
-                <div className="max-h-[560px] overflow-y-auto rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-5">
+                <div className="max-h-[620px] overflow-y-auto rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-5">
                   {isLoadingMessages ? (
                     <div className="rounded-3xl bg-white p-5 text-lg font-black">
                       {t.loading}
@@ -1104,8 +1402,17 @@ export default function InboxPage() {
                       ) : null}
 
                       {messages.map((message) => {
-                        const isCustomer = message.sender_type === "customer";
-                        const isAI = message.sender_type === "ai";
+                        const senderType = normalizeSenderType(
+                          message.sender_type
+                        );
+                        const isCustomer = senderType === "customer";
+                        const isAI = senderType === "ai";
+
+                        const label = isCustomer
+                          ? t.customerMessageLabel
+                          : isAI
+                            ? t.aiMessageLabel
+                            : t.humanMessageLabel;
 
                         return (
                           <div
@@ -1115,7 +1422,7 @@ export default function InboxPage() {
                             }`}
                           >
                             <div
-                              className={`max-w-[85%] rounded-3xl p-5 ${
+                              className={`max-w-full rounded-3xl p-5 sm:max-w-[85%] ${
                                 isCustomer
                                   ? "bg-white text-[#07111F]"
                                   : isAI
@@ -1124,15 +1431,13 @@ export default function InboxPage() {
                               }`}
                             >
                               <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] opacity-70">
-                                {isCustomer
-                                  ? t.customer
-                                  : isAI
-                                    ? t.aiReply
-                                    : t.humanReply}
+                                {label}
                               </p>
+
                               <p className="whitespace-pre-wrap text-base font-semibold leading-7">
                                 {message.message_text}
                               </p>
+
                               <p className="mt-3 flex items-center gap-2 text-xs font-black opacity-60">
                                 <Clock3 className="h-3 w-3" />
                                 {formatDate(message.created_at)}
@@ -1160,18 +1465,54 @@ export default function InboxPage() {
                   </div>
                 ) : null}
 
-                <form onSubmit={handleSendReply} className="grid gap-4">
+                <form
+                  onSubmit={handleSendReply}
+                  className="grid gap-4 rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-5"
+                >
+                  <div>
+                    <p className="text-xl font-black tracking-[-0.03em]">
+                      {t.replyBoxTitle}
+                    </p>
+                    <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+                      {t.suggestedModeNote}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGenerateAiReply}
+                    disabled={isGeneratingAiReply || isLoadingMessages}
+                    className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-lg font-black text-[#07111F] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:text-xl"
+                  >
+                    <Sparkles className="h-6 w-6" />
+                    {isGeneratingAiReply
+                      ? t.generatingAiReply
+                      : getGenerateButtonLabel(
+                          "Generate AI Reply",
+                          INBOX_AI_REPLY_CREDIT_COST
+                        )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={loadCreditBalance}
+                    disabled={isLoadingCredits}
+                    className="text-left text-sm font-black text-blue-600 disabled:opacity-50"
+                  >
+                    {isLoadingCredits ? t.loading : t.refreshCredits}
+                  </button>
+
                   <textarea
-                    rows={4}
+                    rows={5}
                     value={replyText}
                     onChange={(event) => setReplyText(event.target.value)}
                     placeholder={t.replyPlaceholder}
-                    className="w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-lg font-semibold leading-8 outline-none transition focus:border-blue-500"
                   />
 
                   <button
                     type="submit"
-                    disabled={isSending}
+                    disabled={isSending || isGeneratingAiReply}
                     className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Send className="h-6 w-6" />

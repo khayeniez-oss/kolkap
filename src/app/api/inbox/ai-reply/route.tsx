@@ -8,6 +8,16 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
 
+    const customerMessage = String(body.customer_message || "").trim();
+    const conversationId = String(body.conversation_id || "").trim();
+
+    if (!customerMessage) {
+      return NextResponse.json(
+        { error: "Customer message is required." },
+        { status: 400 }
+      );
+    }
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -40,56 +50,52 @@ export async function POST(request: Request) {
 
     if (userError || !user) {
       return NextResponse.json(
-        { error: "You must be logged in to test the AI." },
+        { error: "You must be logged in to generate an inbox reply." },
         { status: 401 }
       );
     }
 
-    const customerMessage = String(body.customer_message || "").trim();
-
-    if (!customerMessage) {
-      return NextResponse.json(
-        { error: "Please write a sample customer question first." },
-        { status: 400 }
-      );
-    }
-
     const result = await runKolkapBrain({
-  userId: user.id,
-  userEmail: user.email,
-  task: "test_ai",
-  customerMessage,
-  language: body.language,
-  tone: body.tone,
-  extraInstructions: body.extra_instructions,
-  uiLanguage: body.ui_language,
-});
+      userId: user.id,
+      userEmail: user.email,
+      task: "inbox_reply",
+      customerMessage,
+      language: body.language || "auto",
+      tone: body.tone || "professional",
+      extraInstructions:
+        body.extra_instructions ||
+        "Generate a helpful suggested reply for the business owner to review before sending.",
+      uiLanguage: body.ui_language || "en",
+    });
 
-await logWorkspaceUsage({
-  workspaceId: result.workspaceId,
-  userId: user.id,
-  eventType: "test_ai_generated",
-  channel: "test_ai",
-  sourcePage: "/dashboard/test-ai",
-  creditsUsed: 1,
-  metadata: {
-    model: result.model,
-    knowledge_count: result.knowledgeCount,
-    customer_message: customerMessage,
-  },
-});
+    await logWorkspaceUsage({
+      workspaceId: result.workspaceId,
+      userId: user.id,
+      eventType: "ai_reply_generated",
+      channel: "inbox",
+      sourcePage: "/dashboard/inbox",
+      creditsUsed: 1,
+      metadata: {
+        conversation_id: conversationId || null,
+        model: result.model,
+        knowledge_count: result.knowledgeCount,
+      },
+    });
 
     return NextResponse.json({
       reply: result.content,
       business_name: result.businessName,
       workspace_id: result.workspaceId,
+      conversation_id: conversationId || null,
       knowledge_count: result.knowledgeCount,
       model: result.model,
       fallback: result.fallback,
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "AI reply could not be generated.";
+      error instanceof Error
+        ? error.message
+        : "Inbox AI reply could not be generated.";
 
     return NextResponse.json({ error: message }, { status: 500 });
   }

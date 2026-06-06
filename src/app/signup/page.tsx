@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowRight,
   BriefcaseBusiness,
+  CheckCircle2,
+  CreditCard,
   Eye,
   EyeOff,
   LockKeyhole,
@@ -13,6 +15,7 @@ import {
   ShieldCheck,
   Sparkles,
   UserRound,
+  Zap,
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
@@ -20,10 +23,18 @@ import { ensureKolkapWorkspace } from "@/lib/kolkapWorkspace";
 
 const translations = {
   en: {
-    badge: "Sign Up",
-    title: "Create your Kolkap business account.",
+    badge: "Start Now",
+    title: "Create your AI staff. Start now.",
     subtitle:
-      "Start your AI staff setup, manage customer messages, and prepare your business inbox in one simple workspace.",
+      "Set up your AI staff for 24/7 automated responses. Set up your AI, test replies, and deploy when ready.",
+    trialTitle: "7-day free trial",
+    trialText:
+      "Payment method needed to activate your trial. You won’t be charged today.",
+    billingNote:
+      "Monthly billing starts after your 7-day trial unless cancelled before the trial ends.",
+    noChargeToday: "No charge today",
+    creditsIncluded: "Trial credits included",
+    aiSetup: "AI staff setup included",
     fullName: "Full name",
     fullNamePlaceholder: "Your name",
     email: "Email address",
@@ -31,7 +42,7 @@ const translations = {
     businessType: "Business type",
     password: "Password",
     passwordPlaceholder: "Create a password",
-    createAccount: "Create Account",
+    createAccount: "Start Free Trial",
     creating: "Creating account...",
     alreadyHaveAccount: "Already have an account?",
     login: "Log in",
@@ -41,9 +52,9 @@ const translations = {
     success: "Account created successfully. Redirecting to your dashboard...",
     confirmEmail:
       "Account created. Please check your email to confirm your account before logging in.",
-    noteTitle: "Your private business workspace",
+    noteTitle: "What happens after signup?",
     noteText:
-      "After signup, your dashboard will help you create AI staff, manage inbox, track credits, and prepare your WhatsApp setup.",
+      "You will be directed to your dashboard to create your AI staff, add your business knowledge, test replies, go live, and so much more.",
     businessTypes: [
       "Real Estate",
       "Hotel / Villa / Accommodation",
@@ -70,10 +81,18 @@ const translations = {
   },
 
   id: {
-    badge: "Daftar",
-    title: "Buat akun bisnis Kolkap Anda.",
+    badge: "Start Now",
+    title: "Create your AI staff. Start now.",
     subtitle:
-      "Mulai setup AI staff, kelola pesan pelanggan, dan siapkan inbox bisnis Anda dalam satu workspace sederhana.",
+      "Set up your AI staff for 24/7 automated responses. Set up your AI, test replies, and deploy when ready.",
+    trialTitle: "7-day free trial",
+    trialText:
+      "Payment method needed to activate your trial. You won’t be charged today.",
+    billingNote:
+      "Monthly billing akan berjalan setelah 7-day trial kecuali dibatalkan sebelum trial selesai.",
+    noChargeToday: "No charge today",
+    creditsIncluded: "Trial credits included",
+    aiSetup: "AI staff setup included",
     fullName: "Nama lengkap",
     fullNamePlaceholder: "Nama Anda",
     email: "Alamat email",
@@ -81,7 +100,7 @@ const translations = {
     businessType: "Jenis bisnis",
     password: "Password",
     passwordPlaceholder: "Buat password",
-    createAccount: "Buat Akun",
+    createAccount: "Start Free Trial",
     creating: "Sedang membuat akun...",
     alreadyHaveAccount: "Sudah punya akun?",
     login: "Login",
@@ -91,9 +110,9 @@ const translations = {
     success: "Akun berhasil dibuat. Mengarahkan ke dashboard Anda...",
     confirmEmail:
       "Akun berhasil dibuat. Silakan cek email Anda untuk konfirmasi sebelum login.",
-    noteTitle: "Workspace bisnis pribadi Anda",
+    noteTitle: "What happens after signup?",
     noteText:
-      "Setelah daftar, dashboard Anda akan membantu membuat AI staff, mengelola inbox, memantau credits, dan menyiapkan WhatsApp.",
+      "You will be directed to your dashboard to create your AI staff, add your business knowledge, test replies, go live, and so much more.",
     businessTypes: [
       "Real Estate",
       "Hotel / Villa / Akomodasi",
@@ -118,112 +137,14 @@ const translations = {
       "Lainnya",
     ],
   },
-
-  zh: {
-    badge: "注册",
-    title: "创建您的 Kolkap 企业账户。",
-    subtitle:
-      "开始设置 AI 员工，管理客户消息，并在一个简单的工作区中准备企业收件箱。",
-    fullName: "全名",
-    fullNamePlaceholder: "您的姓名",
-    email: "邮箱地址",
-    emailPlaceholder: "you@business.com",
-    businessType: "企业类型",
-    password: "密码",
-    passwordPlaceholder: "创建密码",
-    createAccount: "创建账户",
-    creating: "正在创建账户...",
-    alreadyHaveAccount: "已经有账户？",
-    login: "登录",
-    errorTitle: "注册失败",
-    emptyError: "请填写所有必填字段。",
-    passwordError: "密码至少需要 6 个字符。",
-    success: "账户创建成功，正在跳转到仪表板...",
-    confirmEmail: "账户已创建。请检查邮箱并确认账户，然后再登录。",
-    noteTitle: "您的私人企业工作区",
-    noteText:
-      "注册后，仪表板将帮助您创建 AI 员工、管理收件箱、追踪 credits，并准备 WhatsApp 设置。",
-    businessTypes: [
-      "房地产",
-      "酒店 / 别墅 / 住宿",
-      "旅游 / 旅行",
-      "餐厅 / 咖啡馆",
-      "网店 / 电商",
-      "诊所 / 医疗",
-      "牙科诊所",
-      "美容 / 医美诊所",
-      "健身房",
-      "养生 / 水疗",
-      "美发 / 理发店",
-      "教育 / 培训中心",
-      "代理 / 营销",
-      "法律 / 会计",
-      "建筑 / 室内设计",
-      "汽车服务",
-      "清洁 / 维护",
-      "活动 / 婚礼",
-      "零售店",
-      "专业服务",
-      "其他",
-    ],
-  },
-
-  ms: {
-    badge: "Daftar",
-    title: "Cipta akaun bisnes Kolkap anda.",
-    subtitle:
-      "Mulakan setup AI staff, urus mesej pelanggan, dan sediakan inbox bisnes anda dalam satu workspace mudah.",
-    fullName: "Nama penuh",
-    fullNamePlaceholder: "Nama anda",
-    email: "Alamat email",
-    emailPlaceholder: "anda@bisnes.com",
-    businessType: "Jenis bisnes",
-    password: "Kata laluan",
-    passwordPlaceholder: "Cipta kata laluan",
-    createAccount: "Cipta Akaun",
-    creating: "Sedang mencipta akaun...",
-    alreadyHaveAccount: "Sudah ada akaun?",
-    login: "Login",
-    errorTitle: "Signup gagal",
-    emptyError: "Sila lengkapkan semua field yang diperlukan.",
-    passwordError: "Kata laluan mesti sekurang-kurangnya 6 karakter.",
-    success: "Akaun berjaya dicipta. Mengarahkan ke dashboard anda...",
-    confirmEmail:
-      "Akaun berjaya dicipta. Sila semak email anda untuk pengesahan sebelum login.",
-    noteTitle: "Workspace bisnes peribadi anda",
-    noteText:
-      "Selepas daftar, dashboard anda akan membantu mencipta AI staff, mengurus inbox, memantau credits, dan menyediakan WhatsApp.",
-    businessTypes: [
-      "Real Estate",
-      "Hotel / Villa / Penginapan",
-      "Travel / Pelancongan",
-      "Restoran / Cafe",
-      "Online Shop / E-commerce",
-      "Klinik / Perubatan",
-      "Klinik Gigi",
-      "Beauty / Klinik Estetik",
-      "Fitness / Gym",
-      "Wellness / Spa",
-      "Salon / Barber",
-      "Pendidikan / Pusat Latihan",
-      "Agency / Marketing",
-      "Legal / Accounting",
-      "Pembinaan / Interior Design",
-      "Automotif",
-      "Cleaning / Maintenance",
-      "Event / Wedding",
-      "Kedai Runcit / Retail",
-      "Servis Profesional",
-      "Lain-lain",
-    ],
-  },
 };
 
 function SignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { language } = useKolkapLanguage();
-  const t = translations[language as keyof typeof translations] || translations.en;
+  const t =
+    translations[language as keyof typeof translations] || translations.en;
 
   const rawNextPath = searchParams.get("next") || "/dashboard";
   const nextPath =
@@ -240,7 +161,7 @@ function SignupContent() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function handleSignup(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setMessage("");
@@ -271,6 +192,7 @@ function SignupContent() {
           data: {
             full_name: cleanName,
             business_type: businessType,
+            trial_intent: true,
           },
         },
       });
@@ -283,7 +205,7 @@ function SignupContent() {
 
       if (data.session) {
         await ensureKolkapWorkspace(supabase);
-        
+
         setMessage(t.success);
         router.replace(nextPath);
         router.refresh();
@@ -321,10 +243,44 @@ function SignupContent() {
 
           <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/5 p-6">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
-              <ShieldCheck className="h-7 w-7" />
+              <CreditCard className="h-7 w-7" />
+            </div>
+
+            <h2 className="text-2xl font-black">{t.trialTitle}</h2>
+
+            <p className="mt-3 text-lg font-semibold leading-8 text-slate-300">
+              {t.trialText}
+            </p>
+
+            <p className="mt-3 text-base font-bold leading-7 text-slate-400">
+              {t.billingNote}
+            </p>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <TrialPoint
+                icon={<ShieldCheck className="h-5 w-5" />}
+                text={t.noChargeToday}
+              />
+
+              <TrialPoint
+                icon={<Zap className="h-5 w-5" />}
+                text={t.creditsIncluded}
+              />
+
+              <TrialPoint
+                icon={<Sparkles className="h-5 w-5" />}
+                text={t.aiSetup}
+              />
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-6">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#07111F]">
+              <CheckCircle2 className="h-7 w-7" />
             </div>
 
             <h2 className="text-2xl font-black">{t.noteTitle}</h2>
+
             <p className="mt-3 text-lg font-semibold leading-8 text-slate-300">
               {t.noteText}
             </p>
@@ -333,11 +289,26 @@ function SignupContent() {
 
         <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
           <form onSubmit={handleSignup} className="grid gap-5">
+            <div className="mb-2">
+              <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+                {t.badge}
+              </p>
+
+              <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
+                {t.createAccount}
+              </h2>
+
+              <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
+                {t.trialText}
+              </p>
+            </div>
+
             <label className="grid gap-2">
               <span className="flex items-center gap-2 text-base font-black text-slate-700">
                 <UserRound className="h-5 w-5 text-slate-400" />
                 {t.fullName}
               </span>
+
               <input
                 type="text"
                 value={fullName}
@@ -353,6 +324,7 @@ function SignupContent() {
                 <Mail className="h-5 w-5 text-slate-400" />
                 {t.email}
               </span>
+
               <input
                 type="email"
                 value={email}
@@ -368,6 +340,7 @@ function SignupContent() {
                 <BriefcaseBusiness className="h-5 w-5 text-slate-400" />
                 {t.businessType}
               </span>
+
               <select
                 value={businessType}
                 onChange={(event) => setBusinessType(event.target.value)}
@@ -434,6 +407,10 @@ function SignupContent() {
               <ArrowRight className="h-6 w-6" />
             </button>
 
+            <p className="text-center text-sm font-bold leading-6 text-slate-500">
+              {t.billingNote}
+            </p>
+
             <p className="text-center text-base font-black text-slate-600">
               {t.alreadyHaveAccount}{" "}
               <Link
@@ -447,6 +424,18 @@ function SignupContent() {
         </div>
       </section>
     </main>
+  );
+}
+
+function TrialPoint({ icon, text }: { icon: ReactNode; text: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#07111F]">
+        {icon}
+      </div>
+
+      <p className="text-sm font-black leading-5 text-white">{text}</p>
+    </div>
   );
 }
 

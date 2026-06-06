@@ -8,17 +8,20 @@ import {
   ChevronDown,
   Home,
   Languages,
+  LayoutDashboard,
+  LogOut,
   Menu,
   Sparkles,
   Tags,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   kolkapLanguageOptions,
   useKolkapLanguage,
 } from "@/app/context/LanguageContext";
 import KolkapLogo from "@/components/brand/KolkapLogo";
+import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
   {
@@ -38,6 +41,41 @@ const navItems = [
   },
 ];
 
+const translations = {
+  en: {
+    login: "Login",
+    start: "Start",
+    dashboard: "Dashboard",
+    logout: "Logout",
+    language: "Language",
+    notifications: "Notifications",
+  },
+  id: {
+    login: "Login",
+    start: "Start",
+    dashboard: "Dashboard",
+    logout: "Logout",
+    language: "Language",
+    notifications: "Notifications",
+  },
+  zh: {
+    login: "登录",
+    start: "开始",
+    dashboard: "Dashboard",
+    logout: "Logout",
+    language: "语言",
+    notifications: "通知",
+  },
+  ms: {
+    login: "Login",
+    start: "Start",
+    dashboard: "Dashboard",
+    logout: "Logout",
+    language: "Language",
+    notifications: "Notifications",
+  },
+};
+
 function isActivePath(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -45,9 +83,43 @@ function isActivePath(pathname: string, href: string) {
 
 export default function KolkapUserHeader() {
   const pathname = usePathname();
+
   const [open, setOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
   const { language, setLanguage, languageLabel } = useKolkapLanguage();
+  const t =
+    translations[language as keyof typeof translations] || translations.en;
+
+  const isInsideDashboard = pathname.startsWith("/dashboard");
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    async function checkSession() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      setIsLoggedIn(Boolean(session));
+      setIsCheckingAuth(false);
+    }
+
+    checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(Boolean(session));
+      setIsCheckingAuth(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
@@ -116,26 +188,50 @@ export default function KolkapUserHeader() {
           <button
             type="button"
             className="relative inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-[#F7F9FA] text-[#07111F] transition hover:border-blue-400 hover:bg-white"
-            aria-label="Notifications"
+            aria-label={t.notifications}
           >
             <Bell className="h-5 w-5" />
             <span className="absolute right-2.5 top-2.5 h-2.5 w-2.5 rounded-full bg-[#7CFF3D]" />
           </button>
 
-          <Link
-            href="/login"
-            className="rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-3 text-base font-black text-slate-700 transition hover:border-blue-400 hover:bg-white"
-          >
-            Login
-          </Link>
+          {!isCheckingAuth && isLoggedIn && !isInsideDashboard ? (
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-3 text-base font-black text-slate-700 transition hover:border-blue-400 hover:bg-white"
+            >
+              <LayoutDashboard className="h-5 w-5" />
+              {t.dashboard}
+            </Link>
+          ) : null}
 
-          <Link
-            href="/signup"
-            className="inline-flex items-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-base font-black text-white shadow-sm transition hover:-translate-y-0.5"
-          >
-            <Sparkles className="h-5 w-5" />
-            Start
-          </Link>
+          {!isCheckingAuth && isLoggedIn ? (
+            <Link
+              href="/logout"
+              className="inline-flex items-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-base font-black text-white shadow-sm transition hover:-translate-y-0.5"
+            >
+              <LogOut className="h-5 w-5" />
+              {t.logout}
+            </Link>
+          ) : null}
+
+          {!isCheckingAuth && !isLoggedIn ? (
+            <>
+              <Link
+                href="/login"
+                className="rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-3 text-base font-black text-slate-700 transition hover:border-blue-400 hover:bg-white"
+              >
+                {t.login}
+              </Link>
+
+              <Link
+                href="/signup"
+                className="inline-flex items-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-base font-black text-white shadow-sm transition hover:-translate-y-0.5"
+              >
+                <Sparkles className="h-5 w-5" />
+                {t.start}
+              </Link>
+            </>
+          ) : null}
         </div>
 
         <button
@@ -175,7 +271,7 @@ export default function KolkapUserHeader() {
             <div className="rounded-2xl border border-slate-200 bg-[#F7F9FA] p-3">
               <div className="mb-2 flex items-center gap-2 px-2 text-base font-black text-slate-500">
                 <Languages className="h-5 w-5" />
-                Language
+                {t.language}
               </div>
 
               <div className="grid gap-2">
@@ -202,28 +298,57 @@ export default function KolkapUserHeader() {
             >
               <span className="flex items-center gap-3">
                 <Bell className="h-6 w-6" />
-                Notifications
+                {t.notifications}
               </span>
+
               <span className="h-3 w-3 rounded-full bg-[#7CFF3D]" />
             </button>
 
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <Link
-                href="/login"
-                onClick={() => setOpen(false)}
-                className="rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-center text-lg font-black text-slate-700"
+            {!isCheckingAuth && isLoggedIn ? (
+              <div
+                className={`grid gap-3 pt-2 ${
+                  isInsideDashboard ? "grid-cols-1" : "grid-cols-2"
+                }`}
               >
-                Login
-              </Link>
+                {!isInsideDashboard ? (
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setOpen(false)}
+                    className="rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-center text-lg font-black text-slate-700"
+                  >
+                    {t.dashboard}
+                  </Link>
+                ) : null}
 
-              <Link
-                href="/signup"
-                onClick={() => setOpen(false)}
-                className="rounded-full bg-[#07111F] px-5 py-4 text-center text-lg font-black text-white"
-              >
-                Start
-              </Link>
-            </div>
+                <Link
+                  href="/logout"
+                  onClick={() => setOpen(false)}
+                  className="rounded-full bg-[#07111F] px-5 py-4 text-center text-lg font-black text-white"
+                >
+                  {t.logout}
+                </Link>
+              </div>
+            ) : null}
+
+            {!isCheckingAuth && !isLoggedIn ? (
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-center text-lg font-black text-slate-700"
+                >
+                  {t.login}
+                </Link>
+
+                <Link
+                  href="/signup"
+                  onClick={() => setOpen(false)}
+                  className="rounded-full bg-[#07111F] px-5 py-4 text-center text-lg font-black text-white"
+                >
+                  {t.start}
+                </Link>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

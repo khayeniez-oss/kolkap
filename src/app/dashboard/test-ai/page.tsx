@@ -1,29 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowLeft,
   Bot,
   CheckCircle2,
   Clipboard,
+  CreditCard,
   MessageCircle,
   RefreshCcw,
   Send,
   ShieldCheck,
   Sparkles,
   Wand2,
+  Zap,
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
-import { getKolkapPlan } from "@/lib/kolkapPlan";
+import {
+  getGenerateButtonLabel,
+  getKolkapPlan,
+} from "@/lib/kolkapPlan";
+import { createClient } from "@/lib/supabase/client";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 const MAX_QUESTION_LENGTH = 1200;
 const MAX_INSTRUCTION_LENGTH = 1200;
+const TEST_AI_CREDIT_COST = 1;
 
 type Option = {
   value: string;
   label: string;
+};
+
+type CreditBalanceRow = {
+  id: string;
+  workspace_id: string;
+  owner_user_id: string;
+  plan_name: string;
+  plan_credits: number;
+  purchased_credits: number;
+  used_credits: number;
+  billing_period_start: string | null;
+  billing_period_end: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
 };
 
 const languageOptions: Option[] = [
@@ -61,6 +83,9 @@ const translations = {
     subtitle:
       "Ask sample customer questions and check if Kolkap AI Brain replies correctly using your business profile and Knowledge Base.",
     currentPlan: "Current Plan",
+    creditsLeft: "Credits Left",
+    creditsUsed: "Credits Used",
+    creditCost: "Credit Cost",
     business: "Business",
     purpose: "Purpose",
     purposeText:
@@ -85,7 +110,7 @@ const translations = {
     copied: "Copied",
     copy: "Copy Reply",
     success:
-      "Test reply generated. Review the answer before connecting it to real customer conversations.",
+      "Test reply generated. 1 credit has been used. Review the answer before connecting it to real customer conversations.",
     error: "AI reply could not be generated.",
     questionRequired: "Please write a sample customer question first.",
     questionTooLong: "Sample question is too long.",
@@ -97,6 +122,12 @@ const translations = {
     whyTitle: "Why this matters",
     whyText:
       "If the AI gives weak answers here, fix your Knowledge Base before going live.",
+    safeTest: "Safe Test",
+    noCreditBalance: "Credit balance not found yet.",
+    includedPlanCredits: "Included plan credits",
+    refreshCredits: "Refresh credits",
+    oneCreditNote:
+      "Every successful test reply generation uses 1 credit.",
   },
 
   id: {
@@ -108,6 +139,9 @@ const translations = {
     subtitle:
       "Tulis contoh pertanyaan customer dan cek apakah Kolkap AI Brain menjawab dengan benar menggunakan business profile dan Knowledge Base Anda.",
     currentPlan: "Paket Saat Ini",
+    creditsLeft: "Credits Left",
+    creditsUsed: "Credits Used",
+    creditCost: "Credit Cost",
     business: "Business",
     purpose: "Purpose",
     purposeText:
@@ -132,7 +166,7 @@ const translations = {
     copied: "Copied",
     copy: "Copy Reply",
     success:
-      "Test reply berhasil digenerate. Review jawabannya sebelum disambungkan ke real customer conversations.",
+      "Test reply berhasil digenerate. 1 credit sudah digunakan. Review jawabannya sebelum disambungkan ke real customer conversations.",
     error: "AI reply gagal digenerate.",
     questionRequired: "Mohon tulis sample customer question dulu.",
     questionTooLong: "Sample question terlalu panjang.",
@@ -144,12 +178,30 @@ const translations = {
     whyTitle: "Kenapa ini penting",
     whyText:
       "Jika jawaban AI masih lemah di sini, perbaiki Knowledge Base sebelum go live.",
+    safeTest: "Safe Test",
+    noCreditBalance: "Credit balance belum ditemukan.",
+    includedPlanCredits: "Included plan credits",
+    refreshCredits: "Refresh credits",
+    oneCreditNote:
+      "Setiap successful test reply generation menggunakan 1 credit.",
   },
 };
 
+function getCreditsLeft(balance: CreditBalanceRow | null) {
+  if (!balance) return null;
+
+  return Math.max(
+    0,
+    Number(balance.plan_credits || 0) +
+      Number(balance.purchased_credits || 0) -
+      Number(balance.used_credits || 0)
+  );
+}
+
 export default function TestAIPage() {
   const { language } = useKolkapLanguage();
-  const t = translations[language as keyof typeof translations] || translations.en;
+  const t =
+    translations[language as keyof typeof translations] || translations.en;
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
@@ -162,8 +214,12 @@ export default function TestAIPage() {
   const [reply, setReply] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [knowledgeCount, setKnowledgeCount] = useState<number | null>(null);
+  const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
+    null
+  );
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoadingCredits, setIsLoadingCredits] = useState(false);
   const [copied, setCopied] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
@@ -173,6 +229,33 @@ export default function TestAIPage() {
 
   const isQuestionTooLong = questionCount > MAX_QUESTION_LENGTH;
   const isInstructionTooLong = instructionCount > MAX_INSTRUCTION_LENGTH;
+
+  const creditsLeft = getCreditsLeft(creditBalance);
+  const usedCredits = Number(creditBalance?.used_credits || 0);
+  const planCredits = Number(creditBalance?.plan_credits || 0);
+  const purchasedCredits = Number(creditBalance?.purchased_credits || 0);
+
+  async function loadCreditBalance() {
+    if (!workspace?.id) return;
+
+    setIsLoadingCredits(true);
+
+    const supabase = createClient();
+
+    const { data } = await supabase
+      .from("workspace_credit_balances")
+      .select("*")
+      .eq("workspace_id", workspace.id)
+      .maybeSingle();
+
+    setCreditBalance((data ?? null) as CreditBalanceRow | null);
+    setIsLoadingCredits(false);
+  }
+
+  useEffect(() => {
+    loadCreditBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspace?.id]);
 
   async function handleGenerate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -228,6 +311,8 @@ export default function TestAIPage() {
           : null
       );
       setActionMessage(t.success);
+
+      await loadCreditBalance();
     } catch (error) {
       const message = error instanceof Error ? error.message : t.error;
       setActionError(message);
@@ -316,7 +401,7 @@ export default function TestAIPage() {
           </p>
         </div>
 
-        <div className="mb-8 grid gap-5 md:grid-cols-3">
+        <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
           <InfoCard
             icon={<ShieldCheck className="h-7 w-7" />}
             label={t.currentPlan}
@@ -325,22 +410,41 @@ export default function TestAIPage() {
           />
 
           <InfoCard
+            icon={<CreditCard className="h-7 w-7" />}
+            label={t.creditsLeft}
+            value={
+              creditsLeft === null
+                ? "—"
+                : creditsLeft.toLocaleString()
+            }
+            note={
+              creditBalance
+                ? `${t.creditsUsed}: ${usedCredits.toLocaleString()}`
+                : t.noCreditBalance
+            }
+            dark
+          />
+
+          <InfoCard
+            icon={<Zap className="h-7 w-7" />}
+            label={t.creditCost}
+            value="1 Credit"
+            note={t.oneCreditNote}
+          />
+
+          <InfoCard
             icon={<MessageCircle className="h-7 w-7" />}
             label={t.business}
-            value={
-              String(
-                workspace?.business_name ||
-                  businessName ||
-                  "Workspace"
-              )
-            }
+            value={String(
+              workspace?.business_name || businessName || "Workspace"
+            )}
             note="Logged-in workspace"
           />
 
           <InfoCard
             icon={<Sparkles className="h-7 w-7" />}
             label={t.purpose}
-            value="Safe Test"
+            value={t.safeTest}
             note={t.purposeText}
           />
         </div>
@@ -359,6 +463,14 @@ export default function TestAIPage() {
               <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
                 {t.whyText}
               </h2>
+
+              {creditBalance ? (
+                <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
+                  {t.includedPlanCredits}: {planCredits.toLocaleString()} •{" "}
+                  Top-Up: {purchasedCredits.toLocaleString()} •{" "}
+                  {t.creditsUsed}: {usedCredits.toLocaleString()}
+                </p>
+              ) : null}
             </div>
           </div>
         </section>
@@ -476,14 +588,14 @@ export default function TestAIPage() {
                   disabled={
                     isGenerating || isQuestionTooLong || isInstructionTooLong
                   }
-                  className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-lg font-black text-[#07111F] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:text-xl"
                 >
                   <Send className="h-6 w-6" />
                   {isGenerating
                     ? t.generating
                     : reply
-                      ? t.regenerate
-                      : t.generate}
+                      ? getGenerateButtonLabel("Regenerate Reply", TEST_AI_CREDIT_COST)
+                      : getGenerateButtonLabel("Generate Test Reply", TEST_AI_CREDIT_COST)}
                 </button>
 
                 <button
@@ -495,6 +607,15 @@ export default function TestAIPage() {
                   {t.clear}
                 </button>
               </div>
+
+              <button
+                type="button"
+                onClick={loadCreditBalance}
+                disabled={isLoadingCredits}
+                className="text-left text-sm font-black text-blue-600 disabled:opacity-50"
+              >
+                {isLoadingCredits ? t.loading : t.refreshCredits}
+              </button>
             </form>
           </section>
 
@@ -563,25 +684,47 @@ function InfoCard({
   label,
   value,
   note,
+  dark = false,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   note: string;
+  dark?: boolean;
 }) {
   return (
-    <div className="rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5">
-      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+    <div
+      className={`rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 ${
+        dark
+          ? "border-[#7CFF3D] bg-[#07111F] text-white"
+          : "border-slate-200 bg-white text-[#07111F]"
+      }`}
+    >
+      <div
+        className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
+          dark ? "bg-[#7CFF3D] text-[#07111F]" : "bg-[#07111F] text-[#7CFF3D]"
+        }`}
+      >
         {icon}
       </div>
 
-      <p className="text-lg font-black text-slate-500">{label}</p>
+      <p
+        className={`text-lg font-black ${
+          dark ? "text-slate-300" : "text-slate-500"
+        }`}
+      >
+        {label}
+      </p>
 
-      <p className="mt-2 break-words text-2xl font-black tracking-[-0.04em] text-[#07111F]">
+      <p className="mt-2 break-words text-2xl font-black tracking-[-0.04em]">
         {value}
       </p>
 
-      <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
+      <p
+        className={`mt-2 text-base font-semibold leading-7 ${
+          dark ? "text-slate-300" : "text-slate-600"
+        }`}
+      >
         {note}
       </p>
     </div>

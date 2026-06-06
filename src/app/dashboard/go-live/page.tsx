@@ -1,382 +1,913 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle,
+  ArrowLeft,
   ArrowRight,
-  BookOpen,
+  BarChart3,
   Bot,
-  Building2,
   CheckCircle2,
-  LockKeyhole,
+  CircleAlert,
+  Clock3,
+  CreditCard,
   MessageCircle,
-  PlayCircle,
-  PlugZap,
-  Power,
+  RefreshCcw,
   Rocket,
-  Send,
   ShieldCheck,
-  Users,
+  Sparkles,
+  WalletCards,
+  Zap,
 } from "lucide-react";
-import KolkapLogo from "@/components/brand/KolkapLogo";
+import { useKolkapLanguage } from "@/app/context/LanguageContext";
+import { createClient } from "@/lib/supabase/client";
+import {
+  getKolkapPlan,
+  getPlanAIStaffLabel,
+  getPlanCreditLabel,
+} from "@/lib/kolkapPlan";
+import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
-const navItems = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Onboarding", href: "/dashboard/onboarding" },
-  { label: "AI Brain", href: "/dashboard/ai-brain" },
-  { label: "AI Staff", href: "/dashboard/agents" },
-  { label: "Knowledge", href: "/dashboard/knowledge-base" },
-  { label: "Test AI", href: "/dashboard/test-ai" },
-  { label: "Integrations", href: "/dashboard/integrations" },
-  { label: "Go Live", href: "/dashboard/go-live" },
-];
+type AiStaffRow = {
+  id: string;
+  workspace_id: string;
+  owner_user_id: string;
+  name: string;
+  role: string;
+  channel: string;
+  reply_language: string | null;
+  reply_tone: string | null;
+  business_knowledge: string | null;
+  ai_instruction: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
 
-const readinessChecks = [
-  {
-    title: "Business profile completed",
-    text: "Business name, industry, website, WhatsApp number, support hours, and business description are ready.",
-    status: "Incomplete",
-    icon: Building2,
-  },
-  {
-    title: "AI staff created",
-    text: "At least one AI staff member is configured with role, tone, language, and main instructions.",
-    status: "Draft",
-    icon: Bot,
-  },
-  {
-    title: "Knowledge base added",
-    text: "FAQs, pricing, services, policies, files, and approved answers are added for safe AI replies.",
-    status: "Needs work",
-    icon: BookOpen,
-  },
-  {
-    title: "Channel connected",
-    text: "WhatsApp, website chat, email, or another customer channel is connected to the correct business workspace.",
-    status: "Not connected",
-    icon: PlugZap,
-  },
-  {
-    title: "AI test passed",
-    text: "AI replies have been tested for pricing, handover, lead capture, and unknown questions.",
-    status: "Pending test",
-    icon: PlayCircle,
-  },
-  {
-    title: "Team access reviewed",
-    text: "Only the right team members have access to inbox, leads, AI staff, billing, and settings.",
-    status: "Review",
-    icon: Users,
-  },
-];
+type AiTestRunRow = {
+  id: string;
+  workspace_id: string;
+  ai_staff_id: string;
+  owner_user_id: string;
+  customer_message: string;
+  ai_response: string;
+  status: string;
+  created_at: string;
+};
 
-const launchRules = [
-  "AI must know the correct business_id before replying.",
-  "AI must only use that business’s private knowledge base.",
-  "AI must save every conversation to the correct inbox.",
-  "AI must create leads under the correct business workspace.",
-  "AI must hand over payment, legal, complaint, and urgent requests.",
-  "AI must be tested before replying to real customers.",
-];
+type CreditBalanceRow = {
+  id: string;
+  workspace_id: string;
+  owner_user_id: string;
+  plan_name: string;
+  plan_credits: number;
+  purchased_credits: number;
+  used_credits: number;
+  billing_period_start: string | null;
+  billing_period_end: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
 
-const goLiveFlow = [
-  {
-    step: "01",
-    title: "Prepare workspace",
-    text: "Complete business profile, AI staff, knowledge base, team access, and billing.",
+const translations = {
+  en: {
+    badge: "Go Live",
+    title: "Review your AI setup before going live.",
+    subtitle:
+      "Check your AI staff, saved test, business details, credits, and workspace status before activating your AI.",
+    loading: "Loading your go-live setup...",
+    failed: "Go Live page could not load.",
+    back: "Back to Dashboard",
+    refresh: "Refresh",
+    currentPlan: "Current Plan",
+    aiStaff: "AI Staff",
+    creditsLeft: "Credits Left",
+    creditsUsed: "Credits Used",
+    creditCost: "Auto-Reply Cost",
+    goLiveStatus: "Go Live Status",
+    whatsappStatus: "WhatsApp Status",
+    selectAI: "Select AI Staff",
+    selectAIText:
+      "Choose which AI staff you want to activate for your business workspace.",
+    readiness: "Go-Live Readiness",
+    readinessText:
+      "Your AI is ready when the important setup items are complete.",
+    creditRuleTitle: "Important Credit Rule",
+    creditRuleText:
+      "When auto-reply is live, every successful AI reply uses 1 credit. If credits run out, auto-reply should pause until the workspace tops up or upgrades.",
+    businessReady: "Business details added",
+    aiReady: "AI staff created",
+    testReady: "AI test saved",
+    creditsReady: "Credits available",
+    activePlanReady: "Active plan or trial",
+    whatsappReady: "WhatsApp number added",
+    activateTitle: "Activate AI",
+    activateText:
+      "Once activated, this AI staff will be marked live in your Kolkap workspace. Auto-reply uses credits, so keep your credits topped up before going live.",
+    activateAI: "Activate AI",
+    activating: "Activating...",
+    activated: "AI staff is now live in your workspace.",
+    activateFailed: "AI staff could not be activated.",
+    cannotActivate:
+      "Complete the required setup items before activating your AI.",
+    noAI: "No AI staff found yet.",
+    createAI: "Create AI Staff",
+    testAI: "Test AI",
+    openSettings: "Open Settings",
+    selectedAI: "Selected AI",
+    recentTest: "Latest Saved Test",
+    noTest:
+      "No saved test found for this AI yet. Please test the AI before going live.",
+    required: "Required",
+    recommended: "Recommended",
+    complete: "Complete",
+    needsAction: "Needs action",
+    topUp: "Top Up",
+    usage: "Usage",
+    billing: "Billing",
+    oneCredit: "1 AI reply = 1 credit",
+    noCreditBalance:
+      "Credit balance has not been created for this workspace yet.",
+    statuses: {
+      draft: "Draft",
+      testing: "Testing",
+      live: "Live",
+      pending: "Pending",
+      not_connected: "Not connected",
+      connected: "Connected",
+      trial: "Trial",
+      active: "Active",
+      past_due: "Past Due",
+      cancelled: "Cancelled",
+    },
   },
-  {
-    step: "02",
-    title: "Connect channel",
-    text: "Connect WhatsApp, website chat, email, or webhook to the correct business workspace.",
+
+  id: {
+    badge: "Go Live",
+    title: "Review setup AI sebelum go live.",
+    subtitle:
+      "Cek AI staff, test yang tersimpan, detail bisnis, credits, dan status workspace sebelum mengaktifkan AI.",
+    loading: "Memuat setup go-live Anda...",
+    failed: "Halaman Go Live gagal dimuat.",
+    back: "Kembali ke Dashboard",
+    refresh: "Refresh",
+    currentPlan: "Paket Saat Ini",
+    aiStaff: "AI Staff",
+    creditsLeft: "Credits Left",
+    creditsUsed: "Credits Used",
+    creditCost: "Auto-Reply Cost",
+    goLiveStatus: "Status Go Live",
+    whatsappStatus: "Status WhatsApp",
+    selectAI: "Pilih AI Staff",
+    selectAIText:
+      "Pilih AI staff yang ingin diaktifkan untuk workspace bisnis Anda.",
+    readiness: "Kesiapan Go-Live",
+    readinessText:
+      "AI Anda siap saat bagian setup penting sudah lengkap.",
+    creditRuleTitle: "Aturan Credit Penting",
+    creditRuleText:
+      "Saat auto-reply live, setiap successful AI reply menggunakan 1 credit. Jika credits habis, auto-reply harus pause sampai workspace top up atau upgrade.",
+    businessReady: "Detail bisnis sudah ditambahkan",
+    aiReady: "AI staff sudah dibuat",
+    testReady: "Test AI sudah disimpan",
+    creditsReady: "Credits tersedia",
+    activePlanReady: "Active plan atau trial",
+    whatsappReady: "Nomor WhatsApp sudah ditambahkan",
+    activateTitle: "Aktifkan AI",
+    activateText:
+      "Setelah diaktifkan, AI staff ini akan ditandai live di workspace Kolkap Anda. Auto-reply menggunakan credits, jadi pastikan credits cukup sebelum go live.",
+    activateAI: "Aktifkan AI",
+    activating: "Mengaktifkan...",
+    activated: "AI staff sekarang live di workspace Anda.",
+    activateFailed: "AI staff gagal diaktifkan.",
+    cannotActivate:
+      "Lengkapi setup yang dibutuhkan sebelum mengaktifkan AI.",
+    noAI: "Belum ada AI staff.",
+    createAI: "Buat AI Staff",
+    testAI: "Test AI",
+    openSettings: "Buka Settings",
+    selectedAI: "AI Terpilih",
+    recentTest: "Test Tersimpan Terbaru",
+    noTest:
+      "Belum ada test tersimpan untuk AI ini. Silakan test AI sebelum go live.",
+    required: "Wajib",
+    recommended: "Disarankan",
+    complete: "Lengkap",
+    needsAction: "Perlu dilengkapi",
+    topUp: "Top Up",
+    usage: "Usage",
+    billing: "Billing",
+    oneCredit: "1 AI reply = 1 credit",
+    noCreditBalance: "Credit balance belum dibuat untuk workspace ini.",
+    statuses: {
+      draft: "Draft",
+      testing: "Testing",
+      live: "Live",
+      pending: "Menunggu",
+      not_connected: "Belum terhubung",
+      connected: "Terhubung",
+      trial: "Trial",
+      active: "Aktif",
+      past_due: "Tertunda",
+      cancelled: "Dibatalkan",
+    },
   },
-  {
-    step: "03",
-    title: "Run AI tests",
-    text: "Send test questions and confirm that AI replies safely using approved knowledge.",
-  },
-  {
-    step: "04",
-    title: "Activate AI",
-    text: "Turn on live replies only after all safety and readiness checks are complete.",
-  },
-];
+};
+
+function statusLabel(
+  statuses: Record<string, string>,
+  value: string | null | undefined
+) {
+  if (!value) return statuses.pending;
+  return statuses[value] || value;
+}
+
+function getCreditsLeft(balance: CreditBalanceRow | null) {
+  if (!balance) return null;
+
+  return Math.max(
+    0,
+    Number(balance.plan_credits || 0) +
+      Number(balance.purchased_credits || 0) -
+      Number(balance.used_credits || 0)
+  );
+}
 
 export default function GoLivePage() {
-  return (
-    <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
-      <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 py-6 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
-          <KolkapLogo size="sm" />
+  const { language } = useKolkapLanguage();
+  const t =
+    translations[language as keyof typeof translations] || translations.en;
 
-          <nav className="flex flex-wrap gap-3">
-            {navItems.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`rounded-full border px-5 py-3 text-base font-black transition ${
-                  item.label === "Go Live"
-                    ? "border-[#07111F] bg-[#07111F] text-white"
-                    : "border-slate-200 bg-[#F7F9FA] text-slate-700 hover:border-blue-400 hover:bg-white"
+  const workspaceState = useKolkapWorkspace();
+  const workspace = workspaceState.workspace;
+  const currentPlan = getKolkapPlan(workspaceState.planKey);
+
+  const [aiStaffRows, setAiStaffRows] = useState<AiStaffRow[]>([]);
+  const [testRuns, setTestRuns] = useState<AiTestRunRow[]>([]);
+  const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
+    null
+  );
+
+  const [selectedAiStaffId, setSelectedAiStaffId] = useState("");
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [dataError, setDataError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const [isActivating, setIsActivating] = useState(false);
+  const [activateMessage, setActivateMessage] = useState("");
+  const [activateError, setActivateError] = useState("");
+
+  const creditsLeft = getCreditsLeft(creditBalance);
+  const usedCredits = Number(creditBalance?.used_credits || 0);
+  const planCredits = Number(creditBalance?.plan_credits || 0);
+  const purchasedCredits = Number(creditBalance?.purchased_credits || 0);
+  const totalCredits = planCredits + purchasedCredits;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadData() {
+      if (!workspace) return;
+
+      setIsLoadingData(true);
+      setDataError("");
+
+      const supabase = createClient();
+
+      const [aiStaffResult, testRunsResult, creditResult] = await Promise.all([
+        supabase
+          .from("ai_staff")
+          .select("*")
+          .eq("workspace_id", workspace.id)
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("ai_test_runs")
+          .select("*")
+          .eq("workspace_id", workspace.id)
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("workspace_credit_balances")
+          .select("*")
+          .eq("workspace_id", workspace.id)
+          .maybeSingle(),
+      ]);
+
+      if (!isMounted) return;
+
+      const firstError =
+        aiStaffResult.error || testRunsResult.error || creditResult.error;
+
+      if (firstError) {
+        setDataError(firstError.message);
+        setIsLoadingData(false);
+        return;
+      }
+
+      const aiRows = (aiStaffResult.data ?? []) as AiStaffRow[];
+      const runRows = (testRunsResult.data ?? []) as AiTestRunRow[];
+
+      const aiIdFromUrl =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("ai")
+          : "";
+
+      const matchedAiId =
+        aiIdFromUrl && aiRows.some((staff) => staff.id === aiIdFromUrl)
+          ? aiIdFromUrl
+          : "";
+
+      const liveAi = aiRows.find((staff) => staff.status === "live");
+      const testingAi = aiRows.find((staff) => staff.status === "testing");
+
+      setAiStaffRows(aiRows);
+      setTestRuns(runRows);
+      setCreditBalance((creditResult.data ?? null) as CreditBalanceRow | null);
+
+      if (aiRows.length > 0) {
+        setSelectedAiStaffId(
+          matchedAiId || liveAi?.id || testingAi?.id || aiRows[0].id
+        );
+      }
+
+      setIsLoadingData(false);
+    }
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [workspace, reloadKey]);
+
+  const selectedAiStaff = useMemo(
+    () => aiStaffRows.find((staff) => staff.id === selectedAiStaffId) ?? null,
+    [aiStaffRows, selectedAiStaffId]
+  );
+
+  const selectedAiLatestTest = useMemo(() => {
+    if (!selectedAiStaff) return null;
+
+    return (
+      testRuns.find((run) => run.ai_staff_id === selectedAiStaff.id) ?? null
+    );
+  }, [testRuns, selectedAiStaff]);
+
+  const hasBusinessDetails = Boolean(
+    workspace?.business_name && workspace?.business_type
+  );
+  const hasAiStaff = Boolean(selectedAiStaff);
+  const hasSavedTest = Boolean(selectedAiLatestTest);
+  const hasCredits = Number(creditsLeft || 0) > 0;
+  const hasCreditBalance = Boolean(creditBalance);
+  const hasActivePlan =
+    workspaceState.status === "trial" || workspaceState.status === "active";
+  const hasWhatsappNumber = Boolean(workspace?.whatsapp_number);
+
+  const requiredReady =
+    hasBusinessDetails &&
+    hasAiStaff &&
+    hasSavedTest &&
+    hasCredits &&
+    hasCreditBalance &&
+    hasActivePlan;
+
+  const checklist = [
+    {
+      label: t.activePlanReady,
+      ready: hasActivePlan,
+      type: t.required,
+      actionHref: "/dashboard/billing",
+      actionLabel: t.billing,
+    },
+    {
+      label: t.businessReady,
+      ready: hasBusinessDetails,
+      type: t.required,
+      actionHref: "/dashboard/settings",
+      actionLabel: t.openSettings,
+    },
+    {
+      label: t.aiReady,
+      ready: hasAiStaff,
+      type: t.required,
+      actionHref: "/dashboard/create-ai",
+      actionLabel: t.createAI,
+    },
+    {
+      label: t.testReady,
+      ready: hasSavedTest,
+      type: t.required,
+      actionHref: selectedAiStaff
+        ? `/dashboard/test-ai?ai=${selectedAiStaff.id}`
+        : "/dashboard/test-ai",
+      actionLabel: t.testAI,
+    },
+    {
+      label: t.creditsReady,
+      ready: hasCredits && hasCreditBalance,
+      type: t.required,
+      actionHref: "/dashboard/top-up",
+      actionLabel: t.topUp,
+    },
+    {
+      label: t.whatsappReady,
+      ready: hasWhatsappNumber,
+      type: t.recommended,
+      actionHref: "/dashboard/settings",
+      actionLabel: t.openSettings,
+    },
+  ];
+
+  const summaryCards = [
+    {
+      label: t.currentPlan,
+      value: currentPlan.name,
+      note: currentPlan.priceLabel,
+      icon: WalletCards,
+    },
+    {
+      label: t.aiStaff,
+      value: `${aiStaffRows.length}`,
+      note: getPlanAIStaffLabel(currentPlan),
+      icon: Bot,
+    },
+    {
+      label: t.creditsLeft,
+      value: creditsLeft === null ? "—" : creditsLeft.toLocaleString(),
+      note: creditBalance
+        ? `${usedCredits.toLocaleString()} ${t.creditsUsed}`
+        : t.noCreditBalance,
+      icon: CreditCard,
+      dark: true,
+    },
+    {
+      label: t.creditCost,
+      value: "1 Credit",
+      note: t.oneCredit,
+      icon: Zap,
+    },
+    {
+      label: t.goLiveStatus,
+      value: statusLabel(t.statuses, workspaceState.goLiveStatus),
+      note: statusLabel(t.statuses, workspaceState.whatsappStatus),
+      icon: ShieldCheck,
+    },
+  ];
+
+  async function handleActivate() {
+    setActivateMessage("");
+    setActivateError("");
+
+    if (!workspace || !selectedAiStaff || !requiredReady) {
+      setActivateError(t.cannotActivate);
+      return;
+    }
+
+    setIsActivating(true);
+
+    const supabase = createClient();
+    const now = new Date().toISOString();
+
+    const { error: aiError } = await supabase
+      .from("ai_staff")
+      .update({
+        status: "live",
+        updated_at: now,
+      })
+      .eq("id", selectedAiStaff.id);
+
+    if (aiError) {
+      setActivateError(aiError.message || t.activateFailed);
+      setIsActivating(false);
+      return;
+    }
+
+    const { error: workspaceError } = await supabase
+      .from("business_workspaces")
+      .update({
+        go_live_status: "live",
+        live_ai_staff_id: selectedAiStaff.id,
+        go_live_activated_at: now,
+        updated_at: now,
+      })
+      .eq("id", workspace.id);
+
+    if (workspaceError) {
+      setActivateError(workspaceError.message || t.activateFailed);
+      setIsActivating(false);
+      return;
+    }
+
+    setAiStaffRows((current) =>
+      current.map((staff) =>
+        staff.id === selectedAiStaff.id
+          ? { ...staff, status: "live", updated_at: now }
+          : staff
+      )
+    );
+
+    setActivateMessage(t.activated);
+    setIsActivating(false);
+  }
+
+  if (workspaceState.isLoading) {
+    return (
+      <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
+        <section className="mx-auto max-w-7xl">
+          <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
+            {t.loading}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (workspaceState.error) {
+    return (
+      <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
+        <section className="mx-auto max-w-7xl">
+          <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
+            <p className="text-xl font-black">{t.failed}</p>
+            <p className="mt-2 text-base font-semibold">
+              {workspaceState.error}
+            </p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="bg-[#F7F9FA] text-[#07111F]">
+      <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8 lg:py-14">
+        <div className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9 lg:p-10">
+          <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <Link
+              href="/dashboard"
+              className="inline-flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              {t.back}
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setReloadKey((value) => value + 1)}
+              className="inline-flex w-fit items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10"
+            >
+              <RefreshCcw className="h-5 w-5" />
+              {t.refresh}
+            </button>
+          </div>
+
+          <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
+            <Rocket className="h-5 w-5" />
+            {t.badge}
+          </div>
+
+          <h1 className="max-w-5xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
+            {t.title}
+          </h1>
+
+          <p className="mt-6 max-w-4xl text-xl font-semibold leading-9 text-slate-300">
+            {t.subtitle}
+          </p>
+        </div>
+
+        <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
+          {summaryCards.map((card) => {
+            const Icon = card.icon;
+
+            return (
+              <div
+                key={card.label}
+                className={`rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 ${
+                  card.dark
+                    ? "border-[#7CFF3D] bg-[#07111F] text-white"
+                    : "border-slate-200 bg-white text-[#07111F]"
                 }`}
               >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </header>
-
-        <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-          <div className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
-            <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
-              <span className="h-3 w-3 rounded-full bg-[#7CFF3D] shadow-[0_0_14px_rgba(124,255,61,0.7)]" />
-              Go Live Checklist
-            </div>
-
-            <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-              Activate AI only when the workspace is ready.
-            </h1>
-
-            <p className="mt-6 max-w-2xl text-xl font-semibold leading-9 text-slate-300">
-              Before Kolkap replies to real customers, the business profile, AI
-              staff, knowledge base, integrations, tests, and team access must
-              be reviewed.
-            </p>
-
-            <div className="mt-8 rounded-3xl border border-orange-300/30 bg-orange-400/10 p-5">
-              <div className="flex items-start gap-4">
-                <AlertCircle className="mt-1 h-8 w-8 shrink-0 text-orange-300" />
-                <div>
-                  <p className="text-2xl font-black text-orange-200">
-                    Not ready to go live yet
-                  </p>
-                  <p className="mt-2 text-xl font-semibold leading-9 text-slate-200">
-                    Live AI replies should stay locked until all required setup
-                    steps are complete.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-7">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-              <LockKeyhole className="h-8 w-8" />
-            </div>
-
-            <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              Launch Status
-            </p>
-
-            <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
-              Workspace readiness
-            </h2>
-
-            <p className="mt-5 text-6xl font-black tracking-[-0.06em]">
-              24%
-            </p>
-
-            <p className="mt-4 text-xl font-semibold leading-9 text-slate-600">
-              Setup is started, but key items are still missing before live
-              customer replies can be activated.
-            </p>
-
-            <div className="mt-6 h-4 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full w-[24%] rounded-full bg-[#7CFF3D]" />
-            </div>
-
-            <button className="mt-7 inline-flex w-full items-center justify-center gap-3 rounded-full bg-slate-200 px-8 py-5 text-xl font-black text-slate-500">
-              <Power className="h-6 w-6" />
-              Go Live Locked
-            </button>
-          </div>
-        </section>
-
-        <section>
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                Readiness Checks
-              </p>
-              <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
-                Complete these before activation
-              </h2>
-            </div>
-
-            <p className="max-w-xl text-lg font-semibold leading-8 text-slate-600">
-              Later these checks will be dynamic and read from Supabase. For
-              now, this is the visual launch control page.
-            </p>
-          </div>
-
-          <div className="grid gap-5 lg:grid-cols-2">
-            {readinessChecks.map((check) => {
-              const Icon = check.icon;
-
-              return (
                 <div
-                  key={check.title}
-                  className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-900/10"
+                  className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
+                    card.dark
+                      ? "bg-[#7CFF3D] text-[#07111F]"
+                      : "bg-[#07111F] text-[#7CFF3D]"
+                  }`}
                 >
-                  <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex gap-4">
-                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-                        <Icon className="h-8 w-8" />
-                      </div>
-
-                      <div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <h3 className="text-3xl font-black tracking-[-0.04em]">
-                            {check.title}
-                          </h3>
-
-                          <span className="rounded-full bg-orange-100 px-4 py-2 text-sm font-black text-orange-700">
-                            {check.status}
-                          </span>
-                        </div>
-
-                        <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
-                          {check.text}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  <Icon className="h-7 w-7" />
                 </div>
-              );
-            })}
-          </div>
-        </section>
 
-        <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-7">
-            <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-                <Rocket className="h-8 w-8" />
-              </div>
-
-              <div>
-                <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                  Go Live Flow
+                <p
+                  className={`text-lg font-black ${
+                    card.dark ? "text-slate-300" : "text-slate-500"
+                  }`}
+                >
+                  {card.label}
                 </p>
-                <h2 className="mt-1 text-3xl font-black tracking-[-0.04em]">
-                  Safe activation process
-                </h2>
-              </div>
-            </div>
 
-            <div className="space-y-4">
-              {goLiveFlow.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#07111F] text-lg font-black text-[#7CFF3D]">
-                      {item.step}
-                    </div>
-
-                    <div>
-                      <p className="text-2xl font-black">{item.title}</p>
-                      <p className="mt-2 text-lg font-semibold leading-8 text-slate-600">
-                        {item.text}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-7">
-            <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-                <ShieldCheck className="h-8 w-8" />
-              </div>
-
-              <div>
-                <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                  Required Rules
+                <p className="mt-2 text-3xl font-black tracking-[-0.04em]">
+                  {card.value}
                 </p>
-                <h2 className="mt-1 text-3xl font-black tracking-[-0.04em]">
-                  AI safety must be enforced
-                </h2>
-              </div>
-            </div>
 
-            <div className="space-y-4">
-              {launchRules.map((rule) => (
-                <div
-                  key={rule}
-                  className="flex items-start gap-4 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5"
+                <p
+                  className={`mt-2 text-base font-semibold leading-7 ${
+                    card.dark ? "text-slate-300" : "text-slate-600"
+                  }`}
                 >
-                  <CheckCircle2 className="mt-1 h-7 w-7 shrink-0 text-[#07111F]" />
-                  <p className="text-lg font-black leading-8">{rule}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+                  {card.note}
+                </p>
+              </div>
+            );
+          })}
+        </div>
 
-        <section className="rounded-[2.2rem] border border-orange-200 bg-orange-50 p-7 shadow-sm shadow-orange-900/5 sm:p-9">
-          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <div>
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-orange-600">
-                Locked Action
-              </p>
-
-              <h2 className="mt-3 text-4xl font-black leading-tight tracking-[-0.05em] text-orange-950 sm:text-5xl">
-                Live replies are blocked until setup is complete.
-              </h2>
-
-              <p className="mt-5 text-xl font-semibold leading-9 text-orange-800">
-                This protects the business from wrong answers, missing handover,
-                mixed knowledge, or AI replying without correct business
-                context.
-              </p>
+        <section className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
+              <Zap className="h-8 w-8" />
             </div>
 
-            <div className="grid gap-4">
-              <Link
-                href="/dashboard/onboarding"
-                className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white shadow-xl shadow-slate-900/15 transition hover:-translate-y-0.5"
-              >
-                Continue Onboarding
-                <ArrowRight className="h-6 w-6" />
-              </Link>
-
-              <Link
-                href="/dashboard/test-ai"
-                className="inline-flex items-center justify-center gap-3 rounded-full bg-white px-8 py-5 text-xl font-black text-[#07111F] shadow-sm transition hover:-translate-y-0.5"
-              >
-                Test AI First
-                <PlayCircle className="h-6 w-6" />
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
-          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
               <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                Final Live Flow
+                {t.creditRuleTitle}
               </p>
 
-              <h2 className="mt-3 text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl">
-                Customer message → business identified → AI replies safely.
+              <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
+                {t.creditRuleText}
               </h2>
 
-              <p className="mt-5 text-xl font-semibold leading-9 text-slate-300">
-                This page becomes the final checkpoint before real customer
-                channels are activated.
-              </p>
-            </div>
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <Link
+                  href="/dashboard/usage"
+                  className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-4 text-base font-black text-white"
+                >
+                  <BarChart3 className="h-5 w-5" />
+                  {t.usage}
+                </Link>
 
-            <button className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10">
-              <Send className="h-6 w-6" />
-              Launch When Ready
-            </button>
+                <Link
+                  href="/dashboard/top-up"
+                  className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-6 py-4 text-base font-black text-[#07111F]"
+                >
+                  <WalletCards className="h-5 w-5" />
+                  {t.topUp}
+                </Link>
+
+                <Link
+                  href="/dashboard/billing"
+                  className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-4 text-base font-black text-white"
+                >
+                  <CreditCard className="h-5 w-5" />
+                  {t.billing}
+                </Link>
+              </div>
+            </div>
           </div>
         </section>
-      </div>
+
+        {isLoadingData ? (
+          <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
+            {t.loading}
+          </div>
+        ) : dataError ? (
+          <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-xl font-black text-red-700">
+            {dataError}
+          </div>
+        ) : aiStaffRows.length === 0 ? (
+          <section className="rounded-[2.2rem] border border-slate-200 bg-white p-8 shadow-sm shadow-slate-900/5">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+              <Bot className="h-8 w-8" />
+            </div>
+
+            <h2 className="text-4xl font-black tracking-[-0.05em]">
+              {t.noAI}
+            </h2>
+
+            <Link
+              href="/dashboard/create-ai"
+              className="mt-7 inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white"
+            >
+              {t.createAI}
+              <ArrowRight className="h-6 w-6" />
+            </Link>
+          </section>
+        ) : (
+          <>
+            <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
+              <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+                  <Bot className="h-8 w-8" />
+                </div>
+
+                <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+                  {t.selectAI}
+                </p>
+
+                <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
+                  {t.selectAIText}
+                </h2>
+
+                <div className="mt-8 grid gap-5">
+                  <label className="grid gap-2">
+                    <span className="text-base font-black text-slate-700">
+                      {t.aiStaff}
+                    </span>
+
+                    <select
+                      value={selectedAiStaffId}
+                      onChange={(event) => {
+                        setSelectedAiStaffId(event.target.value);
+                        setActivateMessage("");
+                        setActivateError("");
+                      }}
+                      className="h-14 w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
+                    >
+                      {aiStaffRows.map((staff) => (
+                        <option key={staff.id} value={staff.id}>
+                          {staff.name} — {staff.role}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {selectedAiStaff ? (
+                    <div className="rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5">
+                      <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500">
+                        {t.selectedAI}
+                      </p>
+
+                      <h3 className="mt-2 text-3xl font-black tracking-[-0.04em]">
+                        {selectedAiStaff.name}
+                      </h3>
+
+                      <p className="mt-2 text-lg font-semibold leading-8 text-slate-600">
+                        {selectedAiStaff.role} • {selectedAiStaff.channel} •{" "}
+                        {selectedAiStaff.reply_tone}
+                      </p>
+
+                      <p className="mt-4 inline-flex rounded-full bg-white px-5 py-3 text-sm font-black text-[#07111F]">
+                        {statusLabel(t.statuses, selectedAiStaff.status)}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <div className="rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5">
+                    <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500">
+                      {t.recentTest}
+                    </p>
+
+                    {selectedAiLatestTest ? (
+                      <>
+                        <p className="mt-3 text-lg font-semibold leading-8 text-slate-700">
+                          {selectedAiLatestTest.customer_message}
+                        </p>
+
+                        <p className="mt-3 flex items-center gap-2 text-sm font-black text-slate-500">
+                          <Clock3 className="h-4 w-4" />
+                          {new Date(
+                            selectedAiLatestTest.created_at
+                          ).toLocaleString()}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="mt-3 text-lg font-black leading-8 text-amber-700">
+                        {t.noTest}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+                  <ShieldCheck className="h-8 w-8" />
+                </div>
+
+                <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+                  {t.readiness}
+                </p>
+
+                <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
+                  {t.readinessText}
+                </h2>
+
+                <div className="mt-8 grid gap-4">
+                  {checklist.map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div
+                          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+                            item.ready
+                              ? "bg-[#07111F] text-[#7CFF3D]"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {item.ready ? (
+                            <CheckCircle2 className="h-6 w-6" />
+                          ) : (
+                            <CircleAlert className="h-6 w-6" />
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="text-xl font-black">{item.label}</p>
+                          <p className="mt-1 text-sm font-black uppercase tracking-[0.14em] text-slate-500">
+                            {item.type} •{" "}
+                            {item.ready ? t.complete : t.needsAction}
+                          </p>
+                        </div>
+                      </div>
+
+                      {!item.ready ? (
+                        <Link
+                          href={item.actionHref}
+                          className="inline-flex items-center justify-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-sm font-black text-white"
+                        >
+                          {item.actionLabel}
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <section className="mt-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
+              <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+                <div>
+                  <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
+                    <Rocket className="h-8 w-8" />
+                  </div>
+
+                  <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
+                    {t.activateTitle}
+                  </p>
+
+                  <h2 className="mt-3 text-4xl font-black leading-tight tracking-[-0.05em]">
+                    {t.activateText}
+                  </h2>
+
+                  <p className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-5 text-base font-semibold leading-8 text-slate-300">
+                    {t.oneCredit} • {getPlanCreditLabel(currentPlan)} •{" "}
+                    {creditsLeft === null
+                      ? t.noCreditBalance
+                      : `${creditsLeft.toLocaleString()} ${t.creditsLeft}`}
+                  </p>
+
+                  {activateMessage ? (
+                    <p className="mt-5 rounded-3xl border border-green-200 bg-green-50 p-5 text-lg font-black text-green-800">
+                      {activateMessage}
+                    </p>
+                  ) : null}
+
+                  {activateError ? (
+                    <p className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5 text-lg font-black text-red-700">
+                      {activateError}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-4">
+                  <button
+                    type="button"
+                    onClick={handleActivate}
+                    disabled={isActivating || !requiredReady}
+                    className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Rocket className="h-6 w-6" />
+                    {isActivating ? t.activating : t.activateAI}
+                  </button>
+
+                  {selectedAiStaff ? (
+                    <Link
+                      href={`/dashboard/test-ai?ai=${selectedAiStaff.id}`}
+                      className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-8 py-5 text-xl font-black text-white"
+                    >
+                      {t.testAI}
+                      <ArrowRight className="h-6 w-6" />
+                    </Link>
+                  ) : null}
+
+                  <Link
+                    href="/dashboard/top-up"
+                    className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-8 py-5 text-xl font-black text-white"
+                  >
+                    {t.topUp}
+                    <ArrowRight className="h-6 w-6" />
+                  </Link>
+                </div>
+              </div>
+            </section>
+          </>
+        )}
+      </section>
     </main>
   );
 }

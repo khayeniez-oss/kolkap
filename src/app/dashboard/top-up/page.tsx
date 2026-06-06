@@ -1,91 +1,84 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   Bot,
   CheckCircle2,
   CreditCard,
+  RefreshCcw,
   ShieldCheck,
   Sparkles,
   WalletCards,
   Zap,
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
+import { createClient } from "@/lib/supabase/client";
 import {
   getKolkapPlan,
   getPlanAIStaffLabel,
   getPlanCreditLabel,
+  kolkapTopUpPackages,
 } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
+
+type CreditBalanceRow = {
+  id: string;
+  workspace_id: string;
+  owner_user_id: string;
+  plan_name: string;
+  plan_credits: number;
+  purchased_credits: number;
+  used_credits: number;
+  billing_period_start: string | null;
+  billing_period_end: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
 
 const translations = {
   en: {
     badge: "Top Up Credits",
     title: "Add more AI credits when your business needs them.",
     subtitle:
-      "Keep your AI staff ready for customer replies, content generation, follow-ups, and campaign support.",
+      "Keep your AI ready for customer replies, content generation, inbox support, WhatsApp replies, follow-ups, and campaign support.",
     loading: "Loading your credit balance...",
     failed: "Top-up page could not load.",
     back: "Back to Dashboard",
+    refresh: "Refresh",
     currentPlan: "Current Plan",
-    currentCredits: "Current Credits",
-    creditsRemaining: "Credits Remaining",
+    creditsLeft: "Credits Left",
+    planCredits: "Plan Credits",
+    purchasedCredits: "Top-Up Credits",
     creditsUsed: "Credits Used",
     aiStaffLimit: "AI Staff Limit",
     creditBalance: "Credit Balance",
     creditBalanceText:
-      "Your current credit balance is connected to your Kolkap workspace.",
-    topUpPackages: "Top-up Packages",
+      "Your monthly plan credits and purchased top-up credits are connected to your Kolkap workspace.",
+    topUpPackages: "Top-Up Packages",
     topUpPackagesText:
-      "Choose extra credits when your business needs more AI replies, content, or campaign support.",
+      "Choose extra credits when your business needs more AI replies, content, or campaign support before the next billing cycle.",
     howCreditsWork: "How Credits Work",
     howCreditsWorkText:
-      "Credits are used when Kolkap helps your business reply, generate content, or prepare customer follow-ups.",
+      "Credits are used whenever Kolkap generates AI output for your business.",
     checkout: "Checkout",
     comingSoon: "Checkout coming soon",
     openBilling: "Open Billing",
     choosePackage: "Choose Package",
-    mostPopular: "Best Value",
+    bestValue: "Best Value",
     secureCheckout: "Secure Checkout",
     secureCheckoutText:
       "Payment checkout will be connected here. Once active, credits will be added to your workspace after successful payment.",
+    noCreditBalance: "Credit balance has not been created for this workspace yet.",
     usageRules: [
-      "1 customer reply uses 1 credit.",
-      "1 short social media caption uses 1 credit.",
-      "1 property or business description uses 2 credits.",
-      "Long content or campaign packs use 3–5 credits depending on length.",
-    ],
-    packages: [
-      {
-        name: "$10 Top Up",
-        price: "$10",
-        credits: "150 credits",
-        description: "Good for light testing and small message volume.",
-        tag: "",
-      },
-      {
-        name: "$25 Top Up",
-        price: "$25",
-        credits: "300 credits",
-        description: "Helpful for growing inbox activity and basic content.",
-        tag: "",
-      },
-      {
-        name: "$50 Top Up",
-        price: "$50",
-        credits: "800 credits",
-        description: "Better value for regular AI replies and content work.",
-        tag: "Best Value",
-      },
-      {
-        name: "$100 Top Up",
-        price: "$100",
-        credits: "1,000 credits",
-        description: "For busy teams running more replies and campaigns.",
-        tag: "",
-      },
+      "Generate Test AI Reply = 1 credit.",
+      "Generate Inbox AI Reply = 1 credit.",
+      "Generate Content Studio content = 1 credit.",
+      "Website chat or WhatsApp AI reply = 1 credit.",
+      "Long content or campaign packs may use more credits later.",
     ],
   },
 
@@ -93,223 +86,110 @@ const translations = {
     badge: "Top Up Credits",
     title: "Tambah AI credits saat bisnis Anda membutuhkannya.",
     subtitle:
-      "Jaga AI staff tetap siap untuk balasan pelanggan, pembuatan konten, follow-up, dan campaign support.",
+      "Jaga AI tetap siap untuk balasan pelanggan, content generation, inbox support, WhatsApp replies, follow-up, dan campaign support.",
     loading: "Memuat saldo credits Anda...",
     failed: "Halaman top-up gagal dimuat.",
     back: "Kembali ke Dashboard",
+    refresh: "Refresh",
     currentPlan: "Paket Saat Ini",
-    currentCredits: "Credits Saat Ini",
-    creditsRemaining: "Credits Tersisa",
-    creditsUsed: "Credits Terpakai",
+    creditsLeft: "Credits Left",
+    planCredits: "Plan Credits",
+    purchasedCredits: "Top-Up Credits",
+    creditsUsed: "Credits Used",
     aiStaffLimit: "Limit AI Staff",
     creditBalance: "Saldo Credits",
     creditBalanceText:
-      "Saldo credits Anda terhubung dengan workspace Kolkap Anda.",
-    topUpPackages: "Paket Top-up",
+      "Monthly plan credits dan purchased top-up credits terhubung dengan workspace Kolkap Anda.",
+    topUpPackages: "Paket Top-Up",
     topUpPackagesText:
-      "Pilih credits tambahan saat bisnis Anda membutuhkan lebih banyak balasan AI, konten, atau campaign support.",
+      "Pilih credits tambahan saat bisnis Anda membutuhkan lebih banyak AI replies, content, atau campaign support sebelum billing cycle berikutnya.",
     howCreditsWork: "Cara Credits Digunakan",
     howCreditsWorkText:
-      "Credits digunakan saat Kolkap membantu bisnis Anda membalas, membuat konten, atau menyiapkan follow-up pelanggan.",
+      "Credits digunakan setiap kali Kolkap menghasilkan AI output untuk bisnis Anda.",
     checkout: "Checkout",
     comingSoon: "Checkout segera hadir",
     openBilling: "Buka Billing",
     choosePackage: "Pilih Paket",
-    mostPopular: "Best Value",
+    bestValue: "Best Value",
     secureCheckout: "Secure Checkout",
     secureCheckoutText:
       "Checkout pembayaran akan terhubung di sini. Setelah aktif, credits akan masuk ke workspace Anda setelah pembayaran berhasil.",
+    noCreditBalance: "Credit balance belum dibuat untuk workspace ini.",
     usageRules: [
-      "1 balasan pelanggan menggunakan 1 credit.",
-      "1 caption social media pendek menggunakan 1 credit.",
-      "1 deskripsi properti atau bisnis menggunakan 2 credits.",
-      "Konten panjang atau campaign pack menggunakan 3–5 credits tergantung panjang konten.",
-    ],
-    packages: [
-      {
-        name: "$10 Top Up",
-        price: "$10",
-        credits: "150 credits",
-        description: "Cocok untuk testing ringan dan volume pesan kecil.",
-        tag: "",
-      },
-      {
-        name: "$25 Top Up",
-        price: "$25",
-        credits: "300 credits",
-        description: "Cocok untuk aktivitas inbox yang mulai berkembang dan konten basic.",
-        tag: "",
-      },
-      {
-        name: "$50 Top Up",
-        price: "$50",
-        credits: "800 credits",
-        description: "Value lebih baik untuk balasan AI rutin dan pembuatan konten.",
-        tag: "Best Value",
-      },
-      {
-        name: "$100 Top Up",
-        price: "$100",
-        credits: "1.000 credits",
-        description: "Untuk team sibuk yang menjalankan lebih banyak balasan dan campaign.",
-        tag: "",
-      },
-    ],
-  },
-
-  zh: {
-    badge: "充值 Credits",
-    title: "当企业需要时，随时添加更多 AI credits。",
-    subtitle:
-      "让您的 AI 员工随时准备好处理客户回复、内容生成、跟进和活动支持。",
-    loading: "正在加载 credit 余额...",
-    failed: "充值页面加载失败。",
-    back: "返回仪表板",
-    currentPlan: "当前方案",
-    currentCredits: "当前 Credits",
-    creditsRemaining: "剩余 Credits",
-    creditsUsed: "已用 Credits",
-    aiStaffLimit: "AI 员工限制",
-    creditBalance: "Credits 余额",
-    creditBalanceText:
-      "您的 credit 余额已连接到 Kolkap 工作区。",
-    topUpPackages: "充值套餐",
-    topUpPackagesText:
-      "当企业需要更多 AI 回复、内容或活动支持时，可选择额外 credits。",
-    howCreditsWork: "Credits 如何使用",
-    howCreditsWorkText:
-      "当 Kolkap 帮助您的企业回复客户、生成内容或准备客户跟进时，会使用 credits。",
-    checkout: "Checkout",
-    comingSoon: "Checkout 即将推出",
-    openBilling: "打开账单",
-    choosePackage: "选择套餐",
-    mostPopular: "Best Value",
-    secureCheckout: "安全 Checkout",
-    secureCheckoutText:
-      "付款 checkout 会连接在这里。启用后，付款成功的 credits 会自动加入您的工作区。",
-    usageRules: [
-      "1 条客户回复使用 1 credit。",
-      "1 条短社交媒体文案使用 1 credit。",
-      "1 条房产或企业描述使用 2 credits。",
-      "长内容或 campaign pack 根据长度使用 3–5 credits。",
-    ],
-    packages: [
-      {
-        name: "$10 Top Up",
-        price: "$10",
-        credits: "150 credits",
-        description: "适合轻量测试和少量消息。",
-        tag: "",
-      },
-      {
-        name: "$25 Top Up",
-        price: "$25",
-        credits: "300 credits",
-        description: "适合逐渐增长的收件箱活动和基础内容。",
-        tag: "",
-      },
-      {
-        name: "$50 Top Up",
-        price: "$50",
-        credits: "800 credits",
-        description: "适合定期 AI 回复和内容工作，价值更高。",
-        tag: "Best Value",
-      },
-      {
-        name: "$100 Top Up",
-        price: "$100",
-        credits: "1,000 credits",
-        description: "适合处理更多回复和 campaign 的繁忙团队。",
-        tag: "",
-      },
-    ],
-  },
-
-  ms: {
-    badge: "Top Up Credits",
-    title: "Tambah AI credits apabila bisnes anda memerlukannya.",
-    subtitle:
-      "Pastikan AI staff sentiasa bersedia untuk balasan pelanggan, penjanaan kandungan, follow-up, dan campaign support.",
-    loading: "Memuat baki credits anda...",
-    failed: "Halaman top-up gagal dimuat.",
-    back: "Kembali ke Dashboard",
-    currentPlan: "Pakej Semasa",
-    currentCredits: "Credits Semasa",
-    creditsRemaining: "Credits Berbaki",
-    creditsUsed: "Credits Digunakan",
-    aiStaffLimit: "Limit AI Staff",
-    creditBalance: "Baki Credits",
-    creditBalanceText:
-      "Baki credits anda disambungkan dengan workspace Kolkap anda.",
-    topUpPackages: "Pakej Top-up",
-    topUpPackagesText:
-      "Pilih credits tambahan apabila bisnes anda perlukan lebih banyak balasan AI, kandungan, atau campaign support.",
-    howCreditsWork: "Cara Credits Digunakan",
-    howCreditsWorkText:
-      "Credits digunakan apabila Kolkap membantu bisnes anda membalas, menjana kandungan, atau menyediakan follow-up pelanggan.",
-    checkout: "Checkout",
-    comingSoon: "Checkout akan datang",
-    openBilling: "Buka Billing",
-    choosePackage: "Pilih Pakej",
-    mostPopular: "Best Value",
-    secureCheckout: "Secure Checkout",
-    secureCheckoutText:
-      "Checkout pembayaran akan disambungkan di sini. Selepas aktif, credits akan ditambah ke workspace anda selepas pembayaran berjaya.",
-    usageRules: [
-      "1 balasan pelanggan menggunakan 1 credit.",
-      "1 caption social media pendek menggunakan 1 credit.",
-      "1 deskripsi hartanah atau bisnes menggunakan 2 credits.",
-      "Kandungan panjang atau campaign pack menggunakan 3–5 credits bergantung pada panjang kandungan.",
-    ],
-    packages: [
-      {
-        name: "$10 Top Up",
-        price: "$10",
-        credits: "150 credits",
-        description: "Sesuai untuk testing ringan dan volume mesej kecil.",
-        tag: "",
-      },
-      {
-        name: "$25 Top Up",
-        price: "$25",
-        credits: "300 credits",
-        description: "Sesuai untuk aktiviti inbox yang mula berkembang dan kandungan asas.",
-        tag: "",
-      },
-      {
-        name: "$50 Top Up",
-        price: "$50",
-        credits: "800 credits",
-        description: "Value lebih baik untuk balasan AI rutin dan kerja kandungan.",
-        tag: "Best Value",
-      },
-      {
-        name: "$100 Top Up",
-        price: "$100",
-        credits: "1,000 credits",
-        description: "Untuk team sibuk yang menjalankan lebih banyak balasan dan campaign.",
-        tag: "",
-      },
+      "Generate Test AI Reply = 1 credit.",
+      "Generate Inbox AI Reply = 1 credit.",
+      "Generate Content Studio content = 1 credit.",
+      "Website chat atau WhatsApp AI reply = 1 credit.",
+      "Long content atau campaign packs bisa menggunakan lebih banyak credits nanti.",
     ],
   },
 };
 
+function getCreditsLeft(balance: CreditBalanceRow | null) {
+  if (!balance) return null;
+
+  return Math.max(
+    0,
+    Number(balance.plan_credits || 0) +
+      Number(balance.purchased_credits || 0) -
+      Number(balance.used_credits || 0)
+  );
+}
+
 export default function TopUpPage() {
   const { language } = useKolkapLanguage();
-  const t = translations[language as keyof typeof translations] || translations.en;
+  const t =
+    translations[language as keyof typeof translations] || translations.en;
 
   const workspaceState = useKolkapWorkspace();
+  const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
 
+  const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
+    null
+  );
+  const [isLoadingCredits, setIsLoadingCredits] = useState(false);
+  const [creditError, setCreditError] = useState("");
+
+  const creditsLeft = getCreditsLeft(creditBalance);
+  const planCredits = Number(creditBalance?.plan_credits || 0);
+  const purchasedCredits = Number(creditBalance?.purchased_credits || 0);
+  const usedCredits = Number(creditBalance?.used_credits || 0);
+  const totalCredits = planCredits + purchasedCredits;
+
   const creditUsagePercent =
-    workspaceState.creditsTotal > 0
-      ? Math.min(
-          100,
-          Math.round(
-            (workspaceState.creditsUsed / workspaceState.creditsTotal) * 100
-          )
-        )
+    totalCredits > 0
+      ? Math.min(100, Math.round((usedCredits / totalCredits) * 100))
       : 0;
+
+  async function loadCreditBalance() {
+    if (!workspace?.id) return;
+
+    setIsLoadingCredits(true);
+    setCreditError("");
+
+    const supabase = createClient();
+
+    const { data, error } = await supabase
+      .from("workspace_credit_balances")
+      .select("*")
+      .eq("workspace_id", workspace.id)
+      .maybeSingle();
+
+    if (error) {
+      setCreditError(error.message);
+      setIsLoadingCredits(false);
+      return;
+    }
+
+    setCreditBalance((data ?? null) as CreditBalanceRow | null);
+    setIsLoadingCredits(false);
+  }
+
+  useEffect(() => {
+    loadCreditBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspace?.id]);
 
   if (workspaceState.isLoading) {
     return (
@@ -346,16 +226,23 @@ export default function TopUpPage() {
       icon: WalletCards,
     },
     {
-      label: t.creditsRemaining,
-      value: `${workspaceState.creditsRemaining}`,
-      note: `${workspaceState.creditsUsed}/${workspaceState.creditsTotal} ${t.creditsUsed}`,
+      label: t.creditsLeft,
+      value: creditsLeft === null ? "—" : creditsLeft.toLocaleString(),
+      note: creditBalance ? `${usedCredits.toLocaleString()} ${t.creditsUsed}` : t.noCreditBalance,
       icon: Zap,
+      dark: true,
     },
     {
-      label: t.currentCredits,
-      value: `${workspaceState.creditsTotal}`,
+      label: t.planCredits,
+      value: planCredits.toLocaleString(),
       note: getPlanCreditLabel(currentPlan),
       icon: Sparkles,
+    },
+    {
+      label: t.purchasedCredits,
+      value: purchasedCredits.toLocaleString(),
+      note: "Purchased extra credits",
+      icon: CreditCard,
     },
     {
       label: t.aiStaffLimit,
@@ -369,47 +256,86 @@ export default function TopUpPage() {
     <main className="bg-[#F7F9FA] text-[#07111F]">
       <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8 lg:py-14">
         <div className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9 lg:p-10">
-          <Link
-            href="/dashboard"
-            className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            {t.back}
-          </Link>
+          <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <Link
+              href="/dashboard"
+              className="inline-flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              {t.back}
+            </Link>
+
+            <button
+              type="button"
+              onClick={loadCreditBalance}
+              disabled={isLoadingCredits}
+              className="inline-flex w-fit items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10 disabled:opacity-50"
+            >
+              <RefreshCcw className="h-5 w-5" />
+              {isLoadingCredits ? t.loading : t.refresh}
+            </button>
+          </div>
 
           <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
             <Sparkles className="h-5 w-5" />
             {t.badge}
           </div>
 
-          <h1 className="max-w-4xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
+          <h1 className="max-w-5xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
             {t.title}
           </h1>
 
-          <p className="mt-6 max-w-3xl text-xl font-semibold leading-9 text-slate-300">
+          <p className="mt-6 max-w-4xl text-xl font-semibold leading-9 text-slate-300">
             {t.subtitle}
           </p>
         </div>
 
-        <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {creditError ? (
+          <div className="mb-8 rounded-3xl border border-red-200 bg-red-50 p-5 text-red-700">
+            <p className="text-base font-black">{creditError}</p>
+          </div>
+        ) : null}
+
+        <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
           {summaryCards.map((card) => {
             const Icon = card.icon;
 
             return (
               <div
                 key={card.label}
-                className="rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5"
+                className={`rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 ${
+                  card.dark
+                    ? "border-[#7CFF3D] bg-[#07111F] text-white"
+                    : "border-slate-200 bg-white text-[#07111F]"
+                }`}
               >
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+                <div
+                  className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
+                    card.dark
+                      ? "bg-[#7CFF3D] text-[#07111F]"
+                      : "bg-[#07111F] text-[#7CFF3D]"
+                  }`}
+                >
                   <Icon className="h-7 w-7" />
                 </div>
-                <p className="text-lg font-black text-slate-500">
+
+                <p
+                  className={`text-lg font-black ${
+                    card.dark ? "text-slate-300" : "text-slate-500"
+                  }`}
+                >
                   {card.label}
                 </p>
+
                 <p className="mt-2 text-3xl font-black tracking-[-0.04em]">
                   {card.value}
                 </p>
-                <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
+
+                <p
+                  className={`mt-2 text-base font-semibold leading-7 ${
+                    card.dark ? "text-slate-300" : "text-slate-600"
+                  }`}
+                >
                   {card.note}
                 </p>
               </div>
@@ -437,7 +363,7 @@ export default function TopUpPage() {
               <div className="mb-3 flex items-center justify-between gap-4 text-base font-black text-slate-300">
                 <span>{t.creditsUsed}</span>
                 <span>
-                  {workspaceState.creditsUsed}/{workspaceState.creditsTotal}
+                  {usedCredits.toLocaleString()}/{totalCredits.toLocaleString()}
                 </span>
               </div>
 
@@ -451,10 +377,10 @@ export default function TopUpPage() {
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
                   <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
-                    {t.creditsRemaining}
+                    {t.creditsLeft}
                   </p>
                   <p className="mt-2 text-4xl font-black tracking-[-0.06em] text-[#7CFF3D]">
-                    {workspaceState.creditsRemaining}
+                    {creditsLeft === null ? "—" : creditsLeft.toLocaleString()}
                   </p>
                 </div>
 
@@ -482,13 +408,13 @@ export default function TopUpPage() {
             </h2>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-4">
-            {t.packages.map((pack) => {
-              const isBestValue = pack.tag === t.mostPopular || pack.tag === "Best Value";
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+            {kolkapTopUpPackages.map((pack) => {
+              const isBestValue = pack.id === "topup_250";
 
               return (
                 <div
-                  key={pack.name}
+                  key={pack.id}
                   className={`rounded-[2rem] border p-6 ${
                     isBestValue
                       ? "border-[#07111F] bg-[#07111F] text-white"
@@ -505,32 +431,22 @@ export default function TopUpPage() {
                     <Zap className="h-7 w-7" />
                   </div>
 
-                  {pack.tag ? (
-                    <div
-                      className={`mb-4 inline-flex rounded-full px-4 py-2 text-sm font-black ${
-                        isBestValue
-                          ? "bg-[#7CFF3D] text-[#07111F]"
-                          : "bg-blue-100 text-blue-700"
-                      }`}
-                    >
-                      {pack.tag}
+                  {isBestValue ? (
+                    <div className="mb-4 inline-flex rounded-full bg-[#7CFF3D] px-4 py-2 text-sm font-black text-[#07111F]">
+                      {t.bestValue}
                     </div>
                   ) : null}
 
                   <h3 className="text-3xl font-black tracking-[-0.04em]">
-                    {pack.name}
+                    ${pack.priceUsd}
                   </h3>
-
-                  <p className="mt-2 text-5xl font-black tracking-[-0.06em]">
-                    {pack.price}
-                  </p>
 
                   <p
                     className={`mt-3 text-2xl font-black ${
                       isBestValue ? "text-[#7CFF3D]" : "text-blue-600"
                     }`}
                   >
-                    {pack.credits}
+                    {pack.credits.toLocaleString()} credits
                   </p>
 
                   <p
@@ -538,7 +454,7 @@ export default function TopUpPage() {
                       isBestValue ? "text-slate-300" : "text-slate-600"
                     }`}
                   >
-                    {pack.description}
+                    Extra credits added on top of your monthly plan credits.
                   </p>
 
                   <button

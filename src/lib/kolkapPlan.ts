@@ -1,4 +1,11 @@
-export type KolkapPlanKey = "free_trial" | "growth" | "pro" | "business";
+export type KolkapPlanKey =
+  | "starter"
+  | "growth"
+  | "professional"
+  | "business"
+  | "enterprise"
+  | "free_trial"
+  | "pro";
 
 export type KolkapCreditRule = {
   label: string;
@@ -10,6 +17,7 @@ export type KolkapTopUpPackage = {
   id: string;
   priceUsd: number;
   credits: number;
+  label: string;
 };
 
 export type KolkapPlan = {
@@ -18,10 +26,15 @@ export type KolkapPlan = {
   priceLabel: string;
   monthlyPriceUsd: number | null;
   aiStaffLimit: number | "custom";
+  teamMemberLimit: number | "custom";
   monthlyCredits: number | "custom";
-  trialDays?: number;
+  trialDays: number;
+  cardRequiredForTrial: boolean;
+  trialNote: string;
   description: string;
   features: string[];
+  recommended?: boolean;
+  legacyKey?: boolean;
 };
 
 export type KolkapWorkspacePlanStatus = {
@@ -39,147 +52,296 @@ export type KolkapWorkspacePlanStatus = {
   goLiveStatus: "draft" | "testing" | "live";
 };
 
+export const KOLKAP_TRIAL_DAYS = 7;
+
+export const KOLKAP_TRIAL_NOTE =
+  "Start with a 7-day free trial. Card is required. Monthly billing starts automatically after the trial unless cancelled before the trial ends.";
+
+export const KOLKAP_DEFAULT_CREDIT_COST = 1;
+
 export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
-  free_trial: {
-    key: "free_trial",
-    name: "Free Trial",
-    priceLabel: "Free",
-    monthlyPriceUsd: 0,
+  starter: {
+    key: "starter",
+    name: "Starter AI",
+    priceLabel: "$79/month",
+    monthlyPriceUsd: 79,
     aiStaffLimit: 1,
-    monthlyCredits: 100,
-    trialDays: 14,
-    description: "Test Kolkap before choosing a paid plan.",
+    teamMemberLimit: 1,
+    monthlyCredits: 2000,
+    trialDays: KOLKAP_TRIAL_DAYS,
+    cardRequiredForTrial: true,
+    trialNote: KOLKAP_TRIAL_NOTE,
+    description:
+      "For small businesses that need one AI assistant to support replies, content, and customer questions.",
     features: [
-      "14 days free",
-      "100 AI credits",
+      "7-day free trial",
+      "Card required to start trial",
+      "2,000 AI credits/month",
       "1 AI staff",
-      "Create AI flow",
-      "Add business knowledge",
-      "Test AI replies",
+      "1 workspace",
+      "Knowledge Base",
+      "Content Studio",
+      "Test AI",
+      "Inbox manual AI replies",
+      "Usage dashboard",
     ],
   },
 
   growth: {
     key: "growth",
-    name: "Growth",
-    priceLabel: "$49.99/month",
-    monthlyPriceUsd: 49.99,
-    aiStaffLimit: 2,
-    monthlyCredits: 1500,
-    description: "For small businesses ready to use AI for replies and leads.",
+    name: "Growth AI",
+    priceLabel: "$149/month",
+    monthlyPriceUsd: 149,
+    aiStaffLimit: 3,
+    teamMemberLimit: 3,
+    monthlyCredits: 5000,
+    trialDays: KOLKAP_TRIAL_DAYS,
+    cardRequiredForTrial: true,
+    trialNote: KOLKAP_TRIAL_NOTE,
+    description:
+      "For active businesses that need more AI usage, more team access, and stronger inbox support.",
     features: [
-      "2 AI staff",
-      "1,500 AI credits/month",
-      "WhatsApp setup flow",
-      "Inbox and leads",
-      "Human handover",
-      "Social media caption generator",
+      "7-day free trial",
+      "Card required to start trial",
+      "5,000 AI credits/month",
+      "3 AI staff",
+      "3 team members",
+      "Knowledge Base",
+      "Content Studio",
+      "Test AI",
+      "Inbox AI replies",
+      "Website chat ready",
+      "Usage dashboard",
     ],
   },
 
-  pro: {
-    key: "pro",
-    name: "Pro",
-    priceLabel: "$99.00/month",
-    monthlyPriceUsd: 99,
+  professional: {
+    key: "professional",
+    name: "Professional AI",
+    priceLabel: "$249/month",
+    monthlyPriceUsd: 249,
     aiStaffLimit: 5,
-    monthlyCredits: 4000,
-    description: "For growing businesses that need more AI staff and more credits.",
+    teamMemberLimit: 10,
+    monthlyCredits: 12000,
+    trialDays: KOLKAP_TRIAL_DAYS,
+    cardRequiredForTrial: true,
+    trialNote: KOLKAP_TRIAL_NOTE,
+    recommended: true,
+    description:
+      "For growing businesses with higher message volume, more team members, and more AI staff.",
     features: [
+      "7-day free trial",
+      "Card required to start trial",
+      "12,000 AI credits/month",
       "5 AI staff",
-      "4,000 AI credits/month",
-      "WhatsApp setup flow",
-      "Inbox and leads",
+      "10 team members",
+      "Advanced Knowledge Base",
+      "Content Studio",
+      "Test AI",
+      "Inbox AI replies",
+      "WhatsApp / website chat ready",
+      "Auto-reply controls",
       "Reports",
-      "Priority support",
+      "Usage dashboard",
     ],
   },
 
   business: {
     key: "business",
-    name: "Business",
-    priceLabel: "Contact Us",
+    name: "Business AI",
+    priceLabel: "$399/month",
+    monthlyPriceUsd: 399,
+    aiStaffLimit: 10,
+    teamMemberLimit: "custom",
+    monthlyCredits: 25000,
+    trialDays: KOLKAP_TRIAL_DAYS,
+    cardRequiredForTrial: true,
+    trialNote: KOLKAP_TRIAL_NOTE,
+    description:
+      "For larger teams, agencies, and multi-channel businesses that need stronger automation and support.",
+    features: [
+      "7-day free trial",
+      "Card required to start trial",
+      "25,000 AI credits/month",
+      "10 AI staff",
+      "Custom team members",
+      "Multi-channel AI",
+      "Team inbox",
+      "Advanced Knowledge Base",
+      "Auto-reply controls",
+      "Priority support",
+      "Advanced reports",
+      "Higher automation limit",
+      "Usage dashboard",
+    ],
+  },
+
+  enterprise: {
+    key: "enterprise",
+    name: "Enterprise",
+    priceLabel: "Custom",
     monthlyPriceUsd: null,
     aiStaffLimit: "custom",
+    teamMemberLimit: "custom",
     monthlyCredits: "custom",
+    trialDays: KOLKAP_TRIAL_DAYS,
+    cardRequiredForTrial: false,
+    trialNote:
+      "Enterprise plans are customized based on business needs, volume, integrations, and onboarding requirements.",
     description:
-      "For agencies, hotels, clinics, real estate groups, and high-volume teams.",
+      "For franchises, agencies, multi-location businesses, and companies that need custom setup.",
     features: [
-      "10–20 AI staff",
       "Custom AI credits",
-      "Multiple business locations",
-      "Team access",
-      "Custom onboarding",
-      "Priority support",
+      "Custom AI staff",
+      "Custom team members",
+      "Custom AI setup",
+      "Custom integrations",
+      "Franchise / agency ready",
+      "Multi-location support",
+      "Priority onboarding",
+      "Dedicated setup",
+      "Advanced reporting",
+    ],
+  },
+
+  free_trial: {
+    key: "free_trial",
+    name: "7-Day Free Trial",
+    priceLabel: "Free for 7 days",
+    monthlyPriceUsd: 0,
+    aiStaffLimit: 1,
+    teamMemberLimit: 1,
+    monthlyCredits: 100,
+    trialDays: KOLKAP_TRIAL_DAYS,
+    cardRequiredForTrial: true,
+    trialNote: KOLKAP_TRIAL_NOTE,
+    legacyKey: true,
+    description:
+      "A short trial to test Kolkap before the selected monthly plan begins.",
+    features: [
+      "7-day free trial",
+      "Card required",
+      "100 trial credits",
+      "1 AI staff",
+      "Knowledge Base",
+      "Content Studio",
+      "Test AI",
+      "Inbox manual AI replies",
+    ],
+  },
+
+  pro: {
+    key: "pro",
+    name: "Professional AI",
+    priceLabel: "$249/month",
+    monthlyPriceUsd: 249,
+    aiStaffLimit: 5,
+    teamMemberLimit: 10,
+    monthlyCredits: 12000,
+    trialDays: KOLKAP_TRIAL_DAYS,
+    cardRequiredForTrial: true,
+    trialNote: KOLKAP_TRIAL_NOTE,
+    legacyKey: true,
+    recommended: true,
+    description:
+      "Legacy alias for Professional AI. Use professional for new code.",
+    features: [
+      "7-day free trial",
+      "Card required to start trial",
+      "12,000 AI credits/month",
+      "5 AI staff",
+      "10 team members",
+      "Advanced Knowledge Base",
+      "Content Studio",
+      "Test AI",
+      "Inbox AI replies",
+      "WhatsApp / website chat ready",
+      "Auto-reply controls",
+      "Reports",
+      "Usage dashboard",
     ],
   },
 };
 
 export const kolkapCreditRules: KolkapCreditRule[] = [
   {
-    label: "AI customer reply",
+    label: "AI reply",
     credits: 1,
-    description: "A normal customer reply generated by Kolkap AI.",
+    description:
+      "A normal AI reply generated for Inbox, WhatsApp, website chat, or customer support.",
   },
   {
-    label: "AI test message",
+    label: "Test AI reply",
     credits: 1,
     description: "A test reply generated before going live.",
   },
   {
-    label: "Social media caption",
+    label: "Content generation",
     credits: 1,
-    description: "A simple caption for Instagram, Facebook, TikTok, or LinkedIn.",
+    description:
+      "A normal content generation from Content Studio, such as a caption, announcement, promotion, or sales message.",
   },
   {
-    label: "Sales follow-up message",
+    label: "Email AI draft / reply",
     credits: 1,
-    description: "A short follow-up message for a lead or customer.",
+    description: "A normal AI-generated email draft or reply.",
   },
   {
-    label: "Property / service description",
+    label: "Long content",
     credits: 3,
-    description: "A longer description for a property, product, or service.",
+    description:
+      "A longer article, long-form response, or more detailed business content.",
   },
   {
-    label: "Long content / campaign pack",
+    label: "Campaign pack",
     credits: 5,
-    description: "Longer content such as campaigns, scripts, or content packs.",
+    description:
+      "A larger content pack such as campaign copy, multiple captions, or a script package.",
   },
 ];
 
 export const kolkapTopUpPackages: KolkapTopUpPackage[] = [
   {
-    id: "topup_10",
-    priceUsd: 10,
-    credits: 150,
+    id: "topup_15",
+    priceUsd: 15,
+    credits: 250,
+    label: "$15 = 250 credits",
   },
   {
-    id: "topup_25",
-    priceUsd: 25,
-    credits: 400,
+    id: "topup_30",
+    priceUsd: 30,
+    credits: 600,
+    label: "$30 = 600 credits",
   },
   {
-    id: "topup_50",
-    priceUsd: 50,
-    credits: 900,
+    id: "topup_60",
+    priceUsd: 60,
+    credits: 1300,
+    label: "$60 = 1,300 credits",
   },
   {
     id: "topup_100",
     priceUsd: 100,
-    credits: 2000,
+    credits: 2500,
+    label: "$100 = 2,500 credits",
+  },
+  {
+    id: "topup_250",
+    priceUsd: 250,
+    credits: 7000,
+    label: "$250 = 7,000 credits",
   },
 ];
 
 export const demoWorkspacePlanStatus: KolkapWorkspacePlanStatus = {
   businessName: "Demo Business",
-  planKey: "free_trial",
-  planName: kolkapPlans.free_trial.name,
+  planKey: "starter",
+  planName: kolkapPlans.starter.name,
   status: "trial",
-  trialDaysRemaining: 14,
-  creditsTotal: 100,
-  creditsUsed: 30,
-  creditsRemaining: 70,
+  trialDaysRemaining: 7,
+  creditsTotal: 2000,
+  creditsUsed: 1,
+  creditsRemaining: 1999,
   aiStaffLimit: 1,
   aiStaffUsed: 1,
   whatsappStatus: "not_connected",
@@ -187,7 +349,7 @@ export const demoWorkspacePlanStatus: KolkapWorkspacePlanStatus = {
 };
 
 export function getKolkapPlan(planKey: KolkapPlanKey) {
-  return kolkapPlans[planKey];
+  return kolkapPlans[planKey] || kolkapPlans.starter;
 }
 
 export function getCreditUsagePercent(status: KolkapWorkspacePlanStatus) {
@@ -223,13 +385,29 @@ export function getAIStaffLimitLabel(status: KolkapWorkspacePlanStatus) {
 export function getPlanCreditLabel(plan: KolkapPlan) {
   if (plan.monthlyCredits === "custom") return "Custom credits";
 
-  if (plan.key === "free_trial") return `${plan.monthlyCredits} AI credits`;
+  if (plan.key === "free_trial") return `${plan.monthlyCredits} trial credits`;
 
-  return `${plan.monthlyCredits.toLocaleString()} AI credits/month`;
+  return `${plan.monthlyCredits.toLocaleString()} credits/month`;
 }
 
 export function getPlanAIStaffLabel(plan: KolkapPlan) {
-  if (plan.aiStaffLimit === "custom") return "10–20 AI staff";
+  if (plan.aiStaffLimit === "custom") return "Custom AI staff";
 
   return `${plan.aiStaffLimit} AI staff`;
+}
+
+export function getPlanTeamMemberLabel(plan: KolkapPlan) {
+  if (plan.teamMemberLimit === "custom") return "Custom team members";
+
+  return `${plan.teamMemberLimit} team member${
+    plan.teamMemberLimit === 1 ? "" : "s"
+  }`;
+}
+
+export function getCreditCostLabel(credits = KOLKAP_DEFAULT_CREDIT_COST) {
+  return `${credits} Credit${credits === 1 ? "" : "s"}`;
+}
+
+export function getGenerateButtonLabel(action = "Generate", credits = 1) {
+  return `${action} for ${getCreditCostLabel(credits)}`;
 }

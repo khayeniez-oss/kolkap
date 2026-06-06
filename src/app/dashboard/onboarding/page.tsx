@@ -1,16 +1,21 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  BarChart3,
   BookOpen,
   Bot,
   Building2,
   CheckCircle2,
+  CreditCard,
   MessageCircle,
   PlayCircle,
   PlugZap,
+  Rocket,
   Settings,
   ShieldCheck,
   Sparkles,
+  WalletCards,
+  Zap,
 } from "lucide-react";
 import KolkapLogo from "@/components/brand/KolkapLogo";
 
@@ -18,93 +23,121 @@ const navItems = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Onboarding", href: "/dashboard/onboarding" },
   { label: "AI Brain", href: "/dashboard/ai-brain" },
-  { label: "AI Staff", href: "/dashboard/agents" },
+  { label: "AI Staff", href: "/dashboard/create-ai" },
   { label: "Knowledge", href: "/dashboard/knowledge-base" },
   { label: "Inbox", href: "/dashboard/inbox" },
-  { label: "Leads", href: "/dashboard/leads" },
+  { label: "Usage", href: "/dashboard/usage" },
   { label: "Billing", href: "/dashboard/billing" },
 ];
 
 const setupSteps = [
   {
     step: "01",
-    title: "Complete business profile",
-    text: "Add business name, industry, website, WhatsApp number, support hours, and company description.",
-    href: "/dashboard/settings",
-    icon: Building2,
-    status: "In progress",
+    title: "Start your free trial",
+    text: "Choose a plan and activate your 7-day free trial. Payment method is needed to activate your trial, but you won’t be charged today.",
+    href: "/pricing",
+    icon: CreditCard,
+    status: "Trial",
   },
   {
     step: "02",
-    title: "Create your first AI staff",
-    text: "Choose AI receptionist, WhatsApp responder, customer support, copywriter, or another AI role.",
-    href: "/dashboard/agents/new",
-    icon: Bot,
-    status: "Next",
+    title: "Complete business profile",
+    text: "Add business name, industry, website, WhatsApp number, support details, and company description.",
+    href: "/dashboard/settings",
+    icon: Building2,
+    status: "Required",
   },
   {
     step: "03",
+    title: "Create your first AI staff",
+    text: "Create an AI receptionist, WhatsApp responder, customer support assistant, copywriter, or another AI role.",
+    href: "/dashboard/create-ai",
+    icon: Bot,
+    status: "Required",
+  },
+  {
+    step: "04",
     title: "Add business knowledge",
-    text: "Upload FAQs, pricing, services, policies, files, and approved answers so your AI does not guess.",
+    text: "Add FAQs, pricing, services, policies, approved answers, and business rules so your AI can answer accurately.",
     href: "/dashboard/knowledge-base",
     icon: BookOpen,
     status: "Required",
   },
   {
-    step: "04",
-    title: "Connect customer channel",
-    text: "Connect WhatsApp, website chat, email, or webhook so real customer messages can reach Kolkap.",
-    href: "/dashboard/integrations",
-    icon: PlugZap,
-    status: "Required",
-  },
-  {
     step: "05",
     title: "Test the AI safely",
-    text: "Send sample questions, review replies, check knowledge sources, and confirm handover rules.",
-    href: "/dashboard/agents/new",
+    text: "Use Test AI to send sample customer questions, review replies, and improve your Knowledge Base before real customers see it.",
+    href: "/dashboard/test-ai",
     icon: PlayCircle,
     status: "Before live",
   },
   {
     step: "06",
+    title: "Check usage and credits",
+    text: "Every successful AI generation uses credits. Test AI, Inbox AI Reply, Content Studio, website chat, and WhatsApp AI replies normally use 1 credit.",
+    href: "/dashboard/usage",
+    icon: BarChart3,
+    status: "Important",
+  },
+  {
+    step: "07",
+    title: "Connect customer channel",
+    text: "Connect WhatsApp, website chat, email, or another customer channel so real messages can reach Kolkap.",
+    href: "/dashboard/integrations",
+    icon: PlugZap,
+    status: "Channel",
+  },
+  {
+    step: "08",
     title: "Go live",
-    text: "Activate AI replies once the business profile, AI staff, knowledge, and channel setup are ready.",
-    href: "/dashboard",
-    icon: Sparkles,
+    text: "Activate AI replies only after business profile, AI staff, knowledge, testing, credits, and channel setup are ready.",
+    href: "/dashboard/go-live",
+    icon: Rocket,
     status: "Final step",
   },
 ];
 
 const readinessItems = [
   {
+    label: "Trial / plan",
+    value: "Required",
+    note: "Free trial or active subscription should be ready before live.",
+  },
+  {
     label: "Business profile",
-    value: "40%",
-    note: "Basic business details added",
+    value: "Required",
+    note: "Business details help the AI answer correctly.",
   },
   {
     label: "AI staff setup",
-    value: "20%",
-    note: "First AI role not fully configured",
+    value: "Required",
+    note: "At least one AI staff should be created and configured.",
   },
   {
     label: "Knowledge base",
-    value: "10%",
-    note: "Add FAQs, pricing, services, and policies",
+    value: "Required",
+    note: "Add FAQs, pricing, services, policies, and approved answers.",
+  },
+  {
+    label: "Credits",
+    value: "Required",
+    note: "AI replies and generations use credits. Auto-reply should pause if credits run out.",
   },
   {
     label: "Channel connection",
-    value: "0%",
-    note: "No WhatsApp or website chat connected yet",
+    value: "Recommended",
+    note: "Connect WhatsApp, website chat, email, or another customer channel.",
   },
 ];
 
 const safetyRules = [
-  "AI must know the business_id before replying.",
-  "AI must only use the correct business knowledge base.",
-  "AI must hand over payment, legal, complaints, and urgent requests.",
-  "AI must save conversations to the correct business inbox.",
-  "AI must create leads under the correct business workspace.",
+  "Payment method is needed to activate the free trial, but the user is not charged today.",
+  "Monthly billing starts after the 7-day trial unless cancelled before the trial ends.",
+  "AI must use the correct business workspace and Knowledge Base.",
+  "Every successful AI generation or AI reply should consume credits.",
+  "Auto-reply should pause if the workspace has no credits left.",
+  "Human review should be available for sensitive issues, complaints, payment questions, legal questions, or urgent cases.",
+  "Conversations and leads must be saved under the correct business workspace.",
 ];
 
 export default function OnboardingPage() {
@@ -144,13 +177,13 @@ export default function OnboardingPage() {
 
             <p className="mt-6 max-w-2xl text-xl font-semibold leading-9 text-slate-300">
               Follow the setup path so your AI staff can reply safely, use the
-              correct business knowledge, capture leads, and hand over when
-              needed.
+              correct business knowledge, capture leads, and manage credits
+              before real customer conversations begin.
             </p>
 
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <Link
-                href="/dashboard/agents/new"
+                href="/dashboard/create-ai"
                 className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-7 py-4 text-lg font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
               >
                 Create AI Staff
@@ -177,21 +210,31 @@ export default function OnboardingPage() {
             </p>
 
             <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
-              Your setup is not live yet
+              Do not go live until the basics are ready.
             </h2>
 
             <p className="mt-4 text-xl font-semibold leading-9 text-slate-600">
-              Kolkap should only go live after business profile, AI staff,
-              knowledge base, and channel connection are ready.
+              Kolkap should only go live after your plan, business profile, AI
+              staff, knowledge, testing, credits, and customer channel are ready.
             </p>
 
-            <div className="mt-6 h-4 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full w-[22%] rounded-full bg-[#7CFF3D]" />
+            <div className="mt-7 grid gap-3">
+              <Link
+                href="/dashboard/go-live"
+                className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-base font-black text-white"
+              >
+                Go Live Checklist
+                <Rocket className="h-5 w-5" />
+              </Link>
+
+              <Link
+                href="/dashboard/usage"
+                className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-6 py-4 text-base font-black text-[#07111F]"
+              >
+                Check Usage
+                <BarChart3 className="h-5 w-5" />
+              </Link>
             </div>
-
-            <p className="mt-3 text-lg font-black text-slate-600">
-              22% setup completed
-            </p>
           </div>
         </section>
 
@@ -207,8 +250,8 @@ export default function OnboardingPage() {
             </div>
 
             <p className="max-w-xl text-lg font-semibold leading-8 text-slate-600">
-              This page is the visual onboarding flow. Later, each step will
-              read real completion status from Supabase.
+              This onboarding page explains the safe setup path before AI
+              replies are activated for real customers.
             </p>
           </div>
 
@@ -268,7 +311,7 @@ export default function OnboardingPage() {
                   Readiness Details
                 </p>
                 <h2 className="mt-1 text-3xl font-black tracking-[-0.04em]">
-                  What still needs work
+                  What must be ready
                 </h2>
               </div>
             </div>
@@ -279,7 +322,7 @@ export default function OnboardingPage() {
                   key={item.label}
                   className="rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5"
                 >
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-xl font-black">{item.label}</p>
                       <p className="mt-2 text-lg font-semibold leading-8 text-slate-600">
@@ -287,16 +330,9 @@ export default function OnboardingPage() {
                       </p>
                     </div>
 
-                    <span className="rounded-full bg-white px-4 py-2 text-lg font-black text-[#07111F]">
+                    <span className="w-fit rounded-full bg-white px-4 py-2 text-base font-black text-[#07111F]">
                       {item.value}
                     </span>
-                  </div>
-
-                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-white">
-                    <div
-                      className="h-full rounded-full bg-[#7CFF3D]"
-                      style={{ width: item.value }}
-                    />
                   </div>
                 </div>
               ))}
@@ -345,19 +381,29 @@ export default function OnboardingPage() {
               </h2>
 
               <p className="mt-5 text-xl font-semibold leading-9 text-slate-300">
-                Later the “Go Live” button should stay locked until profile,
-                AI staff, knowledge base, channel connection, and AI testing are
-                completed.
+                Auto-reply should only run when there is an active trial or
+                plan, at least one AI staff, enough business knowledge, and
+                available credits. Every successful AI reply uses 1 credit.
               </p>
             </div>
 
-            <Link
-              href="/dashboard/integrations"
-              className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
-            >
-              Continue Setup
-              <MessageCircle className="h-6 w-6" />
-            </Link>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Link
+                href="/dashboard/go-live"
+                className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
+              >
+                Continue Setup
+                <Rocket className="h-6 w-6" />
+              </Link>
+
+              <Link
+                href="/dashboard/top-up"
+                className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-8 py-5 text-xl font-black text-white"
+              >
+                Manage Credits
+                <WalletCards className="h-6 w-6" />
+              </Link>
+            </div>
           </div>
         </section>
       </div>

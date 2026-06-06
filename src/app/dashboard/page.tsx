@@ -38,7 +38,24 @@ type DashboardStats = {
   conversationCount: number;
   leadCount: number;
   handoverCount: number;
+  usageEventCount: number;
+  creditsUsedToday: number;
   latestConversation: string;
+};
+
+type CreditBalanceRow = {
+  id: string;
+  workspace_id: string;
+  owner_user_id: string;
+  plan_name: string;
+  plan_credits: number;
+  purchased_credits: number;
+  used_credits: number;
+  billing_period_start: string | null;
+  billing_period_end: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
 };
 
 type DashboardTranslation = {
@@ -50,6 +67,10 @@ type DashboardTranslation = {
   refresh: string;
   currentPlan: string;
   credits: string;
+  creditsLeft: string;
+  creditsUsed: string;
+  usage: string;
+  usageToday: string;
   aiStaff: string;
   conversations: string;
   leads: string;
@@ -81,6 +102,7 @@ type DashboardTranslation = {
   team: string;
   contentStudio: string;
   knowledgeBase: string;
+  usagePage: string;
   stepBusiness: string;
   stepBusinessText: string;
   stepCreateAI: string;
@@ -93,6 +115,10 @@ type DashboardTranslation = {
   stepInboxText: string;
   stepLeads: string;
   stepLeadsText: string;
+  noCreditBalance: string;
+  usedFromBalance: string;
+  remainingBalance: string;
+  includedCredits: string;
   status: Record<string, string>;
 };
 
@@ -101,12 +127,16 @@ const translations: Record<string, DashboardTranslation> = {
     badge: "User Dashboard",
     title: "Your Kolkap workspace is ready.",
     subtitle:
-      "Manage your AI staff, test replies, activate your AI, track conversations, and follow up with customer leads from one clear dashboard.",
+      "Manage your AI staff, test replies, activate your AI, track usage, monitor credits, and follow up with customer leads from one clear dashboard.",
     loading: "Loading your dashboard...",
     failed: "Dashboard could not load.",
     refresh: "Refresh",
     currentPlan: "Current Plan",
     credits: "Credits",
+    creditsLeft: "Credits Left",
+    creditsUsed: "Credits Used",
+    usage: "Usage",
+    usageToday: "Credits used today",
     aiStaff: "AI Staff",
     conversations: "Conversations",
     leads: "Leads",
@@ -122,7 +152,7 @@ const translations: Record<string, DashboardTranslation> = {
       "This is the recommended setup flow for every business owner using Kolkap.",
     management: "Workspace Management",
     managementText:
-      "Manage billing, credits, settings, reports, team access, and business knowledge.",
+      "Manage billing, credits, usage, settings, reports, team access, and business knowledge.",
     latestActivity: "Latest Activity",
     latestActivityText:
       "Your latest customer activity will appear here once your inbox starts receiving conversations.",
@@ -142,6 +172,7 @@ const translations: Record<string, DashboardTranslation> = {
     team: "Team",
     contentStudio: "Content Studio",
     knowledgeBase: "Knowledge Base",
+    usagePage: "Usage",
     stepBusiness: "1. Review Business",
     stepBusinessText:
       "Check your business profile, contact details, WhatsApp number, and workspace summary.",
@@ -160,6 +191,10 @@ const translations: Record<string, DashboardTranslation> = {
     stepLeads: "6. Leads",
     stepLeadsText:
       "Track customer opportunities, update lead status, and follow up with potential buyers.",
+    noCreditBalance: "Credit balance not found yet.",
+    usedFromBalance: "Used from balance",
+    remainingBalance: "Remaining balance",
+    includedCredits: "Included credits",
     status: {
       trial: "Trial",
       active: "Active",
@@ -178,12 +213,16 @@ const translations: Record<string, DashboardTranslation> = {
     badge: "User Dashboard",
     title: "Workspace Kolkap Anda sudah siap.",
     subtitle:
-      "Kelola AI staff, test balasan, aktifkan AI, pantau percakapan, dan follow up leads pelanggan dari satu dashboard yang jelas.",
+      "Kelola AI staff, test balasan, aktifkan AI, pantau usage, monitor credits, dan follow up leads pelanggan dari satu dashboard yang jelas.",
     loading: "Memuat dashboard Anda...",
     failed: "Dashboard gagal dimuat.",
     refresh: "Refresh",
     currentPlan: "Paket Saat Ini",
     credits: "Credits",
+    creditsLeft: "Credits Left",
+    creditsUsed: "Credits Used",
+    usage: "Usage",
+    usageToday: "Credits used today",
     aiStaff: "AI Staff",
     conversations: "Percakapan",
     leads: "Leads",
@@ -199,7 +238,7 @@ const translations: Record<string, DashboardTranslation> = {
       "Ini adalah alur setup yang disarankan untuk setiap pemilik bisnis di Kolkap.",
     management: "Manajemen Workspace",
     managementText:
-      "Kelola billing, credits, settings, reports, team access, dan business knowledge.",
+      "Kelola billing, credits, usage, settings, reports, team access, dan business knowledge.",
     latestActivity: "Aktivitas Terbaru",
     latestActivityText:
       "Aktivitas pelanggan terbaru akan muncul di sini setelah inbox mulai menerima percakapan.",
@@ -219,6 +258,7 @@ const translations: Record<string, DashboardTranslation> = {
     team: "Team",
     contentStudio: "Content Studio",
     knowledgeBase: "Knowledge Base",
+    usagePage: "Usage",
     stepBusiness: "1. Review Bisnis",
     stepBusinessText:
       "Cek profil bisnis, detail kontak, nomor WhatsApp, dan ringkasan workspace.",
@@ -237,6 +277,10 @@ const translations: Record<string, DashboardTranslation> = {
     stepLeads: "6. Leads",
     stepLeadsText:
       "Pantau peluang customer, update status lead, dan follow up calon pembeli.",
+    noCreditBalance: "Credit balance belum ditemukan.",
+    usedFromBalance: "Used from balance",
+    remainingBalance: "Remaining balance",
+    includedCredits: "Included credits",
     status: {
       trial: "Trial",
       active: "Aktif",
@@ -255,12 +299,16 @@ const translations: Record<string, DashboardTranslation> = {
     badge: "用户仪表板",
     title: "您的 Kolkap 工作区已准备好。",
     subtitle:
-      "在一个清晰的仪表板中管理 AI 员工、测试回复、启用 AI、查看对话并跟进客户线索。",
+      "在一个清晰的仪表板中管理 AI 员工、测试回复、启用 AI、查看 usage、监控 credits 并跟进客户线索。",
     loading: "正在加载仪表板...",
     failed: "仪表板加载失败。",
     refresh: "刷新",
     currentPlan: "当前方案",
     credits: "Credits",
+    creditsLeft: "剩余 Credits",
+    creditsUsed: "已用 Credits",
+    usage: "Usage",
+    usageToday: "今日使用 Credits",
     aiStaff: "AI 员工",
     conversations: "对话",
     leads: "线索",
@@ -273,7 +321,7 @@ const translations: Record<string, DashboardTranslation> = {
     businessFlow: "主要业务流程",
     businessFlowText: "这是每位 Kolkap 企业主推荐的设置流程。",
     management: "工作区管理",
-    managementText: "管理账单、credits、设置、报告、团队和企业知识。",
+    managementText: "管理账单、credits、usage、设置、报告、团队和企业知识。",
     latestActivity: "最新活动",
     latestActivityText: "客户对话开始进入收件箱后，最新活动会显示在这里。",
     noActivity: "暂无客户对话。",
@@ -292,6 +340,7 @@ const translations: Record<string, DashboardTranslation> = {
     team: "团队",
     contentStudio: "内容工作室",
     knowledgeBase: "知识库",
+    usagePage: "Usage",
     stepBusiness: "1. 查看企业资料",
     stepBusinessText: "检查企业资料、联系方式、WhatsApp 号码和工作区摘要。",
     stepCreateAI: "2. 创建 AI",
@@ -304,6 +353,10 @@ const translations: Record<string, DashboardTranslation> = {
     stepInboxText: "查看客户对话、AI 回复、人工回复和接手请求。",
     stepLeads: "6. 线索",
     stepLeadsText: "追踪客户机会，更新线索状态，并跟进潜在客户。",
+    noCreditBalance: "尚未找到 credit balance。",
+    usedFromBalance: "已使用",
+    remainingBalance: "剩余余额",
+    includedCredits: "包含 credits",
     status: {
       trial: "试用",
       active: "有效",
@@ -322,12 +375,16 @@ const translations: Record<string, DashboardTranslation> = {
     badge: "User Dashboard",
     title: "Workspace Kolkap anda sudah siap.",
     subtitle:
-      "Urus AI staff, test balasan, aktifkan AI, pantau perbualan, dan follow up leads pelanggan dari satu dashboard yang jelas.",
+      "Urus AI staff, test balasan, aktifkan AI, pantau usage, monitor credits, dan follow up leads pelanggan dari satu dashboard yang jelas.",
     loading: "Memuat dashboard anda...",
     failed: "Dashboard gagal dimuat.",
     refresh: "Refresh",
     currentPlan: "Pakej Semasa",
     credits: "Credits",
+    creditsLeft: "Credits Left",
+    creditsUsed: "Credits Used",
+    usage: "Usage",
+    usageToday: "Credits used today",
     aiStaff: "AI Staff",
     conversations: "Perbualan",
     leads: "Leads",
@@ -343,7 +400,7 @@ const translations: Record<string, DashboardTranslation> = {
       "Ini ialah alur setup yang disarankan untuk setiap pemilik bisnes di Kolkap.",
     management: "Pengurusan Workspace",
     managementText:
-      "Urus billing, credits, settings, reports, team access, dan business knowledge.",
+      "Urus billing, credits, usage, settings, reports, team access, dan business knowledge.",
     latestActivity: "Aktiviti Terbaru",
     latestActivityText:
       "Aktiviti pelanggan terbaru akan muncul di sini selepas inbox mula menerima perbualan.",
@@ -363,6 +420,7 @@ const translations: Record<string, DashboardTranslation> = {
     team: "Team",
     contentStudio: "Content Studio",
     knowledgeBase: "Knowledge Base",
+    usagePage: "Usage",
     stepBusiness: "1. Review Bisnes",
     stepBusinessText:
       "Semak profil bisnes, detail kontak, nombor WhatsApp, dan ringkasan workspace.",
@@ -381,6 +439,10 @@ const translations: Record<string, DashboardTranslation> = {
     stepLeads: "6. Leads",
     stepLeadsText:
       "Pantau peluang customer, update status lead, dan follow up bakal pelanggan.",
+    noCreditBalance: "Credit balance belum dijumpai.",
+    usedFromBalance: "Used from balance",
+    remainingBalance: "Remaining balance",
+    includedCredits: "Included credits",
     status: {
       trial: "Trial",
       active: "Aktif",
@@ -397,14 +459,32 @@ const translations: Record<string, DashboardTranslation> = {
 };
 
 function getAIStaffLimit(planKey: KolkapPlanKey) {
-  if (planKey === "free_trial") return 1;
-  if (planKey === "growth") return 2;
-  if (planKey === "pro") return 5;
-  return 20;
+  const plan = getKolkapPlan(planKey);
+
+  if (plan.aiStaffLimit === "custom") return "custom";
+
+  return plan.aiStaffLimit;
 }
 
 function statusLabel(t: DashboardTranslation, value: string) {
   return t.status[value] || value;
+}
+
+function getCreditsLeft(balance: CreditBalanceRow | null) {
+  if (!balance) return null;
+
+  return Math.max(
+    0,
+    Number(balance.plan_credits || 0) +
+      Number(balance.purchased_credits || 0) -
+      Number(balance.used_credits || 0)
+  );
+}
+
+function getTodayStartIso() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString();
 }
 
 export default function DashboardPage() {
@@ -421,11 +501,24 @@ export default function DashboardPage() {
     conversationCount: 0,
     leadCount: 0,
     handoverCount: 0,
+    usageEventCount: 0,
+    creditsUsedToday: 0,
     latestConversation: "",
   });
+
+  const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
+    null
+  );
+
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [statsError, setStatsError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+
+  const creditsLeft = getCreditsLeft(creditBalance);
+  const usedCredits = Number(creditBalance?.used_credits || 0);
+  const planCredits = Number(creditBalance?.plan_credits || 0);
+  const purchasedCredits = Number(creditBalance?.purchased_credits || 0);
+  const totalCredits = planCredits + purchasedCredits;
 
   useEffect(() => {
     let isMounted = true;
@@ -437,35 +530,59 @@ export default function DashboardPage() {
       setStatsError("");
 
       const supabase = createClient();
+      const todayStart = getTodayStartIso();
 
-      const [aiResult, conversationResult, leadResult, handoverResult, latestResult] =
-        await Promise.all([
-          supabase
-            .from("ai_staff")
-            .select("id", { count: "exact", head: true })
-            .eq("workspace_id", workspace.id),
-          supabase
-            .from("customer_conversations")
-            .select("id", { count: "exact", head: true })
-            .eq("workspace_id", workspace.id),
-          supabase
-            .from("customer_conversations")
-            .select("id", { count: "exact", head: true })
-            .eq("workspace_id", workspace.id)
-            .neq("lead_status", "closed"),
-          supabase
-            .from("customer_conversations")
-            .select("id", { count: "exact", head: true })
-            .eq("workspace_id", workspace.id)
-            .eq("handover_requested", true),
-          supabase
-            .from("customer_conversations")
-            .select("last_message")
-            .eq("workspace_id", workspace.id)
-            .order("last_message_at", { ascending: false, nullsFirst: false })
-            .limit(1)
-            .maybeSingle(),
-        ]);
+      const [
+        aiResult,
+        conversationResult,
+        leadResult,
+        handoverResult,
+        latestResult,
+        creditResult,
+        usageResult,
+        todayUsageResult,
+      ] = await Promise.all([
+        supabase
+          .from("ai_staff")
+          .select("id", { count: "exact", head: true })
+          .eq("workspace_id", workspace.id),
+        supabase
+          .from("customer_conversations")
+          .select("id", { count: "exact", head: true })
+          .eq("workspace_id", workspace.id),
+        supabase
+          .from("customer_conversations")
+          .select("id", { count: "exact", head: true })
+          .eq("workspace_id", workspace.id)
+          .neq("lead_status", "closed"),
+        supabase
+          .from("customer_conversations")
+          .select("id", { count: "exact", head: true })
+          .eq("workspace_id", workspace.id)
+          .eq("handover_requested", true),
+        supabase
+          .from("customer_conversations")
+          .select("last_message")
+          .eq("workspace_id", workspace.id)
+          .order("last_message_at", { ascending: false, nullsFirst: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("workspace_credit_balances")
+          .select("*")
+          .eq("workspace_id", workspace.id)
+          .maybeSingle(),
+        supabase
+          .from("workspace_usage_events")
+          .select("id", { count: "exact", head: true })
+          .eq("workspace_id", workspace.id),
+        supabase
+          .from("workspace_usage_events")
+          .select("credits_used")
+          .eq("workspace_id", workspace.id)
+          .eq("status", "success")
+          .gte("created_at", todayStart),
+      ]);
 
       if (!isMounted) return;
 
@@ -474,7 +591,10 @@ export default function DashboardPage() {
         conversationResult.error ||
         leadResult.error ||
         handoverResult.error ||
-        latestResult.error;
+        latestResult.error ||
+        creditResult.error ||
+        usageResult.error ||
+        todayUsageResult.error;
 
       if (firstError) {
         setStatsError(firstError.message);
@@ -482,11 +602,20 @@ export default function DashboardPage() {
         return;
       }
 
+      const todayCreditsUsed = (todayUsageResult.data ?? []).reduce(
+        (sum, row) => sum + Number(row.credits_used || 0),
+        0
+      );
+
+      setCreditBalance((creditResult.data ?? null) as CreditBalanceRow | null);
+
       setStats({
         aiStaffCount: aiResult.count ?? 0,
         conversationCount: conversationResult.count ?? 0,
         leadCount: leadResult.count ?? 0,
         handoverCount: handoverResult.count ?? 0,
+        usageEventCount: usageResult.count ?? 0,
+        creditsUsedToday: todayCreditsUsed,
         latestConversation: latestResult.data?.last_message ?? "",
       });
 
@@ -509,15 +638,28 @@ export default function DashboardPage() {
       href: "/dashboard/billing",
     },
     {
-      label: t.credits,
-      value: `${workspaceState.creditsRemaining}/${workspaceState.creditsTotal}`,
-      note: getPlanCreditLabel(currentPlan),
-      icon: Zap,
-      href: "/dashboard/top-up",
+      label: t.creditsLeft,
+      value: creditsLeft === null ? "—" : creditsLeft.toLocaleString(),
+      note: creditBalance
+        ? `${usedCredits.toLocaleString()} ${t.usedFromBalance}`
+        : t.noCreditBalance,
+      icon: CreditCard,
+      href: "/dashboard/usage",
+      dark: true,
+    },
+    {
+      label: t.usage,
+      value: isLoadingStats ? "..." : `${stats.usageEventCount}`,
+      note: `${stats.creditsUsedToday.toLocaleString()} ${t.usageToday}`,
+      icon: BarChart3,
+      href: "/dashboard/usage",
     },
     {
       label: t.aiStaff,
-      value: `${stats.aiStaffCount}/${aiLimit}`,
+      value:
+        aiLimit === "custom"
+          ? `${stats.aiStaffCount}/Custom`
+          : `${stats.aiStaffCount}/${aiLimit}`,
       note: getPlanAIStaffLabel(currentPlan),
       icon: Bot,
       href: "/dashboard/create-ai",
@@ -545,10 +687,22 @@ export default function DashboardPage() {
       icon: TestTube2,
     },
     {
+      title: t.contentStudio,
+      text: "Generate business content for 1 credit per successful generation.",
+      href: "/dashboard/content-studio",
+      icon: FileText,
+    },
+    {
       title: t.openInbox,
       text: t.stepInboxText,
       href: "/dashboard/inbox",
       icon: Inbox,
+    },
+    {
+      title: t.usagePage,
+      text: "Track credits used, credits left, AI actions, and workspace activity.",
+      href: "/dashboard/usage",
+      icon: BarChart3,
     },
     {
       title: t.viewLeads,
@@ -609,6 +763,11 @@ export default function DashboardPage() {
       icon: CreditCard,
     },
     {
+      title: t.usagePage,
+      href: "/dashboard/usage",
+      icon: BarChart3,
+    },
+    {
       title: t.topUp,
       href: "/dashboard/top-up",
       icon: WalletCards,
@@ -649,7 +808,12 @@ export default function DashboardPage() {
     ];
 
     return items.filter(Boolean).length;
-  }, [workspace, stats.aiStaffCount, stats.conversationCount, workspaceState.goLiveStatus]);
+  }, [
+    workspace,
+    stats.aiStaffCount,
+    stats.conversationCount,
+    workspaceState.goLiveStatus,
+  ]);
 
   if (workspaceState.isLoading) {
     return (
@@ -669,7 +833,9 @@ export default function DashboardPage() {
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
             <p className="text-xl font-black">{t.failed}</p>
-            <p className="mt-2 text-base font-semibold">{workspaceState.error}</p>
+            <p className="mt-2 text-base font-semibold">
+              {workspaceState.error}
+            </p>
           </div>
         </section>
       </main>
@@ -725,19 +891,19 @@ export default function DashboardPage() {
 
             <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
               <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
-                {t.conversations}
+                {t.creditsLeft}
               </p>
-              <p className="mt-2 text-2xl font-black">
-                {isLoadingStats ? "..." : stats.conversationCount}
+              <p className="mt-2 text-2xl font-black text-[#7CFF3D]">
+                {creditsLeft === null ? "—" : creditsLeft.toLocaleString()}
               </p>
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
               <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
-                {t.leads}
+                {t.usage}
               </p>
               <p className="mt-2 text-2xl font-black">
-                {isLoadingStats ? "..." : stats.leadCount}
+                {isLoadingStats ? "..." : stats.usageEventCount}
               </p>
             </div>
           </div>
@@ -749,7 +915,7 @@ export default function DashboardPage() {
           </div>
         ) : null}
 
-        <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
           {summaryCards.map((card) => {
             const Icon = card.icon;
 
@@ -757,16 +923,36 @@ export default function DashboardPage() {
               <Link
                 key={card.label}
                 href={card.href}
-                className="group rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-900/10"
+                className={`group rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-900/10 ${
+                  card.dark
+                    ? "border-[#7CFF3D] bg-[#07111F] text-white"
+                    : "border-slate-200 bg-white text-[#07111F]"
+                }`}
               >
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+                <div
+                  className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
+                    card.dark
+                      ? "bg-[#7CFF3D] text-[#07111F]"
+                      : "bg-[#07111F] text-[#7CFF3D]"
+                  }`}
+                >
                   <Icon className="h-7 w-7" />
                 </div>
-                <p className="text-lg font-black text-slate-500">{card.label}</p>
+                <p
+                  className={`text-lg font-black ${
+                    card.dark ? "text-slate-300" : "text-slate-500"
+                  }`}
+                >
+                  {card.label}
+                </p>
                 <p className="mt-2 text-3xl font-black tracking-[-0.04em]">
                   {card.value}
                 </p>
-                <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
+                <p
+                  className={`mt-2 text-base font-semibold leading-7 ${
+                    card.dark ? "text-slate-300" : "text-slate-600"
+                  }`}
+                >
                   {card.note}
                 </p>
                 <div className="mt-5 inline-flex items-center gap-2 text-sm font-black text-blue-600">
@@ -777,6 +963,66 @@ export default function DashboardPage() {
             );
           })}
         </div>
+
+        <section className="mb-8 rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
+          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+                <Zap className="h-8 w-8" />
+              </div>
+
+              <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+                {t.credits}
+              </p>
+
+              <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
+                {t.creditsLeft}:{" "}
+                {creditsLeft === null ? "—" : creditsLeft.toLocaleString()}
+              </h2>
+
+              <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
+                {creditBalance
+                  ? `${usedCredits.toLocaleString()} ${t.usedFromBalance} • ${totalCredits.toLocaleString()} ${t.includedCredits}`
+                  : t.noCreditBalance}
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Link
+                href="/dashboard/usage"
+                className="rounded-[2rem] bg-[#07111F] p-6 text-white"
+              >
+                <BarChart3 className="mb-5 h-9 w-9 text-[#7CFF3D]" />
+                <p className="text-xl font-black">{t.usagePage}</p>
+                <p className="mt-2 text-sm font-semibold text-slate-300">
+                  {t.creditsUsed}: {usedCredits.toLocaleString()}
+                </p>
+              </Link>
+
+              <Link
+                href="/dashboard/billing"
+                className="rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-6"
+              >
+                <CreditCard className="mb-5 h-9 w-9 text-[#07111F]" />
+                <p className="text-xl font-black">{t.billing}</p>
+                <p className="mt-2 text-sm font-semibold text-slate-600">
+                  {currentPlan.priceLabel}
+                </p>
+              </Link>
+
+              <Link
+                href="/dashboard/top-up"
+                className="rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-6"
+              >
+                <WalletCards className="mb-5 h-9 w-9 text-[#07111F]" />
+                <p className="text-xl font-black">{t.topUp}</p>
+                <p className="mt-2 text-sm font-semibold text-slate-600">
+                  {getPlanCreditLabel(currentPlan)}
+                </p>
+              </Link>
+            </div>
+          </div>
+        </section>
 
         <div className="mb-8 grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
           <section className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
@@ -902,7 +1148,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {managementCards.map((item) => {
               const Icon = item.icon;
 
