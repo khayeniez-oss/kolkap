@@ -35,20 +35,30 @@ const publicPlanKeys: KolkapPlanKey[] = [
   "enterprise",
 ];
 
+function getTrialHref(planKey: KolkapPlanKey) {
+  if (planKey === "enterprise") return "/contact";
+
+  return `/signup?next=${encodeURIComponent(
+    `/dashboard/activate-trial?plan=${planKey}`
+  )}`;
+}
+
 const translations = {
   en: {
     badge: "Kolkap Pricing",
     title: "AI staff pricing for serious business owners.",
     subtitle:
-      "Start with a 7-day free trial. Card is required. After the trial, monthly billing starts automatically unless cancelled before the trial ends.",
+      "Start with a 7-day free trial. Payment method needed to activate your trial. You won’t be charged today.",
     month: "/month",
     startTrial: "Start 7-Day Free Trial",
     contactUs: "Contact Us",
     popular: "Recommended",
     included: "Included",
-    cardRequired: "Card required",
+    paymentNeeded:
+      "Payment method needed to activate your trial. You won’t be charged today.",
     trialIncluded: "7-day free trial",
-    autoBilling: "Auto monthly billing after trial unless cancelled.",
+    noChargeToday: "No charge today",
+    autoBilling: "Monthly billing starts after trial unless cancelled.",
     plansTitle: "Choose your AI staff plan",
     plansText:
       "Kolkap is built as a 24/7 AI business assistant for replies, content, inbox support, customer questions, and future WhatsApp or website chat automation.",
@@ -67,6 +77,7 @@ const translations = {
     trialText: KOLKAP_TRIAL_NOTE,
     choosePlan: "Start Trial",
     topUp: "Top Up",
+    createAI: "Create AI",
     creditRules: [
       ["Generate Test AI Reply", "1 credit"],
       ["Generate Inbox AI Reply", "1 credit"],
@@ -77,8 +88,8 @@ const translations = {
     ],
     faqs: [
       {
-        q: "Do users need a card to start the trial?",
-        a: "Yes. The 7-day free trial requires a card. Monthly billing starts automatically after the trial unless the user cancels before the trial ends.",
+        q: "Do users need a payment method to start the trial?",
+        a: "Yes. A payment method is needed to activate the trial, but the user will not be charged today. Monthly billing starts after the 7-day trial unless cancelled before the trial ends.",
       },
       {
         q: "What is 1 credit?",
@@ -99,15 +110,17 @@ const translations = {
     badge: "Harga Kolkap",
     title: "Harga AI staff untuk pemilik bisnis yang serius.",
     subtitle:
-      "Mulai dengan 7-day free trial. Card diperlukan. Setelah trial selesai, monthly billing berjalan otomatis kecuali dibatalkan sebelum trial berakhir.",
+      "Mulai dengan 7-day free trial. Payment method needed to activate your trial. You won’t be charged today.",
     month: "/bulan",
     startTrial: "Start 7-Day Free Trial",
     contactUs: "Hubungi Kami",
     popular: "Recommended",
     included: "Termasuk",
-    cardRequired: "Card required",
+    paymentNeeded:
+      "Payment method needed to activate your trial. You won’t be charged today.",
     trialIncluded: "7-day free trial",
-    autoBilling: "Auto monthly billing setelah trial kecuali dibatalkan.",
+    noChargeToday: "No charge today",
+    autoBilling: "Monthly billing berjalan setelah trial kecuali dibatalkan.",
     plansTitle: "Pilih paket AI staff Anda",
     plansText:
       "Kolkap dibuat sebagai 24/7 AI business assistant untuk replies, content, inbox support, customer questions, dan nanti WhatsApp atau website chat automation.",
@@ -126,6 +139,7 @@ const translations = {
     trialText: KOLKAP_TRIAL_NOTE,
     choosePlan: "Start Trial",
     topUp: "Top Up",
+    createAI: "Create AI",
     creditRules: [
       ["Generate Test AI Reply", "1 credit"],
       ["Generate Inbox AI Reply", "1 credit"],
@@ -136,8 +150,8 @@ const translations = {
     ],
     faqs: [
       {
-        q: "Apakah user perlu card untuk mulai trial?",
-        a: "Ya. 7-day free trial membutuhkan card. Monthly billing akan berjalan otomatis setelah trial kecuali user cancel sebelum trial selesai.",
+        q: "Apakah user perlu payment method untuk mulai trial?",
+        a: "Ya. Payment method diperlukan untuk mengaktifkan trial, tetapi user tidak akan dikenakan biaya hari ini. Monthly billing berjalan setelah 7-day trial kecuali dibatalkan sebelum trial selesai.",
       },
       {
         q: "Apa itu 1 credit?",
@@ -183,7 +197,7 @@ export default function PricingPage() {
             </span>
 
             <span className="rounded-full bg-white/10 px-5 py-3 text-sm font-black text-white">
-              {t.cardRequired}
+              {t.noChargeToday}
             </span>
 
             <span className="rounded-full bg-white/10 px-5 py-3 text-sm font-black text-white">
@@ -193,7 +207,7 @@ export default function PricingPage() {
 
           <div className="mt-9 flex flex-col gap-4 sm:flex-row">
             <Link
-              href="/signup?next=/dashboard/create-ai"
+              href={getTrialHref("starter")}
               className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
             >
               {t.startTrial}
@@ -201,11 +215,11 @@ export default function PricingPage() {
             </Link>
 
             <Link
-              href="/signup?next=/dashboard/create-ai"
+              href={getTrialHref("starter")}
               className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10"
             >
               <Bot className="h-6 w-6" />
-              Create AI
+              {t.createAI}
             </Link>
           </div>
         </div>
@@ -297,10 +311,14 @@ export default function PricingPage() {
                     {t.included}
                   </p>
 
-                  <PlanFeature text={t.trialIncluded} highlighted={highlighted} />
-                  {plan.cardRequiredForTrial ? (
-                    <PlanFeature text={t.cardRequired} highlighted={highlighted} />
-                  ) : null}
+                  <PlanFeature
+                    text={t.trialIncluded}
+                    highlighted={highlighted}
+                  />
+                  <PlanFeature
+                    text={t.paymentNeeded}
+                    highlighted={highlighted}
+                  />
                   <PlanFeature
                     text={getPlanCreditLabel(plan)}
                     highlighted={highlighted}
@@ -324,11 +342,7 @@ export default function PricingPage() {
                 </div>
 
                 <Link
-                  href={
-                    plan.key === "enterprise"
-                      ? "/contact"
-                      : "/signup?next=/dashboard/create-ai"
-                  }
+                  href={getTrialHref(plan.key)}
                   className={`mt-8 inline-flex w-full items-center justify-center gap-3 rounded-full px-6 py-4 text-lg font-black ${
                     highlighted
                       ? "bg-white text-[#07111F]"
@@ -442,7 +456,9 @@ export default function PricingPage() {
                   </p>
 
                   <Link
-                    href="/signup?next=/dashboard/top-up"
+                    href={`/signup?next=${encodeURIComponent(
+                      "/dashboard/top-up"
+                    )}`}
                     className={`mt-6 inline-flex w-full items-center justify-center gap-3 rounded-full px-5 py-4 text-base font-black ${
                       bestValue
                         ? "bg-[#07111F] text-white"
@@ -503,7 +519,7 @@ export default function PricingPage() {
           </p>
 
           <Link
-            href="/signup?next=/dashboard/create-ai"
+            href={getTrialHref("starter")}
             className="mt-9 inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
           >
             {t.finalButton}
