@@ -23,6 +23,36 @@ import {
   type KolkapPlanKey,
 } from "@/lib/kolkapPlan";
 
+type SupportedLanguage = "en" | "id" | "zh" | "ms";
+
+type ActivateTrialTranslation = {
+  badge: string;
+  title: string;
+  subtitle: string;
+  back: string;
+  choosePlan: string;
+  choosePlanText: string;
+  selectedPlan: string;
+  trialTitle: string;
+  trialText: string;
+  billingText: string;
+  noChargeToday: string;
+  paymentNeeded: string;
+  cancelBeforeTrial: string;
+  creditsIncluded: string;
+  aiStaffIncluded: string;
+  teamIncluded: string;
+  activateButton: string;
+  comingSoon: string;
+  comingSoonText: string;
+  flowSteps: string[];
+  enterpriseNote: string;
+  contactUs: string;
+  loading: string;
+};
+
+const supportedLanguages: SupportedLanguage[] = ["en", "id", "zh", "ms"];
+
 const planKeys: KolkapPlanKey[] = [
   "starter",
   "growth",
@@ -31,7 +61,7 @@ const planKeys: KolkapPlanKey[] = [
   "enterprise",
 ];
 
-const translations = {
+const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
   en: {
     badge: "Activate Trial",
     title: "Start your 7-day free trial.",
@@ -57,7 +87,6 @@ const translations = {
     comingSoon: "Payment setup coming soon",
     comingSoonText:
       "The checkout connection will be added next. For now, this page prepares the correct trial flow and pricing selection.",
-    currentFlow: "Trial Flow",
     flowSteps: [
       "Choose your plan",
       "Add payment method",
@@ -72,10 +101,10 @@ const translations = {
   },
 
   id: {
-    badge: "Activate Trial",
-    title: "Start your 7-day free trial.",
+    badge: "Aktifkan Trial",
+    title: "Mulai 7-day free trial Anda.",
     subtitle:
-      "Pilih paket AI staff, aktifkan trial, dan siapkan Kolkap workspace Anda. Payment method needed to activate your trial. You won’t be charged today.",
+      "Pilih paket AI staff, aktifkan trial, dan siapkan Kolkap workspace Anda. Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini.",
     back: "Kembali ke Dashboard",
     choosePlan: "Pilih Paket Anda",
     choosePlanText:
@@ -83,46 +112,148 @@ const translations = {
     selectedPlan: "Paket Terpilih",
     trialTitle: "7-Day Free Trial",
     trialText:
-      "Payment method needed to activate your trial. You won’t be charged today.",
+      "Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini.",
     billingText:
       "Monthly billing berjalan setelah 7-day trial kecuali dibatalkan sebelum trial selesai.",
-    noChargeToday: "No charge today",
-    paymentNeeded: "Payment method needed",
-    cancelBeforeTrial: "Cancel before trial ends",
-    creditsIncluded: "Credits included",
-    aiStaffIncluded: "AI staff included",
-    teamIncluded: "Team access included",
-    activateButton: "Continue to Trial Activation",
-    comingSoon: "Payment setup coming soon",
+    noChargeToday: "Tidak dikenakan biaya hari ini",
+    paymentNeeded: "Payment method diperlukan",
+    cancelBeforeTrial: "Batalkan sebelum trial selesai",
+    creditsIncluded: "Credits termasuk",
+    aiStaffIncluded: "AI staff termasuk",
+    teamIncluded: "Team access termasuk",
+    activateButton: "Lanjutkan Trial Activation",
+    comingSoon: "Payment setup segera hadir",
     comingSoonText:
       "Checkout connection akan ditambahkan berikutnya. Untuk sekarang, halaman ini menyiapkan trial flow dan pilihan pricing yang benar.",
-    currentFlow: "Trial Flow",
     flowSteps: [
       "Pilih paket",
       "Tambahkan payment method",
-      "No charge today",
+      "Tidak dikenakan biaya hari ini",
       "Gunakan Kolkap selama 7 hari",
       "Billing berjalan setelah trial kecuali dibatalkan",
     ],
     enterpriseNote:
       "Enterprise membutuhkan custom setup. Hubungi kami, bukan automatic trial activation.",
-    contactUs: "Contact Us",
-    loading: "Loading trial activation...",
+    contactUs: "Hubungi Kami",
+    loading: "Memuat trial activation...",
+  },
+
+  zh: {
+    badge: "激活试用",
+    title: "开始您的 7 天免费试用。",
+    subtitle:
+      "选择您的 AI 员工方案，激活试用，并准备 Kolkap workspace。需要添加付款方式来激活试用。今天不会收费。",
+    back: "返回 Dashboard",
+    choosePlan: "选择您的方案",
+    choosePlanText:
+      "选择您想开始使用的方案。之后可根据 AI usage 增长进行升级。",
+    selectedPlan: "已选择方案",
+    trialTitle: "7 天免费试用",
+    trialText: "需要添加付款方式来激活试用。今天不会收费。",
+    billingText:
+      "7 天试用结束后将开始按月计费，除非您在试用结束前取消。",
+    noChargeToday: "今天不会收费",
+    paymentNeeded: "需要付款方式",
+    cancelBeforeTrial: "试用结束前可取消",
+    creditsIncluded: "包含 credits",
+    aiStaffIncluded: "包含 AI 员工",
+    teamIncluded: "包含团队权限",
+    activateButton: "继续激活试用",
+    comingSoon: "付款设置即将推出",
+    comingSoonText:
+      "Checkout connection 将在下一步添加。目前此页面用于准备正确的试用流程和 pricing 选择。",
+    flowSteps: [
+      "选择方案",
+      "添加付款方式",
+      "今天不会收费",
+      "使用 Kolkap 7 天",
+      "试用结束后开始计费，除非提前取消",
+    ],
+    enterpriseNote:
+      "Enterprise 需要定制设置。请联系我们，而不是使用自动试用激活。",
+    contactUs: "联系我们",
+    loading: "正在加载试用激活...",
+  },
+
+  ms: {
+    badge: "Aktifkan Trial",
+    title: "Mulakan 7-day free trial anda.",
+    subtitle:
+      "Pilih pakej AI staff, aktifkan trial, dan sediakan Kolkap workspace anda. Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini.",
+    back: "Kembali ke Dashboard",
+    choosePlan: "Pilih Pakej Anda",
+    choosePlanText:
+      "Pilih pakej yang anda mahu mulakan. Anda boleh upgrade kemudian apabila AI usage bertambah.",
+    selectedPlan: "Pakej Dipilih",
+    trialTitle: "7-Day Free Trial",
+    trialText:
+      "Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini.",
+    billingText:
+      "Monthly billing bermula selepas 7-day trial kecuali dibatalkan sebelum trial tamat.",
+    noChargeToday: "Tiada caj hari ini",
+    paymentNeeded: "Payment method diperlukan",
+    cancelBeforeTrial: "Batal sebelum trial tamat",
+    creditsIncluded: "Credits termasuk",
+    aiStaffIncluded: "AI staff termasuk",
+    teamIncluded: "Team access termasuk",
+    activateButton: "Teruskan Trial Activation",
+    comingSoon: "Payment setup akan datang",
+    comingSoonText:
+      "Checkout connection akan ditambah seterusnya. Buat masa ini, halaman ini menyediakan trial flow dan pilihan pricing yang betul.",
+    flowSteps: [
+      "Pilih pakej",
+      "Tambah payment method",
+      "Tiada caj hari ini",
+      "Gunakan Kolkap selama 7 hari",
+      "Billing bermula selepas trial kecuali dibatalkan",
+    ],
+    enterpriseNote:
+      "Enterprise memerlukan custom setup. Hubungi kami, bukan automatic trial activation.",
+    contactUs: "Hubungi Kami",
+    loading: "Memuat trial activation...",
   },
 };
+
+function getSupportedLanguage(language: string): SupportedLanguage {
+  return supportedLanguages.includes(language as SupportedLanguage)
+    ? (language as SupportedLanguage)
+    : "en";
+}
 
 function isValidPlanKey(value: string | null): value is KolkapPlanKey {
   return Boolean(value && planKeys.includes(value as KolkapPlanKey));
 }
 
+function localizePlanLabel(label: string, language: SupportedLanguage) {
+  if (language === "zh") {
+    return label
+      .replace("AI credits/month", "AI credits/月")
+      .replace("Custom credits", "定制 credits")
+      .replace("AI staff", "AI 员工")
+      .replace("Team member", "团队成员")
+      .replace("Team members", "团队成员")
+      .replace("Custom", "定制");
+  }
+
+  if (language === "id" || language === "ms") {
+    return label
+      .replace("AI credits/month", "AI credits/bulan")
+      .replace("Custom credits", "Custom credits");
+  }
+
+  return label;
+}
+
 function ActivateTrialContent() {
   const searchParams = useSearchParams();
   const { language } = useKolkapLanguage();
-  const t =
-    translations[language as keyof typeof translations] || translations.en;
+  const lang = getSupportedLanguage(language);
+  const t = translations[lang];
 
   const requestedPlan = searchParams.get("plan");
-  const initialPlanKey = isValidPlanKey(requestedPlan) ? requestedPlan : "starter";
+  const initialPlanKey = isValidPlanKey(requestedPlan)
+    ? requestedPlan
+    : "starter";
 
   const [selectedPlanKey, setSelectedPlanKey] =
     useState<KolkapPlanKey>(initialPlanKey);
@@ -241,15 +372,18 @@ function ActivateTrialContent() {
                     <div className="mt-6 grid gap-3">
                       <FeatureLine
                         selected={selected}
-                        text={getPlanCreditLabel(plan)}
+                        text={localizePlanLabel(getPlanCreditLabel(plan), lang)}
                       />
                       <FeatureLine
                         selected={selected}
-                        text={getPlanAIStaffLabel(plan)}
+                        text={localizePlanLabel(getPlanAIStaffLabel(plan), lang)}
                       />
                       <FeatureLine
                         selected={selected}
-                        text={getPlanTeamMemberLabel(plan)}
+                        text={localizePlanLabel(
+                          getPlanTeamMemberLabel(plan),
+                          lang
+                        )}
                       />
                     </div>
                   </button>
@@ -283,15 +417,18 @@ function ActivateTrialContent() {
               <div className="mt-7 grid gap-3 rounded-3xl border border-white/10 bg-white/5 p-5">
                 <SummaryRow
                   label={t.creditsIncluded}
-                  value={getPlanCreditLabel(selectedPlan)}
+                  value={localizePlanLabel(getPlanCreditLabel(selectedPlan), lang)}
                 />
                 <SummaryRow
                   label={t.aiStaffIncluded}
-                  value={getPlanAIStaffLabel(selectedPlan)}
+                  value={localizePlanLabel(getPlanAIStaffLabel(selectedPlan), lang)}
                 />
                 <SummaryRow
                   label={t.teamIncluded}
-                  value={getPlanTeamMemberLabel(selectedPlan)}
+                  value={localizePlanLabel(
+                    getPlanTeamMemberLabel(selectedPlan),
+                    lang
+                  )}
                 />
               </div>
 
