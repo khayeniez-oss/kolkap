@@ -23,6 +23,8 @@ import { createClient } from "@/lib/supabase/client";
 import { getKolkapPlan } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
+type SupportedLanguage = "en" | "id" | "zh" | "ms";
+
 type UsageEventRow = {
   id: string;
   workspace_id: string;
@@ -58,45 +60,103 @@ type Option = {
   label: string;
 };
 
-const channelOptions: Option[] = [
-  { value: "all", label: "All Channels" },
-  { value: "dashboard", label: "Dashboard" },
-  { value: "inbox", label: "Inbox" },
-  { value: "whatsapp", label: "WhatsApp" },
-  { value: "website_chat", label: "Website Chat" },
-  { value: "content_studio", label: "Content Studio" },
-  { value: "test_ai", label: "Test AI" },
-  { value: "knowledge_base", label: "Knowledge Base" },
-  { value: "team", label: "Team" },
-  { value: "go_live", label: "Go Live" },
-  { value: "email", label: "Email" },
-  { value: "api", label: "API" },
-  { value: "system", label: "System" },
+type UsageTranslation = {
+  loading: string;
+  failed: string;
+  back: string;
+  refresh: string;
+  badge: string;
+  title: string;
+  subtitle: string;
+  currentPlan: string;
+  creditsLeft: string;
+  creditsUsed: string;
+  planCredits: string;
+  purchasedCredits: string;
+  totalActivity: string;
+  aiActions: string;
+  messageActions: string;
+  today: string;
+  overviewTitle: string;
+  overviewText: string;
+  search: string;
+  searchPlaceholder: string;
+  channel: string;
+  eventType: string;
+  historyTitle: string;
+  historyText: string;
+  noUsage: string;
+  noUsageText: string;
+  topChannels: string;
+  topEvents: string;
+  status: string;
+  credits: string;
+  count: string;
+  date: string;
+  success: string;
+  failedStatus: string;
+  pending: string;
+  shown: string;
+  noExtraDetails: string;
+  knowledgeUsed: string;
+  contentType: string;
+  purpose: string;
+  platform: string;
+  businessAction: string;
+  recentActivity: string;
+  trackedCredits: string;
+  includedInPlan: string;
+  extraCredits: string;
+  aiGenerations: string;
+  messageVolume: string;
+  billingPeriod: string;
+  noCreditBalance: string;
+  noDataYet: string;
+  activityIn: string;
+  planNames: Record<string, string>;
+  channelLabels: Record<string, string>;
+  eventTypeLabels: Record<string, string>;
+};
+
+const channelValues = [
+  "all",
+  "dashboard",
+  "inbox",
+  "whatsapp",
+  "website_chat",
+  "content_studio",
+  "test_ai",
+  "knowledge_base",
+  "team",
+  "go_live",
+  "email",
+  "api",
+  "system",
 ];
 
-const eventTypeOptions: Option[] = [
-  { value: "all", label: "All Events" },
-  { value: "customer_message_received", label: "Customer Message Received" },
-  { value: "ai_reply_generated", label: "AI Reply Generated" },
-  { value: "ai_reply_sent", label: "AI Reply Sent" },
-  { value: "human_reply_sent", label: "Human Reply Sent" },
-  { value: "whatsapp_message_received", label: "WhatsApp Message Received" },
-  { value: "whatsapp_message_sent", label: "WhatsApp Message Sent" },
-  { value: "website_chat_message_received", label: "Website Chat Message" },
-  { value: "content_generated", label: "Content Generated" },
-  { value: "content_saved", label: "Content Saved" },
-  { value: "test_ai_generated", label: "Test AI Generated" },
-  { value: "team_invite_sent", label: "Team Invite Sent" },
-  { value: "knowledge_created", label: "Knowledge Created" },
-  { value: "knowledge_updated", label: "Knowledge Updated" },
-  { value: "ai_staff_created", label: "AI Staff Created" },
-  { value: "go_live_enabled", label: "Go Live Enabled" },
-  { value: "go_live_disabled", label: "Go Live Disabled" },
-  { value: "email_sent", label: "Email Sent" },
-  { value: "system_event", label: "System Event" },
+const eventTypeValues = [
+  "all",
+  "customer_message_received",
+  "ai_reply_generated",
+  "ai_reply_sent",
+  "human_reply_sent",
+  "whatsapp_message_received",
+  "whatsapp_message_sent",
+  "website_chat_message_received",
+  "content_generated",
+  "content_saved",
+  "test_ai_generated",
+  "team_invite_sent",
+  "knowledge_created",
+  "knowledge_updated",
+  "ai_staff_created",
+  "go_live_enabled",
+  "go_live_disabled",
+  "email_sent",
+  "system_event",
 ];
 
-const translations = {
+const translations: Record<SupportedLanguage, UsageTranslation> = {
   en: {
     loading: "Loading usage...",
     failed: "Usage page could not load.",
@@ -117,7 +177,7 @@ const translations = {
     today: "Today",
     overviewTitle: "Usage Overview",
     overviewText:
-      "Every successful AI action creates a usage event. Supabase automatically deducts the credit, then this page shows the updated balance.",
+      "Every successful AI action creates a usage event. The system deducts credits automatically, then this page shows the updated balance.",
     search: "Search",
     searchPlaceholder: "Search usage history...",
     channel: "Channel",
@@ -153,77 +213,381 @@ const translations = {
     billingPeriod: "Billing period",
     noCreditBalance:
       "Credit balance has not been created for this workspace yet.",
+    noDataYet: "No data yet.",
+    activityIn: "in",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    channelLabels: {
+      all: "All Channels",
+      dashboard: "Dashboard",
+      inbox: "Inbox",
+      whatsapp: "WhatsApp",
+      website_chat: "Website Chat",
+      content_studio: "Content Studio",
+      test_ai: "Test AI",
+      knowledge_base: "Knowledge Base",
+      team: "Team",
+      go_live: "Go Live",
+      email: "Email",
+      api: "API",
+      system: "System",
+    },
+    eventTypeLabels: {
+      all: "All Events",
+      customer_message_received: "Customer Message Received",
+      ai_reply_generated: "AI Reply Generated",
+      ai_reply_sent: "AI Reply Sent",
+      human_reply_sent: "Human Reply Sent",
+      whatsapp_message_received: "WhatsApp Message Received",
+      whatsapp_message_sent: "WhatsApp Message Sent",
+      website_chat_message_received: "Website Chat Message",
+      content_generated: "Content Generated",
+      content_saved: "Content Saved",
+      test_ai_generated: "Test AI Generated",
+      team_invite_sent: "Team Invite Sent",
+      knowledge_created: "Knowledge Created",
+      knowledge_updated: "Knowledge Updated",
+      ai_staff_created: "AI Staff Created",
+      go_live_enabled: "Go Live Enabled",
+      go_live_disabled: "Go Live Disabled",
+      email_sent: "Email Sent",
+      system_event: "System Event",
+    },
   },
 
   id: {
-    loading: "Memuat usage...",
-    failed: "Usage page gagal dimuat.",
+    loading: "Memuat penggunaan...",
+    failed: "Halaman penggunaan tidak dapat dimuat.",
     back: "Kembali ke Dashboard",
-    refresh: "Refresh",
-    badge: "Usage",
-    title: "Pantau aktivitas dan credits workspace Anda.",
+    refresh: "Muat Ulang",
+    badge: "Penggunaan",
+    title: "Pantau aktivitas workspace dan kredit Anda.",
     subtitle:
-      "Lihat credits left, credits used, AI replies, content generation, inbox action, message, dan aktivitas workspace.",
+      "Lihat sisa kredit, kredit terpakai, balasan AI, pembuatan konten, aksi inbox, pesan, dan aktivitas workspace.",
     currentPlan: "Paket Saat Ini",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
-    planCredits: "Plan Credits",
-    purchasedCredits: "Top-Up Credits",
-    totalActivity: "Total Activity",
-    aiActions: "AI Actions",
-    messageActions: "Messages",
-    today: "Today",
-    overviewTitle: "Usage Overview",
+    creditsLeft: "Sisa Kredit",
+    creditsUsed: "Kredit Terpakai",
+    planCredits: "Kredit Paket",
+    purchasedCredits: "Kredit Top-Up",
+    totalActivity: "Total Aktivitas",
+    aiActions: "Aksi AI",
+    messageActions: "Pesan",
+    today: "Hari Ini",
+    overviewTitle: "Ringkasan Penggunaan",
     overviewText:
-      "Setiap AI action yang berhasil akan membuat usage event. Supabase otomatis deduct credit, lalu halaman ini menampilkan balance terbaru.",
-    search: "Search",
-    searchPlaceholder: "Cari usage history...",
+      "Setiap aksi AI yang berhasil akan membuat usage event. Sistem akan mengurangi kredit secara otomatis, lalu halaman ini menampilkan saldo terbaru.",
+    search: "Cari",
+    searchPlaceholder: "Cari riwayat penggunaan...",
     channel: "Channel",
-    eventType: "Event Type",
-    historyTitle: "Usage History",
+    eventType: "Jenis Event",
+    historyTitle: "Riwayat Penggunaan",
     historyText:
       "Ini menampilkan aktivitas terbaru dari Content Studio, Test AI, Inbox, WhatsApp, website chat, team, dan tools lain yang terhubung.",
-    noUsage: "Belum ada usage.",
+    noUsage: "Belum ada penggunaan.",
     noUsageText:
-      "Usage akan muncul setelah Anda generate content, test AI, generate inbox replies, kirim message, atau connect WhatsApp.",
-    topChannels: "Usage by Channel",
-    topEvents: "Usage by Action",
+      "Penggunaan akan muncul setelah Anda membuat konten, test AI, generate balasan inbox, mengirim pesan, atau menghubungkan WhatsApp.",
+    topChannels: "Penggunaan per Channel",
+    topEvents: "Penggunaan per Aksi",
     status: "Status",
-    credits: "Credits",
-    count: "Count",
-    date: "Date",
-    success: "Success",
-    failedStatus: "Failed",
-    pending: "Pending",
-    shown: "shown",
+    credits: "Kredit",
+    count: "Jumlah",
+    date: "Tanggal",
+    success: "Berhasil",
+    failedStatus: "Gagal",
+    pending: "Menunggu",
+    shown: "ditampilkan",
     noExtraDetails: "Tidak ada detail tambahan.",
-    knowledgeUsed: "Knowledge used",
-    contentType: "Content type",
-    purpose: "Purpose",
+    knowledgeUsed: "Knowledge digunakan",
+    contentType: "Jenis konten",
+    purpose: "Tujuan",
     platform: "Platform",
-    businessAction: "Business action",
-    recentActivity: "Recent activity",
-    trackedCredits: "Tracked credit usage",
-    includedInPlan: "Included in monthly plan",
-    extraCredits: "Purchased extra credits",
-    aiGenerations: "AI generations and replies",
-    messageVolume: "Messages and replies",
-    billingPeriod: "Billing period",
-    noCreditBalance:
-      "Credit balance belum dibuat untuk workspace ini.",
+    businessAction: "Aksi bisnis",
+    recentActivity: "Aktivitas terbaru",
+    trackedCredits: "Penggunaan kredit tercatat",
+    includedInPlan: "Termasuk dalam paket bulanan",
+    extraCredits: "Kredit tambahan yang dibeli",
+    aiGenerations: "Generate AI dan balasan AI",
+    messageVolume: "Pesan dan balasan",
+    billingPeriod: "Periode billing",
+    noCreditBalance: "Saldo kredit belum dibuat untuk workspace ini.",
+    noDataYet: "Belum ada data.",
+    activityIn: "di",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    channelLabels: {
+      all: "Semua Channel",
+      dashboard: "Dashboard",
+      inbox: "Inbox",
+      whatsapp: "WhatsApp",
+      website_chat: "Website Chat",
+      content_studio: "Content Studio",
+      test_ai: "Test AI",
+      knowledge_base: "Knowledge Base",
+      team: "Team",
+      go_live: "Go Live",
+      email: "Email",
+      api: "API",
+      system: "System",
+    },
+    eventTypeLabels: {
+      all: "Semua Event",
+      customer_message_received: "Pesan Customer Diterima",
+      ai_reply_generated: "Balasan AI Dibuat",
+      ai_reply_sent: "Balasan AI Dikirim",
+      human_reply_sent: "Balasan Human Dikirim",
+      whatsapp_message_received: "Pesan WhatsApp Diterima",
+      whatsapp_message_sent: "Pesan WhatsApp Dikirim",
+      website_chat_message_received: "Pesan Website Chat",
+      content_generated: "Konten Dibuat",
+      content_saved: "Konten Disimpan",
+      test_ai_generated: "Test AI Dibuat",
+      team_invite_sent: "Undangan Team Dikirim",
+      knowledge_created: "Knowledge Dibuat",
+      knowledge_updated: "Knowledge Diupdate",
+      ai_staff_created: "AI Staff Dibuat",
+      go_live_enabled: "Go Live Diaktifkan",
+      go_live_disabled: "Go Live Dinonaktifkan",
+      email_sent: "Email Dikirim",
+      system_event: "System Event",
+    },
+  },
+
+  zh: {
+    loading: "正在加载使用量...",
+    failed: "使用量页面无法加载。",
+    back: "返回 Dashboard",
+    refresh: "刷新",
+    badge: "使用量",
+    title: "追踪您的 workspace 活动和积分。",
+    subtitle:
+      "查看剩余积分、已用积分、AI 回复、内容生成、inbox 操作、消息和 workspace 活动。",
+    currentPlan: "当前套餐",
+    creditsLeft: "剩余积分",
+    creditsUsed: "已用积分",
+    planCredits: "套餐积分",
+    purchasedCredits: "充值积分",
+    totalActivity: "总活动",
+    aiActions: "AI 操作",
+    messageActions: "消息",
+    today: "今天",
+    overviewTitle: "使用量概览",
+    overviewText:
+      "每一次成功的 AI 操作都会创建一条使用记录。系统会自动扣除积分，然后此页面会显示最新余额。",
+    search: "搜索",
+    searchPlaceholder: "搜索使用记录...",
+    channel: "Channel",
+    eventType: "Event 类型",
+    historyTitle: "使用记录",
+    historyText:
+      "这里显示来自 Content Studio、Test AI、Inbox、WhatsApp、website chat、team 和其他连接工具的最新活动。",
+    noUsage: "还没有使用记录。",
+    noUsageText:
+      "当您生成内容、测试 AI、生成 inbox 回复、发送消息或连接 WhatsApp 后，使用记录会显示在这里。",
+    topChannels: "按 Channel 查看使用量",
+    topEvents: "按操作查看使用量",
+    status: "状态",
+    credits: "积分",
+    count: "数量",
+    date: "日期",
+    success: "成功",
+    failedStatus: "失败",
+    pending: "等待中",
+    shown: "已显示",
+    noExtraDetails: "没有额外详情。",
+    knowledgeUsed: "已使用 Knowledge",
+    contentType: "内容类型",
+    purpose: "目的",
+    platform: "平台",
+    businessAction: "业务操作",
+    recentActivity: "最新活动",
+    trackedCredits: "已追踪的积分使用",
+    includedInPlan: "包含在月度套餐中",
+    extraCredits: "已购买的额外积分",
+    aiGenerations: "AI 生成和回复",
+    messageVolume: "消息和回复",
+    billingPeriod: "账单周期",
+    noCreditBalance: "此 workspace 尚未创建积分余额。",
+    noDataYet: "暂无数据。",
+    activityIn: "在",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    channelLabels: {
+      all: "所有 Channel",
+      dashboard: "Dashboard",
+      inbox: "Inbox",
+      whatsapp: "WhatsApp",
+      website_chat: "Website Chat",
+      content_studio: "Content Studio",
+      test_ai: "Test AI",
+      knowledge_base: "Knowledge Base",
+      team: "Team",
+      go_live: "Go Live",
+      email: "Email",
+      api: "API",
+      system: "System",
+    },
+    eventTypeLabels: {
+      all: "所有 Event",
+      customer_message_received: "收到客户消息",
+      ai_reply_generated: "AI 回复已生成",
+      ai_reply_sent: "AI 回复已发送",
+      human_reply_sent: "人工回复已发送",
+      whatsapp_message_received: "收到 WhatsApp 消息",
+      whatsapp_message_sent: "WhatsApp 消息已发送",
+      website_chat_message_received: "Website Chat 消息",
+      content_generated: "内容已生成",
+      content_saved: "内容已保存",
+      test_ai_generated: "Test AI 已生成",
+      team_invite_sent: "Team 邀请已发送",
+      knowledge_created: "Knowledge 已创建",
+      knowledge_updated: "Knowledge 已更新",
+      ai_staff_created: "AI Staff 已创建",
+      go_live_enabled: "Go Live 已启用",
+      go_live_disabled: "Go Live 已关闭",
+      email_sent: "Email 已发送",
+      system_event: "System Event",
+    },
+  },
+
+  ms: {
+    loading: "Memuatkan penggunaan...",
+    failed: "Halaman penggunaan tidak dapat dimuatkan.",
+    back: "Kembali ke Dashboard",
+    refresh: "Segar Semula",
+    badge: "Penggunaan",
+    title: "Pantau aktiviti workspace dan kredit anda.",
+    subtitle:
+      "Lihat baki kredit, kredit digunakan, balasan AI, penjanaan kandungan, aksi inbox, mesej, dan aktiviti workspace.",
+    currentPlan: "Pelan Semasa",
+    creditsLeft: "Baki Kredit",
+    creditsUsed: "Kredit Digunakan",
+    planCredits: "Kredit Pelan",
+    purchasedCredits: "Kredit Top-Up",
+    totalActivity: "Jumlah Aktiviti",
+    aiActions: "Aksi AI",
+    messageActions: "Mesej",
+    today: "Hari Ini",
+    overviewTitle: "Ringkasan Penggunaan",
+    overviewText:
+      "Setiap aksi AI yang berjaya akan mencipta usage event. Sistem akan menolak kredit secara automatik, kemudian halaman ini memaparkan baki terkini.",
+    search: "Cari",
+    searchPlaceholder: "Cari sejarah penggunaan...",
+    channel: "Channel",
+    eventType: "Jenis Event",
+    historyTitle: "Sejarah Penggunaan",
+    historyText:
+      "Ini memaparkan aktiviti terkini daripada Content Studio, Test AI, Inbox, WhatsApp, website chat, team, dan tools lain yang bersambung.",
+    noUsage: "Belum ada penggunaan.",
+    noUsageText:
+      "Penggunaan akan muncul selepas anda jana kandungan, test AI, jana balasan inbox, hantar mesej, atau sambungkan WhatsApp.",
+    topChannels: "Penggunaan mengikut Channel",
+    topEvents: "Penggunaan mengikut Aksi",
+    status: "Status",
+    credits: "Kredit",
+    count: "Jumlah",
+    date: "Tarikh",
+    success: "Berjaya",
+    failedStatus: "Gagal",
+    pending: "Menunggu",
+    shown: "dipaparkan",
+    noExtraDetails: "Tiada detail tambahan.",
+    knowledgeUsed: "Knowledge digunakan",
+    contentType: "Jenis kandungan",
+    purpose: "Tujuan",
+    platform: "Platform",
+    businessAction: "Aksi bisnes",
+    recentActivity: "Aktiviti terkini",
+    trackedCredits: "Penggunaan kredit direkodkan",
+    includedInPlan: "Termasuk dalam pelan bulanan",
+    extraCredits: "Kredit tambahan yang dibeli",
+    aiGenerations: "Jana AI dan balasan AI",
+    messageVolume: "Mesej dan balasan",
+    billingPeriod: "Tempoh billing",
+    noCreditBalance: "Baki kredit belum dibuat untuk workspace ini.",
+    noDataYet: "Belum ada data.",
+    activityIn: "di",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    channelLabels: {
+      all: "Semua Channel",
+      dashboard: "Dashboard",
+      inbox: "Inbox",
+      whatsapp: "WhatsApp",
+      website_chat: "Website Chat",
+      content_studio: "Content Studio",
+      test_ai: "Test AI",
+      knowledge_base: "Knowledge Base",
+      team: "Team",
+      go_live: "Go Live",
+      email: "Email",
+      api: "API",
+      system: "System",
+    },
+    eventTypeLabels: {
+      all: "Semua Event",
+      customer_message_received: "Mesej Customer Diterima",
+      ai_reply_generated: "Balasan AI Dijana",
+      ai_reply_sent: "Balasan AI Dihantar",
+      human_reply_sent: "Balasan Human Dihantar",
+      whatsapp_message_received: "Mesej WhatsApp Diterima",
+      whatsapp_message_sent: "Mesej WhatsApp Dihantar",
+      website_chat_message_received: "Mesej Website Chat",
+      content_generated: "Kandungan Dijana",
+      content_saved: "Kandungan Disimpan",
+      test_ai_generated: "Test AI Dijana",
+      team_invite_sent: "Jemputan Team Dihantar",
+      knowledge_created: "Knowledge Dicipta",
+      knowledge_updated: "Knowledge Dikemaskini",
+      ai_staff_created: "AI Staff Dicipta",
+      go_live_enabled: "Go Live Diaktifkan",
+      go_live_disabled: "Go Live Dimatikan",
+      email_sent: "Email Dihantar",
+      system_event: "System Event",
+    },
   },
 };
 
-function getOptionLabel(options: Option[], value: string) {
-  return options.find((item) => item.value === value)?.label || value;
+function getSupportedLanguage(language: string): SupportedLanguage {
+  if (language === "id" || language === "zh" || language === "ms") {
+    return language;
+  }
+
+  return "en";
 }
 
-function getEventLabel(value: string) {
-  return getOptionLabel(eventTypeOptions, value);
+function getOptions(values: string[], labels: Record<string, string>): Option[] {
+  return values.map((value) => ({
+    value,
+    label: labels[value] || formatValue(value),
+  }));
 }
 
-function getChannelLabel(value: string) {
-  return getOptionLabel(channelOptions, value);
+function getOptionLabel(labels: Record<string, string>, value: string) {
+  return labels[value] || formatValue(value);
+}
+
+function getEventLabel(value: string, t: UsageTranslation) {
+  return getOptionLabel(t.eventTypeLabels, value);
+}
+
+function getChannelLabel(value: string, t: UsageTranslation) {
+  return getOptionLabel(t.channelLabels, value);
 }
 
 function formatDate(value: string | null) {
@@ -253,14 +617,11 @@ function isToday(value: string) {
   );
 }
 
-function statusLabel(
-  value: string,
-  t: typeof translations.en | typeof translations.id
-) {
+function statusLabel(value: string, t: UsageTranslation) {
   if (value === "success") return t.success;
   if (value === "failed") return t.failedStatus;
   if (value === "pending") return t.pending;
-  return value;
+  return formatValue(value);
 }
 
 function sumByKey(rows: UsageEventRow[], key: "channel" | "event_type") {
@@ -285,7 +646,7 @@ function formatValue(value: unknown) {
 
 function getFriendlyMetadata(
   metadata: Record<string, unknown> | null,
-  t: typeof translations.en | typeof translations.id
+  t: UsageTranslation
 ) {
   if (!metadata || Object.keys(metadata).length === 0) {
     return [];
@@ -327,16 +688,28 @@ function getFriendlyMetadata(
   return details;
 }
 
-function getActivitySentence(event: UsageEventRow) {
-  return `${getEventLabel(event.event_type)} in ${getChannelLabel(
-    event.channel
+function getActivitySentence(event: UsageEventRow, t: UsageTranslation) {
+  return `${getEventLabel(event.event_type, t)} ${t.activityIn} ${getChannelLabel(
+    event.channel,
+    t
   )}`;
+}
+
+function localizePlanName(
+  planName: string | null | undefined,
+  fallback: string,
+  t: UsageTranslation
+) {
+  if (!planName) return fallback;
+
+  const key = planName.toLowerCase();
+  return t.planNames[key] || t.planNames[planName] || planName || fallback;
 }
 
 export default function UsagePage() {
   const { language } = useKolkapLanguage();
-  const t =
-    translations[language as keyof typeof translations] || translations.en;
+  const activeLanguage = getSupportedLanguage(language);
+  const t = translations[activeLanguage];
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
@@ -354,6 +727,16 @@ export default function UsagePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedChannel, setSelectedChannel] = useState("all");
   const [selectedEventType, setSelectedEventType] = useState("all");
+
+  const channelOptions = useMemo(
+    () => getOptions(channelValues, t.channelLabels),
+    [t.channelLabels]
+  );
+
+  const eventTypeOptions = useMemo(
+    () => getOptions(eventTypeValues, t.eventTypeLabels),
+    [t.eventTypeLabels]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -411,8 +794,8 @@ export default function UsagePage() {
     const search = searchTerm.trim().toLowerCase();
 
     return usageEvents.filter((event) => {
-      const eventLabel = getEventLabel(event.event_type).toLowerCase();
-      const channelLabel = getChannelLabel(event.channel).toLowerCase();
+      const eventLabel = getEventLabel(event.event_type, t).toLowerCase();
+      const channelLabel = getChannelLabel(event.channel, t).toLowerCase();
 
       const friendlyMetadata = getFriendlyMetadata(event.metadata, t)
         .map((item) => `${item.label} ${item.value}`)
@@ -485,10 +868,16 @@ export default function UsagePage() {
   const channelBreakdown = sumByKey(usageEvents, "channel");
   const eventBreakdown = sumByKey(usageEvents, "event_type");
 
+  const currentPlanLabel = localizePlanName(
+    creditBalance?.plan_name,
+    currentPlan.name,
+    t
+  );
+
   const summaryCards = [
     {
       label: t.currentPlan,
-      value: creditBalance?.plan_name || currentPlan.name,
+      value: currentPlanLabel,
       note: currentPlan.priceLabel,
       icon: WalletCards,
     },
@@ -671,7 +1060,8 @@ export default function UsagePage() {
 
               {creditBalance ? (
                 <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
-                  {t.billingPeriod}: {formatDate(creditBalance.billing_period_start)} —{" "}
+                  {t.billingPeriod}:{" "}
+                  {formatDate(creditBalance.billing_period_start)} —{" "}
                   {formatDate(creditBalance.billing_period_end)}
                 </p>
               ) : null}
@@ -683,13 +1073,15 @@ export default function UsagePage() {
           <BreakdownCard
             title={t.topChannels}
             rows={channelBreakdown}
-            labelFormatter={getChannelLabel}
+            labelFormatter={(value) => getChannelLabel(value, t)}
+            noDataText={t.noDataYet}
           />
 
           <BreakdownCard
             title={t.topEvents}
             rows={eventBreakdown}
-            labelFormatter={getEventLabel}
+            labelFormatter={(value) => getEventLabel(value, t)}
+            noDataText={t.noDataYet}
           />
         </div>
 
@@ -778,13 +1170,13 @@ export default function UsagePage() {
                     <div className="grid gap-5 xl:grid-cols-[1fr_auto] xl:items-start">
                       <div>
                         <div className="flex flex-wrap gap-2">
-                          <Badge text={getEventLabel(event.event_type)} />
-                          <Badge text={getChannelLabel(event.channel)} />
+                          <Badge text={getEventLabel(event.event_type, t)} />
+                          <Badge text={getChannelLabel(event.channel, t)} />
                           <Badge text={statusLabel(event.status, t)} />
                         </div>
 
                         <h3 className="mt-4 text-2xl font-black tracking-[-0.04em]">
-                          {getActivitySentence(event)}
+                          {getActivitySentence(event, t)}
                         </h3>
 
                         <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
@@ -880,10 +1272,12 @@ function BreakdownCard({
   title,
   rows,
   labelFormatter,
+  noDataText,
 }: {
   title: string;
   rows: { name: string; count: number }[];
   labelFormatter: (value: string) => string;
+  noDataText: string;
 }) {
   const max = Math.max(...rows.map((row) => row.count), 1);
 
@@ -897,7 +1291,7 @@ function BreakdownCard({
 
       {rows.length === 0 ? (
         <p className="mt-5 text-base font-semibold leading-7 text-slate-600">
-          No data yet.
+          {noDataText}
         </p>
       ) : (
         <div className="mt-6 grid gap-4">
