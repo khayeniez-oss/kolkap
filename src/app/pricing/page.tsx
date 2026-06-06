@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import {
-  KOLKAP_TRIAL_NOTE,
   getKolkapPlan,
   getPlanAIStaffLabel,
   getPlanCreditLabel,
@@ -26,6 +25,55 @@ import {
   kolkapTopUpPackages,
   type KolkapPlanKey,
 } from "@/lib/kolkapPlan";
+
+type SupportedLanguage = "en" | "id" | "zh" | "ms";
+
+type PlanText = {
+  name: string;
+  description: string;
+  features: string[];
+};
+
+type FaqItem = {
+  q: string;
+  a: string;
+};
+
+type PricingTranslation = {
+  badge: string;
+  title: string;
+  subtitle: string;
+  month: string;
+  startTrial: string;
+  contactUs: string;
+  popular: string;
+  included: string;
+  paymentNeeded: string;
+  trialIncluded: string;
+  noChargeToday: string;
+  autoBilling: string;
+  plansTitle: string;
+  plansText: string;
+  creditTitle: string;
+  creditText: string;
+  topupTitle: string;
+  topupText: string;
+  faqTitle: string;
+  finalTitle: string;
+  finalText: string;
+  finalButton: string;
+  trialTitle: string;
+  trialText: string;
+  choosePlan: string;
+  topUp: string;
+  createAI: string;
+  bestValue: string;
+  creditWord: string;
+  creditRules: [string, string][];
+  faqs: FaqItem[];
+};
+
+const supportedLanguages: SupportedLanguage[] = ["en", "id", "zh", "ms"];
 
 const publicPlanKeys: KolkapPlanKey[] = [
   "starter",
@@ -43,7 +91,316 @@ function getTrialHref(planKey: KolkapPlanKey) {
   )}`;
 }
 
-const translations = {
+const planCopy: Record<SupportedLanguage, Partial<Record<KolkapPlanKey, PlanText>>> = {
+  en: {
+    free_trial: {
+      name: "Free Trial",
+      description: "Try Kolkap before choosing a paid plan.",
+      features: [
+        "7-day free trial",
+        "Payment method needed",
+        "No charge today",
+        "Test AI replies",
+      ],
+    },
+    starter: {
+      name: "Starter AI",
+      description:
+        "For small businesses that want to start using AI for customer replies, content, and basic automation.",
+      features: [
+        "7-day free trial",
+        "Payment method needed",
+        "No charge today",
+        "AI reply testing",
+        "Business knowledge setup",
+        "Basic inbox support",
+      ],
+    },
+    growth: {
+      name: "Growth AI",
+      description:
+        "For growing businesses that need more AI replies, more content, and stronger customer support automation.",
+      features: [
+        "7-day free trial",
+        "Payment method needed",
+        "No charge today",
+        "More AI staff capacity",
+        "Inbox and leads support",
+        "Content generation tools",
+      ],
+    },
+    professional: {
+      name: "Professional AI",
+      description:
+        "For serious businesses that want AI to support replies, leads, content, usage tracking, and daily operations.",
+      features: [
+        "7-day free trial",
+        "Payment method needed",
+        "No charge today",
+        "Recommended for growing teams",
+        "More credits and AI staff",
+        "Priority workspace setup",
+      ],
+    },
+    business: {
+      name: "Business AI",
+      description:
+        "For busy businesses with higher message volume, multiple AI needs, and stronger automation requirements.",
+      features: [
+        "7-day free trial",
+        "Payment method needed",
+        "No charge today",
+        "Higher credit allowance",
+        "More team access",
+        "Best for active operations",
+      ],
+    },
+    enterprise: {
+      name: "Enterprise",
+      description:
+        "For agencies, hotels, clinics, real estate groups, and high-volume teams that need custom setup.",
+      features: [
+        "Custom onboarding",
+        "Custom AI credits",
+        "Multiple business locations",
+        "Team access",
+        "Priority support",
+        "Custom automation planning",
+      ],
+    },
+  },
+
+  id: {
+    free_trial: {
+      name: "Free Trial",
+      description: "Coba Kolkap sebelum memilih paket berbayar.",
+      features: [
+        "7-day free trial",
+        "Payment method diperlukan",
+        "Tidak dikenakan biaya hari ini",
+        "Test balasan AI",
+      ],
+    },
+    starter: {
+      name: "Starter AI",
+      description:
+        "Untuk bisnis kecil yang ingin mulai memakai AI untuk balasan pelanggan, content, dan basic automation.",
+      features: [
+        "7-day free trial",
+        "Payment method diperlukan",
+        "Tidak dikenakan biaya hari ini",
+        "Test balasan AI",
+        "Setup business knowledge",
+        "Basic inbox support",
+      ],
+    },
+    growth: {
+      name: "Growth AI",
+      description:
+        "Untuk bisnis yang sedang berkembang dan membutuhkan lebih banyak AI replies, content, dan customer support automation.",
+      features: [
+        "7-day free trial",
+        "Payment method diperlukan",
+        "Tidak dikenakan biaya hari ini",
+        "Kapasitas AI staff lebih besar",
+        "Support inbox dan leads",
+        "Tools content generation",
+      ],
+    },
+    professional: {
+      name: "Professional AI",
+      description:
+        "Untuk bisnis serius yang ingin AI membantu replies, leads, content, usage tracking, dan operasional harian.",
+      features: [
+        "7-day free trial",
+        "Payment method diperlukan",
+        "Tidak dikenakan biaya hari ini",
+        "Recommended untuk growing teams",
+        "Lebih banyak credits dan AI staff",
+        "Priority workspace setup",
+      ],
+    },
+    business: {
+      name: "Business AI",
+      description:
+        "Untuk bisnis yang sibuk dengan volume pesan lebih tinggi, kebutuhan AI lebih banyak, dan automation lebih kuat.",
+      features: [
+        "7-day free trial",
+        "Payment method diperlukan",
+        "Tidak dikenakan biaya hari ini",
+        "Credit allowance lebih tinggi",
+        "Team access lebih besar",
+        "Cocok untuk operasional aktif",
+      ],
+    },
+    enterprise: {
+      name: "Enterprise",
+      description:
+        "Untuk agency, hotel, klinik, real estate group, dan high-volume team yang membutuhkan custom setup.",
+      features: [
+        "Custom onboarding",
+        "Custom AI credits",
+        "Multiple business locations",
+        "Team access",
+        "Priority support",
+        "Custom automation planning",
+      ],
+    },
+  },
+
+  zh: {
+    free_trial: {
+      name: "免费试用",
+      description: "在选择付费方案前先体验 Kolkap。",
+      features: ["7 天免费试用", "需要付款方式", "今天不会收费", "测试 AI 回复"],
+    },
+    starter: {
+      name: "Starter AI",
+      description:
+        "适合想开始使用 AI 处理客户回复、内容生成和基础自动化的小型企业。",
+      features: [
+        "7 天免费试用",
+        "需要付款方式",
+        "今天不会收费",
+        "AI 回复测试",
+        "业务知识设置",
+        "基础 inbox 支持",
+      ],
+    },
+    growth: {
+      name: "Growth AI",
+      description:
+        "适合正在成长、需要更多 AI 回复、更多内容生成和更强客户支持自动化的企业。",
+      features: [
+        "7 天免费试用",
+        "需要付款方式",
+        "今天不会收费",
+        "更多 AI 员工容量",
+        "Inbox 和 leads 支持",
+        "内容生成工具",
+      ],
+    },
+    professional: {
+      name: "Professional AI",
+      description:
+        "适合希望用 AI 支持回复、leads、内容、usage tracking 和日常运营的企业。",
+      features: [
+        "7 天免费试用",
+        "需要付款方式",
+        "今天不会收费",
+        "推荐给成长型团队",
+        "更多 credits 和 AI 员工",
+        "优先 workspace 设置",
+      ],
+    },
+    business: {
+      name: "Business AI",
+      description:
+        "适合消息量更高、AI 需求更多、需要更强自动化能力的忙碌企业。",
+      features: [
+        "7 天免费试用",
+        "需要付款方式",
+        "今天不会收费",
+        "更高 credit 配额",
+        "更多团队权限",
+        "适合活跃运营团队",
+      ],
+    },
+    enterprise: {
+      name: "Enterprise",
+      description:
+        "适合 agency、酒店、诊所、房地产集团和高用量团队，需要定制设置。",
+      features: [
+        "定制 onboarding",
+        "定制 AI credits",
+        "多个业务地点",
+        "团队权限",
+        "优先支持",
+        "定制自动化规划",
+      ],
+    },
+  },
+
+  ms: {
+    free_trial: {
+      name: "Free Trial",
+      description: "Cuba Kolkap sebelum memilih pakej berbayar.",
+      features: [
+        "7-day free trial",
+        "Payment method diperlukan",
+        "Tiada caj hari ini",
+        "Test balasan AI",
+      ],
+    },
+    starter: {
+      name: "Starter AI",
+      description:
+        "Untuk bisnes kecil yang mahu mula menggunakan AI untuk balasan pelanggan, content, dan basic automation.",
+      features: [
+        "7-day free trial",
+        "Payment method diperlukan",
+        "Tiada caj hari ini",
+        "Test balasan AI",
+        "Setup business knowledge",
+        "Basic inbox support",
+      ],
+    },
+    growth: {
+      name: "Growth AI",
+      description:
+        "Untuk bisnes yang sedang berkembang dan memerlukan lebih banyak AI replies, content, dan customer support automation.",
+      features: [
+        "7-day free trial",
+        "Payment method diperlukan",
+        "Tiada caj hari ini",
+        "Kapasiti AI staff lebih besar",
+        "Support inbox dan leads",
+        "Tools content generation",
+      ],
+    },
+    professional: {
+      name: "Professional AI",
+      description:
+        "Untuk bisnes serius yang mahu AI membantu replies, leads, content, usage tracking, dan operasi harian.",
+      features: [
+        "7-day free trial",
+        "Payment method diperlukan",
+        "Tiada caj hari ini",
+        "Disyorkan untuk growing teams",
+        "Lebih banyak credits dan AI staff",
+        "Priority workspace setup",
+      ],
+    },
+    business: {
+      name: "Business AI",
+      description:
+        "Untuk bisnes yang sibuk dengan volume mesej lebih tinggi, keperluan AI lebih banyak, dan automation lebih kuat.",
+      features: [
+        "7-day free trial",
+        "Payment method diperlukan",
+        "Tiada caj hari ini",
+        "Credit allowance lebih tinggi",
+        "Team access lebih besar",
+        "Sesuai untuk operasi aktif",
+      ],
+    },
+    enterprise: {
+      name: "Enterprise",
+      description:
+        "Untuk agency, hotel, klinik, real estate group, dan high-volume team yang memerlukan custom setup.",
+      features: [
+        "Custom onboarding",
+        "Custom AI credits",
+        "Multiple business locations",
+        "Team access",
+        "Priority support",
+        "Custom automation planning",
+      ],
+    },
+  },
+};
+
+const translations: Record<SupportedLanguage, PricingTranslation> = {
   en: {
     badge: "Kolkap Pricing",
     title: "AI staff pricing for serious business owners.",
@@ -74,10 +431,13 @@ const translations = {
       "Create your AI staff, add business knowledge, test the replies, and see how Kolkap can support your business.",
     finalButton: "Start 7-Day Free Trial",
     trialTitle: "7-Day Free Trial",
-    trialText: KOLKAP_TRIAL_NOTE,
+    trialText:
+      "Payment method needed to activate your trial. You won’t be charged today. Monthly billing starts after your 7-day trial unless cancelled before the trial ends.",
     choosePlan: "Start Trial",
     topUp: "Top Up",
     createAI: "Create AI",
+    bestValue: "Best Value",
+    creditWord: "credits",
     creditRules: [
       ["Generate Test AI Reply", "1 credit"],
       ["Generate Inbox AI Reply", "1 credit"],
@@ -110,20 +470,20 @@ const translations = {
     badge: "Harga Kolkap",
     title: "Harga AI staff untuk pemilik bisnis yang serius.",
     subtitle:
-      "Mulai dengan 7-day free trial. Payment method needed to activate your trial. You won’t be charged today.",
+      "Mulai dengan 7-day free trial. Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini.",
     month: "/bulan",
-    startTrial: "Start 7-Day Free Trial",
+    startTrial: "Mulai 7-Day Free Trial",
     contactUs: "Hubungi Kami",
     popular: "Recommended",
     included: "Termasuk",
     paymentNeeded:
-      "Payment method needed to activate your trial. You won’t be charged today.",
+      "Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini.",
     trialIncluded: "7-day free trial",
-    noChargeToday: "No charge today",
+    noChargeToday: "Tidak dikenakan biaya hari ini",
     autoBilling: "Monthly billing berjalan setelah trial kecuali dibatalkan.",
     plansTitle: "Pilih paket AI staff Anda",
     plansText:
-      "Kolkap dibuat sebagai 24/7 AI business assistant untuk replies, content, inbox support, customer questions, dan nanti WhatsApp atau website chat automation.",
+      "Kolkap dibuat sebagai 24/7 AI business assistant untuk replies, content, inbox support, pertanyaan customer, dan nanti WhatsApp atau website chat automation.",
     creditTitle: "Cara kerja AI credits",
     creditText:
       "Setiap successful AI generation menggunakan credits. Button akan menunjukkan cost dengan jelas sebelum user klik.",
@@ -134,19 +494,22 @@ const translations = {
     finalTitle: "Mulai dengan 7 hari gratis.",
     finalText:
       "Buat AI staff, tambah business knowledge, test replies, dan lihat bagaimana Kolkap bisa mendukung bisnis Anda.",
-    finalButton: "Start 7-Day Free Trial",
+    finalButton: "Mulai 7-Day Free Trial",
     trialTitle: "7-Day Free Trial",
-    trialText: KOLKAP_TRIAL_NOTE,
-    choosePlan: "Start Trial",
+    trialText:
+      "Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini. Monthly billing berjalan setelah 7-day trial kecuali dibatalkan sebelum trial selesai.",
+    choosePlan: "Mulai Trial",
     topUp: "Top Up",
-    createAI: "Create AI",
+    createAI: "Buat AI",
+    bestValue: "Best Value",
+    creditWord: "credits",
     creditRules: [
       ["Generate Test AI Reply", "1 credit"],
       ["Generate Inbox AI Reply", "1 credit"],
       ["Generate Content Studio content", "1 credit"],
       ["Website Chat AI Reply", "1 credit"],
       ["WhatsApp AI Reply", "1 credit"],
-      ["Long content / campaign pack", "More credits later"],
+      ["Long content / campaign pack", "Credits tambahan nanti"],
     ],
     faqs: [
       {
@@ -167,12 +530,168 @@ const translations = {
       },
     ],
   },
+
+  zh: {
+    badge: "Kolkap 价格",
+    title: "为认真经营的企业主打造的 AI 员工价格。",
+    subtitle:
+      "从 7 天免费试用开始。需要添加付款方式来激活试用。今天不会收费。",
+    month: "/月",
+    startTrial: "开始 7 天免费试用",
+    contactUs: "联系我们",
+    popular: "推荐",
+    included: "包含",
+    paymentNeeded: "需要添加付款方式来激活试用。今天不会收费。",
+    trialIncluded: "7 天免费试用",
+    noChargeToday: "今天不会收费",
+    autoBilling: "试用结束后将按月计费，除非提前取消。",
+    plansTitle: "选择您的 AI 员工方案",
+    plansText:
+      "Kolkap 是 24/7 AI business assistant，可支持客户回复、内容生成、inbox support、客户问题，以及未来的 WhatsApp 或网站聊天自动化。",
+    creditTitle: "AI credits 如何运作",
+    creditText:
+      "每次成功的 AI generation 都会使用 credits。按钮会在用户点击前清楚显示所需 credits。",
+    topupTitle: "需要更多 AI credits？",
+    topupText:
+      "当业务在下一个 billing cycle 前需要更多 AI 回复、内容生成或 campaign support 时，可以随时 top up。",
+    faqTitle: "价格常见问题",
+    finalTitle: "从 7 天免费试用开始。",
+    finalText:
+      "创建您的 AI 员工、添加业务知识、测试回复，并了解 Kolkap 如何支持您的业务。",
+    finalButton: "开始 7 天免费试用",
+    trialTitle: "7 天免费试用",
+    trialText:
+      "需要添加付款方式来激活试用。今天不会收费。7 天试用结束后将按月计费，除非您在试用结束前取消。",
+    choosePlan: "开始试用",
+    topUp: "Top Up",
+    createAI: "创建 AI",
+    bestValue: "最划算",
+    creditWord: "credits",
+    creditRules: [
+      ["生成 Test AI 回复", "1 credit"],
+      ["生成 Inbox AI 回复", "1 credit"],
+      ["生成 Content Studio 内容", "1 credit"],
+      ["Website Chat AI 回复", "1 credit"],
+      ["WhatsApp AI 回复", "1 credit"],
+      ["长内容 / campaign pack", "之后可能使用更多 credits"],
+    ],
+    faqs: [
+      {
+        q: "用户开始试用需要付款方式吗？",
+        a: "需要。付款方式用于激活试用，但今天不会收费。7 天试用结束后将按月计费，除非用户在试用结束前取消。",
+      },
+      {
+        q: "什么是 1 credit？",
+        a: "一次普通 AI generation 或 AI reply 通常使用 1 credit，例如 Test AI、Inbox AI Reply、Content Studio、website chat 或 WhatsApp AI reply。",
+      },
+      {
+        q: "用户可以 top up credits 吗？",
+        a: "可以。当业务在下一个月度续费前需要更多 AI 回复或内容时，可以购买额外 credits。",
+      },
+      {
+        q: "credits 用完后会怎样？",
+        a: "AI generation 应该停止，或提示用户 top up 或 upgrade。这样可以避免不可控的 usage。",
+      },
+    ],
+  },
+
+  ms: {
+    badge: "Harga Kolkap",
+    title: "Harga AI staff untuk pemilik bisnes yang serius.",
+    subtitle:
+      "Mulakan dengan 7-day free trial. Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini.",
+    month: "/bulan",
+    startTrial: "Mulakan 7-Day Free Trial",
+    contactUs: "Hubungi Kami",
+    popular: "Disyorkan",
+    included: "Termasuk",
+    paymentNeeded:
+      "Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini.",
+    trialIncluded: "7-day free trial",
+    noChargeToday: "Tiada caj hari ini",
+    autoBilling: "Monthly billing bermula selepas trial kecuali dibatalkan.",
+    plansTitle: "Pilih pakej AI staff anda",
+    plansText:
+      "Kolkap dibina sebagai 24/7 AI business assistant untuk replies, content, inbox support, soalan pelanggan, dan nanti WhatsApp atau website chat automation.",
+    creditTitle: "Cara AI credits berfungsi",
+    creditText:
+      "Setiap successful AI generation menggunakan credits. Button akan menunjukkan cost dengan jelas sebelum user klik.",
+    topupTitle: "Perlukan lebih banyak AI credits?",
+    topupText:
+      "Top up bila-bila masa apabila bisnes anda memerlukan lebih banyak AI replies, content generation, atau campaign support sebelum billing cycle seterusnya.",
+    faqTitle: "FAQ Harga",
+    finalTitle: "Mulakan dengan 7 hari percuma.",
+    finalText:
+      "Cipta AI staff, tambah business knowledge, test replies, dan lihat bagaimana Kolkap boleh menyokong bisnes anda.",
+    finalButton: "Mulakan 7-Day Free Trial",
+    trialTitle: "7-Day Free Trial",
+    trialText:
+      "Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini. Monthly billing bermula selepas 7-day trial kecuali dibatalkan sebelum trial tamat.",
+    choosePlan: "Mulakan Trial",
+    topUp: "Top Up",
+    createAI: "Cipta AI",
+    bestValue: "Best Value",
+    creditWord: "credits",
+    creditRules: [
+      ["Generate Test AI Reply", "1 credit"],
+      ["Generate Inbox AI Reply", "1 credit"],
+      ["Generate Content Studio content", "1 credit"],
+      ["Website Chat AI Reply", "1 credit"],
+      ["WhatsApp AI Reply", "1 credit"],
+      ["Long content / campaign pack", "Credits tambahan nanti"],
+    ],
+    faqs: [
+      {
+        q: "Adakah user perlukan payment method untuk mula trial?",
+        a: "Ya. Payment method diperlukan untuk mengaktifkan trial, tetapi user tidak akan dikenakan caj hari ini. Monthly billing bermula selepas 7-day trial kecuali dibatalkan sebelum trial tamat.",
+      },
+      {
+        q: "Apa itu 1 credit?",
+        a: "Satu normal AI generation atau AI reply menggunakan 1 credit, seperti Test AI, Inbox AI Reply, Content Studio, website chat, atau WhatsApp AI reply.",
+      },
+      {
+        q: "Boleh user top up credits?",
+        a: "Ya. User boleh membeli extra credits apabila bisnes memerlukan lebih banyak AI replies atau content sebelum monthly renewal seterusnya.",
+      },
+      {
+        q: "Apa berlaku jika credits habis?",
+        a: "AI generation perlu berhenti atau minta user top up atau upgrade. Ini melindungi bisnes daripada usage yang tidak terkawal.",
+      },
+    ],
+  },
 };
+
+function getSupportedLanguage(language: string): SupportedLanguage {
+  return supportedLanguages.includes(language as SupportedLanguage)
+    ? (language as SupportedLanguage)
+    : "en";
+}
+
+function localizePlanLabel(label: string, language: SupportedLanguage) {
+  if (language === "zh") {
+    return label
+      .replace("AI credits/month", "AI credits/月")
+      .replace("Custom credits", "定制 credits")
+      .replace("AI staff", "AI 员工")
+      .replace("Team member", "团队成员")
+      .replace("Team members", "团队成员")
+      .replace("Custom", "定制");
+  }
+
+  if (language === "id" || language === "ms") {
+    return label
+      .replace("AI credits/month", "AI credits/bulan")
+      .replace("Custom credits", "Custom credits");
+  }
+
+  return label;
+}
 
 export default function PricingPage() {
   const { language } = useKolkapLanguage();
-  const t =
-    translations[language as keyof typeof translations] || translations.en;
+  const lang = getSupportedLanguage(language);
+  const t = translations[lang];
+  const copy = planCopy[lang];
 
   return (
     <main className="bg-[#F7F9FA] text-[#07111F]">
@@ -239,6 +758,7 @@ export default function PricingPage() {
         <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-5">
           {publicPlanKeys.map((planKey) => {
             const plan = getKolkapPlan(planKey);
+            const translatedPlan = copy[planKey] || planCopy.en[planKey];
             const highlighted = plan.key === "professional";
 
             return (
@@ -276,12 +796,12 @@ export default function PricingPage() {
                 </div>
 
                 <h3 className="text-3xl font-black tracking-[-0.04em]">
-                  {plan.name}
+                 {translatedPlan?.name || plan.name}
                 </h3>
 
                 <p className="mt-3 text-5xl font-black tracking-[-0.06em]">
                   {plan.priceLabel === "Custom"
-                    ? "Custom"
+                    ? t.contactUs
                     : `$${plan.monthlyPriceUsd}`}
                   {plan.monthlyPriceUsd ? (
                     <span
@@ -299,7 +819,7 @@ export default function PricingPage() {
                     highlighted ? "text-slate-300" : "text-slate-600"
                   }`}
                 >
-                  {plan.description}
+                  {translatedPlan?.description || plan.description}
                 </p>
 
                 <div className="mt-7 space-y-3">
@@ -312,27 +832,19 @@ export default function PricingPage() {
                   </p>
 
                   <PlanFeature
-                    text={t.trialIncluded}
+                    text={localizePlanLabel(getPlanCreditLabel(plan), lang)}
                     highlighted={highlighted}
                   />
                   <PlanFeature
-                    text={t.paymentNeeded}
+                    text={localizePlanLabel(getPlanAIStaffLabel(plan), lang)}
                     highlighted={highlighted}
                   />
                   <PlanFeature
-                    text={getPlanCreditLabel(plan)}
-                    highlighted={highlighted}
-                  />
-                  <PlanFeature
-                    text={getPlanAIStaffLabel(plan)}
-                    highlighted={highlighted}
-                  />
-                  <PlanFeature
-                    text={getPlanTeamMemberLabel(plan)}
+                    text={localizePlanLabel(getPlanTeamMemberLabel(plan), lang)}
                     highlighted={highlighted}
                   />
 
-                  {plan.features.slice(5, 9).map((feature) => (
+                  {(translatedPlan?.features || []).map((feature) => (
                     <PlanFeature
                       key={feature}
                       text={feature}
@@ -403,9 +915,7 @@ export default function PricingPage() {
               <CreditRuleRow
                 key={rule.label}
                 action={rule.label}
-                credits={`${rule.credits} credit${
-                  rule.credits === 1 ? "" : "s"
-                }`}
+                credits={`${rule.credits} ${t.creditWord}`}
               />
             ))}
           </div>
@@ -439,7 +949,7 @@ export default function PricingPage() {
                 >
                   {bestValue ? (
                     <div className="mb-4 inline-flex rounded-full bg-[#7CFF3D] px-4 py-2 text-sm font-black text-[#07111F]">
-                      Best Value
+                      {t.bestValue}
                     </div>
                   ) : null}
 
@@ -452,7 +962,7 @@ export default function PricingPage() {
                       bestValue ? "text-[#07111F]" : "text-[#7CFF3D]"
                     }`}
                   >
-                    {pack.credits.toLocaleString()} credits
+                    {pack.credits.toLocaleString()} {t.creditWord}
                   </p>
 
                   <Link
