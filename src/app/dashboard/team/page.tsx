@@ -18,8 +18,10 @@ import {
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
-import { getKolkapPlan, getPlanAIStaffLabel } from "@/lib/kolkapPlan";
+import { getKolkapPlan } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
+
+type SupportedLanguage = "en" | "id" | "zh" | "ms";
 
 type TeamMemberRow = {
   id: string;
@@ -53,10 +55,13 @@ type TeamText = {
   teamMembers: string;
   activeMembers: string;
   pendingMembers: string;
+  workspaceTeamAccess: string;
   owner: string;
   ownerText: string;
   workspaceOwner: string;
+  ownerFallback: string;
   ownerAccess: string;
+  adminLabel: string;
   addTeam: string;
   addTeamText: string;
   fullName: string;
@@ -80,38 +85,28 @@ type TeamText = {
   teamRoles: string;
   teamRolesText: string;
   saving: string;
+  planNames: Record<string, string>;
   roles: Option[];
   permissions: Option[];
   statuses: Option[];
+  roleLabels: Record<string, string>;
   statusLabels: Record<string, string>;
   permissionLabels: Record<string, string>;
 };
 
-const baseRoles: Option[] = [
-  { value: "Admin", label: "Admin" },
-  { value: "Manager", label: "Manager" },
-  { value: "Inbox Agent", label: "Inbox Agent" },
-  { value: "Sales Agent", label: "Sales Agent" },
-  { value: "Content Assistant", label: "Content Assistant" },
-  { value: "Viewer", label: "Viewer" },
+const roleValues = [
+  "Admin",
+  "Manager",
+  "Inbox Agent",
+  "Sales Agent",
+  "Content Assistant",
+  "Viewer",
 ];
 
-const basePermissions: Option[] = [
-  { value: "admin", label: "Admin" },
-  { value: "manager", label: "Manager" },
-  { value: "inbox", label: "Inbox" },
-  { value: "sales", label: "Sales" },
-  { value: "content", label: "Content" },
-  { value: "viewer", label: "Viewer" },
-];
+const permissionValues = ["admin", "manager", "inbox", "sales", "content", "viewer"];
+const statusValues = ["invited", "active", "disabled"];
 
-const baseStatuses: Option[] = [
-  { value: "invited", label: "Pending" },
-  { value: "active", label: "Active" },
-  { value: "disabled", label: "Disabled" },
-];
-
-const translations: Record<string, TeamText> = {
+const translations: Record<SupportedLanguage, TeamText> = {
   en: {
     badge: "Team",
     title: "Manage your workspace team.",
@@ -125,11 +120,14 @@ const translations: Record<string, TeamText> = {
     teamMembers: "Team Members",
     activeMembers: "Active Members",
     pendingMembers: "Pending Members",
+    workspaceTeamAccess: "Workspace team access",
     owner: "Workspace Owner",
     ownerText:
       "The owner has full control of the business workspace, billing, AI setup, inbox, leads, reports, and settings.",
     workspaceOwner: "Workspace Owner",
+    ownerFallback: "Owner",
     ownerAccess: "Full Access",
+    adminLabel: "Admin",
     addTeam: "Add Team Member",
     addTeamText:
       "Add a team member and send an email invitation so they can join your workspace.",
@@ -156,9 +154,30 @@ const translations: Record<string, TeamText> = {
     teamRolesText:
       "Use team roles to organize who helps manage inbox, leads, content, and workspace operations. You can update roles, permissions, and member status anytime as your business grows.",
     saving: "Saving...",
-    roles: baseRoles,
-    permissions: basePermissions,
-    statuses: baseStatuses,
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    roles: roleValues.map((value) => ({ value, label: value })),
+    permissions: permissionValues.map((value) => ({
+      value,
+      label: value.charAt(0).toUpperCase() + value.slice(1),
+    })),
+    statuses: [
+      { value: "invited", label: "Pending" },
+      { value: "active", label: "Active" },
+      { value: "disabled", label: "Disabled" },
+    ],
+    roleLabels: {
+      Admin: "Admin",
+      Manager: "Manager",
+      "Inbox Agent": "Inbox Agent",
+      "Sales Agent": "Sales Agent",
+      "Content Assistant": "Content Assistant",
+      Viewer: "Viewer",
+    },
     statusLabels: {
       invited: "Pending",
       active: "Active",
@@ -180,48 +199,179 @@ const translations: Record<string, TeamText> = {
     subtitle:
       "Tambah team member, kirim email invitation, atur role, dan kelola siapa yang membantu inbox, leads, content, dan operasional workspace.",
     loading: "Memuat team Anda...",
-    failed: "Halaman Team gagal dimuat.",
+    failed: "Halaman Team tidak dapat dimuat.",
     back: "Kembali ke Dashboard",
-    refresh: "Refresh",
+    refresh: "Muat Ulang",
     currentPlan: "Paket Saat Ini",
-    teamMembers: "Team Members",
+    teamMembers: "Team Member",
     activeMembers: "Member Aktif",
     pendingMembers: "Member Pending",
+    workspaceTeamAccess: "Akses team workspace",
     owner: "Workspace Owner",
     ownerText:
       "Owner memiliki kontrol penuh atas business workspace, billing, AI setup, inbox, leads, reports, dan settings.",
     workspaceOwner: "Workspace Owner",
-    ownerAccess: "Full Access",
-    addTeam: "Add Team Member",
+    ownerFallback: "Owner",
+    ownerAccess: "Akses Penuh",
+    adminLabel: "Admin",
+    addTeam: "Tambah Team Member",
     addTeamText:
       "Tambah team member dan kirim email invitation agar mereka bisa bergabung ke workspace Anda.",
     fullName: "Nama lengkap",
     email: "Alamat email",
     role: "Role",
-    permission: "Permission level",
+    permission: "Level permission",
     status: "Status",
-    sendInvite: "Send Invite",
+    sendInvite: "Kirim Invite",
     sendingInvite: "Mengirim invite...",
-    inviteSent:
-      "Team member berhasil disimpan dan email invitation sudah dikirim.",
-    inviteFailed: "Team invitation gagal dikirim.",
+    inviteSent: "Team member berhasil disimpan dan email invitation sudah dikirim.",
+    inviteFailed: "Team invitation tidak dapat dikirim.",
     requiredFields: "Mohon isi nama lengkap dan alamat email.",
-    teamList: "Team Members",
+    teamList: "Team Member",
     teamListText: "Kelola orang yang terhubung dengan business workspace ini.",
     noMembers: "Belum ada team member.",
     noMembersText:
       "Kirim invitation pertama saat Anda siap meminta bantuan untuk inbox, leads, content, atau operasional workspace.",
     updateSaved: "Team member berhasil diperbarui.",
-    updateFailed: "Team member gagal diperbarui.",
-    deleteMember: "Delete",
+    updateFailed: "Team member tidak dapat diperbarui.",
+    deleteMember: "Hapus",
     deleteConfirm: "Hapus team member ini?",
     teamRoles: "Team Roles",
     teamRolesText:
       "Gunakan team roles untuk mengatur siapa yang membantu mengelola inbox, leads, content, dan operasional workspace. Anda dapat memperbarui role, permission, dan status member kapan saja seiring bisnis berkembang.",
     saving: "Menyimpan...",
-    roles: baseRoles,
-    permissions: basePermissions,
-    statuses: baseStatuses,
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    roles: [
+      { value: "Admin", label: "Admin" },
+      { value: "Manager", label: "Manager" },
+      { value: "Inbox Agent", label: "Agent Inbox" },
+      { value: "Sales Agent", label: "Agent Sales" },
+      { value: "Content Assistant", label: "Asisten Content" },
+      { value: "Viewer", label: "Viewer" },
+    ],
+    permissions: [
+      { value: "admin", label: "Admin" },
+      { value: "manager", label: "Manager" },
+      { value: "inbox", label: "Inbox" },
+      { value: "sales", label: "Sales" },
+      { value: "content", label: "Content" },
+      { value: "viewer", label: "Viewer" },
+    ],
+    statuses: [
+      { value: "invited", label: "Pending" },
+      { value: "active", label: "Aktif" },
+      { value: "disabled", label: "Disabled" },
+    ],
+    roleLabels: {
+      Admin: "Admin",
+      Manager: "Manager",
+      "Inbox Agent": "Agent Inbox",
+      "Sales Agent": "Agent Sales",
+      "Content Assistant": "Asisten Content",
+      Viewer: "Viewer",
+    },
+    statusLabels: {
+      invited: "Pending",
+      active: "Aktif",
+      disabled: "Disabled",
+    },
+    permissionLabels: {
+      admin: "Admin",
+      manager: "Manager",
+      inbox: "Inbox",
+      sales: "Sales",
+      content: "Content",
+      viewer: "Viewer",
+    },
+  },
+
+  zh: {
+    badge: "Team",
+    title: "管理您的 workspace 团队。",
+    subtitle:
+      "添加团队成员、发送 email invitation、安排角色，并管理谁可以协助 inbox、leads、content 和 workspace operations。",
+    loading: "正在加载 team...",
+    failed: "Team 页面无法加载。",
+    back: "返回 Dashboard",
+    refresh: "刷新",
+    currentPlan: "当前套餐",
+    teamMembers: "团队成员",
+    activeMembers: "活跃成员",
+    pendingMembers: "待处理成员",
+    workspaceTeamAccess: "Workspace 团队权限",
+    owner: "Workspace Owner",
+    ownerText:
+      "Owner 拥有 business workspace、billing、AI setup、inbox、leads、reports 和 settings 的完整控制权。",
+    workspaceOwner: "Workspace Owner",
+    ownerFallback: "Owner",
+    ownerAccess: "完整权限",
+    adminLabel: "Admin",
+    addTeam: "添加团队成员",
+    addTeamText:
+      "添加团队成员并发送 email invitation，让他们加入您的 workspace。",
+    fullName: "姓名",
+    email: "Email 地址",
+    role: "角色",
+    permission: "权限等级",
+    status: "状态",
+    sendInvite: "发送邀请",
+    sendingInvite: "正在发送邀请...",
+    inviteSent: "团队成员已保存，邀请 email 已发送。",
+    inviteFailed: "团队邀请无法发送。",
+    requiredFields: "请填写姓名和 email 地址。",
+    teamList: "团队成员",
+    teamListText: "管理连接到此 business workspace 的人员。",
+    noMembers: "尚无团队成员。",
+    noMembersText:
+      "当您准备让别人协助 inbox、leads、content 或 workspace operations 时，可以发送第一个团队邀请。",
+    updateSaved: "团队成员已更新。",
+    updateFailed: "团队成员无法更新。",
+    deleteMember: "删除",
+    deleteConfirm: "删除此团队成员？",
+    teamRoles: "团队角色",
+    teamRolesText:
+      "使用团队角色来安排谁负责 inbox、leads、content 和 workspace operations。随着业务成长，您可以随时更新角色、权限和成员状态。",
+    saving: "正在保存...",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    roles: [
+      { value: "Admin", label: "Admin" },
+      { value: "Manager", label: "Manager" },
+      { value: "Inbox Agent", label: "Inbox Agent" },
+      { value: "Sales Agent", label: "Sales Agent" },
+      { value: "Content Assistant", label: "Content Assistant" },
+      { value: "Viewer", label: "Viewer" },
+    ],
+    permissions: [
+      { value: "admin", label: "Admin" },
+      { value: "manager", label: "Manager" },
+      { value: "inbox", label: "Inbox" },
+      { value: "sales", label: "Sales" },
+      { value: "content", label: "Content" },
+      { value: "viewer", label: "Viewer" },
+    ],
+    statuses: [
+      { value: "invited", label: "Pending" },
+      { value: "active", label: "Active" },
+      { value: "disabled", label: "Disabled" },
+    ],
+    roleLabels: {
+      Admin: "Admin",
+      Manager: "Manager",
+      "Inbox Agent": "Inbox Agent",
+      "Sales Agent": "Sales Agent",
+      "Content Assistant": "Content Assistant",
+      Viewer: "Viewer",
+    },
     statusLabels: {
       invited: "Pending",
       active: "Active",
@@ -236,15 +386,134 @@ const translations: Record<string, TeamText> = {
       viewer: "Viewer",
     },
   },
+
+  ms: {
+    badge: "Team",
+    title: "Urus team workspace anda.",
+    subtitle:
+      "Tambah team member, hantar email invitation, susun role, dan urus siapa yang membantu inbox, leads, content, dan operasi workspace.",
+    loading: "Memuatkan team anda...",
+    failed: "Halaman Team tidak dapat dimuatkan.",
+    back: "Kembali ke Dashboard",
+    refresh: "Segar Semula",
+    currentPlan: "Pelan Semasa",
+    teamMembers: "Team Member",
+    activeMembers: "Member Aktif",
+    pendingMembers: "Member Pending",
+    workspaceTeamAccess: "Akses team workspace",
+    owner: "Workspace Owner",
+    ownerText:
+      "Owner mempunyai kawalan penuh ke atas business workspace, billing, AI setup, inbox, leads, reports, dan settings.",
+    workspaceOwner: "Workspace Owner",
+    ownerFallback: "Owner",
+    ownerAccess: "Akses Penuh",
+    adminLabel: "Admin",
+    addTeam: "Tambah Team Member",
+    addTeamText:
+      "Tambah team member dan hantar email invitation supaya mereka boleh sertai workspace anda.",
+    fullName: "Nama penuh",
+    email: "Alamat email",
+    role: "Role",
+    permission: "Level permission",
+    status: "Status",
+    sendInvite: "Hantar Invite",
+    sendingInvite: "Menghantar invite...",
+    inviteSent: "Team member berjaya disimpan dan email invitation sudah dihantar.",
+    inviteFailed: "Team invitation tidak dapat dihantar.",
+    requiredFields: "Sila isi nama penuh dan alamat email.",
+    teamList: "Team Member",
+    teamListText: "Urus orang yang bersambung dengan business workspace ini.",
+    noMembers: "Belum ada team member.",
+    noMembersText:
+      "Hantar invitation pertama apabila anda bersedia untuk meminta bantuan bagi inbox, leads, content, atau operasi workspace.",
+    updateSaved: "Team member berjaya dikemaskini.",
+    updateFailed: "Team member tidak dapat dikemaskini.",
+    deleteMember: "Padam",
+    deleteConfirm: "Padam team member ini?",
+    teamRoles: "Team Roles",
+    teamRolesText:
+      "Gunakan team roles untuk mengatur siapa yang membantu mengurus inbox, leads, content, dan operasi workspace. Anda boleh update role, permission, dan status member bila-bila masa apabila bisnes berkembang.",
+    saving: "Menyimpan...",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    roles: [
+      { value: "Admin", label: "Admin" },
+      { value: "Manager", label: "Manager" },
+      { value: "Inbox Agent", label: "Agent Inbox" },
+      { value: "Sales Agent", label: "Agent Sales" },
+      { value: "Content Assistant", label: "Assistant Content" },
+      { value: "Viewer", label: "Viewer" },
+    ],
+    permissions: [
+      { value: "admin", label: "Admin" },
+      { value: "manager", label: "Manager" },
+      { value: "inbox", label: "Inbox" },
+      { value: "sales", label: "Sales" },
+      { value: "content", label: "Content" },
+      { value: "viewer", label: "Viewer" },
+    ],
+    statuses: [
+      { value: "invited", label: "Pending" },
+      { value: "active", label: "Aktif" },
+      { value: "disabled", label: "Disabled" },
+    ],
+    roleLabels: {
+      Admin: "Admin",
+      Manager: "Manager",
+      "Inbox Agent": "Agent Inbox",
+      "Sales Agent": "Agent Sales",
+      "Content Assistant": "Assistant Content",
+      Viewer: "Viewer",
+    },
+    statusLabels: {
+      invited: "Pending",
+      active: "Aktif",
+      disabled: "Disabled",
+    },
+    permissionLabels: {
+      admin: "Admin",
+      manager: "Manager",
+      inbox: "Inbox",
+      sales: "Sales",
+      content: "Content",
+      viewer: "Viewer",
+    },
+  },
 };
+
+function getSupportedLanguage(language: string): SupportedLanguage {
+  if (language === "id" || language === "zh" || language === "ms") {
+    return language;
+  }
+
+  return "en";
+}
+
+function localizePlanName(
+  planKey: string | null | undefined,
+  fallback: string,
+  t: TeamText
+) {
+  if (!planKey) return fallback;
+  return t.planNames[planKey] || fallback;
+}
 
 export default function TeamPage() {
   const { language } = useKolkapLanguage();
-  const t = translations[language] || translations.en;
+  const t = translations[getSupportedLanguage(language)];
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
+  const currentPlanName = localizePlanName(
+    workspaceState.planKey,
+    currentPlan.name,
+    t
+  );
 
   const [teamMembers, setTeamMembers] = useState<TeamMemberRow[]>([]);
   const [isLoadingTeam, setIsLoadingTeam] = useState(true);
@@ -312,14 +581,14 @@ export default function TeamPage() {
   const summaryCards = [
     {
       label: t.currentPlan,
-      value: currentPlan.name,
+      value: currentPlanName,
       note: currentPlan.priceLabel,
       icon: WalletCards,
     },
     {
       label: t.teamMembers,
       value: `${teamMembers.length}`,
-      note: getPlanAIStaffLabel(currentPlan),
+      note: t.workspaceTeamAccess,
       icon: UsersRound,
     },
     {
@@ -331,7 +600,7 @@ export default function TeamPage() {
     {
       label: t.owner,
       value: "1",
-      note: `${adminCount} Admin`,
+      note: `${adminCount} ${t.adminLabel}`,
       icon: Crown,
     },
   ];
@@ -595,7 +864,7 @@ export default function TeamPage() {
                   </p>
                   <p className="mt-2 flex items-center gap-2 text-base font-semibold leading-7 text-slate-300">
                     <Mail className="h-4 w-4" />
-                    {workspace?.business_email || "Owner"}
+                    {workspace?.business_email || t.ownerFallback}
                   </p>
                   <p className="mt-4 inline-flex rounded-full bg-[#7CFF3D] px-5 py-3 text-sm font-black text-[#07111F]">
                     {t.ownerAccess}
@@ -761,7 +1030,7 @@ export default function TeamPage() {
 
                           <div className="mt-4 flex flex-wrap gap-2">
                             <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-[#07111F]">
-                              {member.role}
+                              {t.roleLabels[member.role] || member.role}
                             </span>
                             <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-[#07111F]">
                               {t.permissionLabels[member.permission_level] ||
