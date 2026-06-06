@@ -32,6 +32,8 @@ import {
 } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
+type SupportedLanguage = "en" | "id" | "zh" | "ms";
+
 type CreditBalanceRow = {
   id: string;
   workspace_id: string;
@@ -47,6 +49,58 @@ type CreditBalanceRow = {
   updated_at: string;
 };
 
+type BillingTranslation = {
+  badge: string;
+  title: string;
+  subtitle: string;
+  loading: string;
+  failed: string;
+  back: string;
+  refresh: string;
+  currentPlan: string;
+  planStatus: string;
+  creditsLeft: string;
+  creditsUsed: string;
+  planCredits: string;
+  topUpCredits: string;
+  aiStaffLimit: string;
+  teamLimit: string;
+  trialDaysLeft: string;
+  billingSummary: string;
+  billingSummaryText: string;
+  trialTitle: string;
+  trialText: string;
+  availablePlans: string;
+  availablePlansText: string;
+  topUpTitle: string;
+  topUpText: string;
+  invoices: string;
+  invoicesText: string;
+  upgradePlan: string;
+  startTrial: string;
+  contactUs: string;
+  current: string;
+  comingSoon: string;
+  invoiceNotReady: string;
+  billingPeriod: string;
+  paymentNeeded: string;
+  autoBilling: string;
+  noCreditBalance: string;
+  includedMonthly: string;
+  purchasedExtra: string;
+  usedFromBalance: string;
+  remainingBalance: string;
+  creditWord: string;
+  statuses: {
+    trial: string;
+    active: string;
+    past_due: string;
+    cancelled: string;
+  };
+};
+
+const supportedLanguages: SupportedLanguage[] = ["en", "id", "zh", "ms"];
+
 const publicPlanKeys: KolkapPlanKey[] = [
   "starter",
   "growth",
@@ -55,7 +109,7 @@ const publicPlanKeys: KolkapPlanKey[] = [
   "enterprise",
 ];
 
-const translations = {
+const translations: Record<SupportedLanguage, BillingTranslation> = {
   en: {
     badge: "Billing",
     title: "Manage your Kolkap plan, trial, and credits.",
@@ -79,7 +133,7 @@ const translations = {
       "Your billing page shows your active package, trial details, credits, and account status.",
     trialTitle: "7-Day Free Trial",
     trialText:
-      "Start with a 7-day free trial. Card is required. Monthly billing starts automatically after the trial unless cancelled before the trial ends.",
+      "Payment method needed to activate your trial. You won’t be charged today. Monthly billing starts after the trial unless cancelled before the trial ends.",
     availablePlans: "Available Plans",
     availablePlansText:
       "Choose a package based on how many AI staff, team members, and monthly credits your business needs.",
@@ -97,13 +151,14 @@ const translations = {
     invoiceNotReady:
       "Invoices will be available after your first paid subscription or credit top-up.",
     billingPeriod: "Billing Period",
-    cardRequired: "Card required",
-    autoBilling: "Auto monthly billing after trial unless cancelled.",
+    paymentNeeded: "Payment method needed",
+    autoBilling: "Monthly billing starts after trial unless cancelled.",
     noCreditBalance: "Credit balance has not been created for this workspace yet.",
     includedMonthly: "Included monthly credits",
     purchasedExtra: "Purchased extra credits",
     usedFromBalance: "Used from balance",
     remainingBalance: "Remaining balance",
+    creditWord: "credits",
     statuses: {
       trial: "Trial",
       active: "Active",
@@ -123,43 +178,44 @@ const translations = {
     refresh: "Refresh",
     currentPlan: "Paket Saat Ini",
     planStatus: "Status Paket",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
+    creditsLeft: "Sisa Credits",
+    creditsUsed: "Credits Terpakai",
     planCredits: "Plan Credits",
     topUpCredits: "Top-Up Credits",
     aiStaffLimit: "Limit AI Staff",
-    teamLimit: "Team Limit",
+    teamLimit: "Limit Team",
     trialDaysLeft: "Sisa Hari Trial",
     billingSummary: "Ringkasan Billing",
     billingSummaryText:
       "Halaman billing menunjukkan paket aktif, detail trial, credits, dan status account Anda.",
     trialTitle: "7-Day Free Trial",
     trialText:
-      "Mulai dengan 7-day free trial. Card diperlukan. Monthly billing akan berjalan otomatis setelah trial kecuali dibatalkan sebelum trial selesai.",
+      "Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini. Monthly billing berjalan setelah trial kecuali dibatalkan sebelum trial selesai.",
     availablePlans: "Paket Tersedia",
     availablePlansText:
       "Pilih paket berdasarkan jumlah AI staff, team member, dan monthly credits yang dibutuhkan bisnis Anda.",
-    topUpTitle: "Top-Up Credit Packages",
+    topUpTitle: "Paket Top-Up Credits",
     topUpText:
       "Gunakan top-up credits saat bisnis Anda membutuhkan extra AI replies atau content generations sebelum billing cycle berikutnya.",
     invoices: "Invoice",
     invoicesText:
       "Riwayat pembayaran dan invoice Anda akan muncul di sini setelah billing aktif.",
     upgradePlan: "Upgrade Paket",
-    startTrial: "Start 7-Day Trial",
-    contactUs: "Contact Us",
+    startTrial: "Mulai 7-Day Trial",
+    contactUs: "Hubungi Kami",
     current: "Saat Ini",
-    comingSoon: "Segera hadir",
+    comingSoon: "Segera Hadir",
     invoiceNotReady:
       "Invoice akan tersedia setelah subscription berbayar atau top-up credits pertama.",
-    billingPeriod: "Billing Period",
-    cardRequired: "Card required",
-    autoBilling: "Auto monthly billing setelah trial kecuali dibatalkan.",
+    billingPeriod: "Periode Billing",
+    paymentNeeded: "Payment method diperlukan",
+    autoBilling: "Monthly billing berjalan setelah trial kecuali dibatalkan.",
     noCreditBalance: "Credit balance belum dibuat untuk workspace ini.",
-    includedMonthly: "Included monthly credits",
-    purchasedExtra: "Purchased extra credits",
-    usedFromBalance: "Used from balance",
-    remainingBalance: "Remaining balance",
+    includedMonthly: "Monthly credits termasuk",
+    purchasedExtra: "Extra credits yang dibeli",
+    usedFromBalance: "Terpakai dari balance",
+    remainingBalance: "Sisa balance",
+    creditWord: "credits",
     statuses: {
       trial: "Trial",
       active: "Aktif",
@@ -167,7 +223,127 @@ const translations = {
       cancelled: "Dibatalkan",
     },
   },
+
+  zh: {
+    badge: "账单",
+    title: "管理您的 Kolkap 方案、试用和 credits。",
+    subtitle:
+      "查看当前方案、7 天试用状态、monthly credits、top-up credits、账单详情和升级选项。",
+    loading: "正在加载账单详情...",
+    failed: "账单无法加载。",
+    back: "返回 Dashboard",
+    refresh: "刷新",
+    currentPlan: "当前方案",
+    planStatus: "方案状态",
+    creditsLeft: "剩余 Credits",
+    creditsUsed: "已使用 Credits",
+    planCredits: "方案 Credits",
+    topUpCredits: "Top-Up Credits",
+    aiStaffLimit: "AI 员工限制",
+    teamLimit: "团队限制",
+    trialDaysLeft: "剩余试用天数",
+    billingSummary: "账单摘要",
+    billingSummaryText:
+      "账单页面会显示您的当前方案、试用详情、credits 和账户状态。",
+    trialTitle: "7 天免费试用",
+    trialText:
+      "需要添加付款方式来激活试用。今天不会收费。试用结束后将按月计费，除非您在试用结束前取消。",
+    availablePlans: "可用方案",
+    availablePlansText:
+      "根据您的企业需要多少 AI 员工、团队成员和 monthly credits 来选择方案。",
+    topUpTitle: "Top-Up Credit 套餐",
+    topUpText:
+      "当您的业务在下一个 billing cycle 前需要更多 AI 回复或内容生成时，可以使用 top-up credits。",
+    invoices: "发票",
+    invoicesText:
+      "付款记录和发票将在 billing 激活后显示在这里。",
+    upgradePlan: "升级方案",
+    startTrial: "开始 7 天试用",
+    contactUs: "联系我们",
+    current: "当前",
+    comingSoon: "即将推出",
+    invoiceNotReady:
+      "发票将在第一次付费 subscription 或 credit top-up 后可用。",
+    billingPeriod: "账单周期",
+    paymentNeeded: "需要付款方式",
+    autoBilling: "试用结束后将按月计费，除非提前取消。",
+    noCreditBalance: "此 workspace 还没有创建 credit balance。",
+    includedMonthly: "包含的 monthly credits",
+    purchasedExtra: "已购买的 extra credits",
+    usedFromBalance: "已从 balance 使用",
+    remainingBalance: "剩余 balance",
+    creditWord: "credits",
+    statuses: {
+      trial: "试用",
+      active: "有效",
+      past_due: "逾期",
+      cancelled: "已取消",
+    },
+  },
+
+  ms: {
+    badge: "Billing",
+    title: "Urus pakej, trial, dan credits Kolkap anda.",
+    subtitle:
+      "Lihat pakej semasa, status trial 7 hari, monthly credits, top-up credits, detail billing, dan pilihan upgrade.",
+    loading: "Memuat detail billing anda...",
+    failed: "Billing gagal dimuat.",
+    back: "Kembali ke Dashboard",
+    refresh: "Refresh",
+    currentPlan: "Pakej Semasa",
+    planStatus: "Status Pakej",
+    creditsLeft: "Baki Credits",
+    creditsUsed: "Credits Digunakan",
+    planCredits: "Plan Credits",
+    topUpCredits: "Top-Up Credits",
+    aiStaffLimit: "Limit AI Staff",
+    teamLimit: "Limit Team",
+    trialDaysLeft: "Baki Hari Trial",
+    billingSummary: "Ringkasan Billing",
+    billingSummaryText:
+      "Halaman billing menunjukkan pakej aktif, detail trial, credits, dan status account anda.",
+    trialTitle: "7-Day Free Trial",
+    trialText:
+      "Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini. Monthly billing bermula selepas trial kecuali dibatalkan sebelum trial tamat.",
+    availablePlans: "Pakej Tersedia",
+    availablePlansText:
+      "Pilih pakej berdasarkan jumlah AI staff, team member, dan monthly credits yang diperlukan oleh bisnes anda.",
+    topUpTitle: "Pakej Top-Up Credits",
+    topUpText:
+      "Gunakan top-up credits apabila bisnes anda memerlukan extra AI replies atau content generations sebelum billing cycle seterusnya.",
+    invoices: "Invoice",
+    invoicesText:
+      "Sejarah pembayaran dan invoice anda akan muncul di sini selepas billing aktif.",
+    upgradePlan: "Upgrade Pakej",
+    startTrial: "Mulakan 7-Day Trial",
+    contactUs: "Hubungi Kami",
+    current: "Semasa",
+    comingSoon: "Akan Datang",
+    invoiceNotReady:
+      "Invoice akan tersedia selepas subscription berbayar atau top-up credits pertama.",
+    billingPeriod: "Tempoh Billing",
+    paymentNeeded: "Payment method diperlukan",
+    autoBilling: "Monthly billing bermula selepas trial kecuali dibatalkan.",
+    noCreditBalance: "Credit balance belum dibuat untuk workspace ini.",
+    includedMonthly: "Monthly credits termasuk",
+    purchasedExtra: "Extra credits dibeli",
+    usedFromBalance: "Digunakan dari balance",
+    remainingBalance: "Baki balance",
+    creditWord: "credits",
+    statuses: {
+      trial: "Trial",
+      active: "Aktif",
+      past_due: "Tertunggak",
+      cancelled: "Dibatalkan",
+    },
+  },
 };
+
+function getSupportedLanguage(language: string): SupportedLanguage {
+  return supportedLanguages.includes(language as SupportedLanguage)
+    ? (language as SupportedLanguage)
+    : "en";
+}
 
 function formatDate(value: string | null) {
   if (!value) return "—";
@@ -192,10 +368,30 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
   );
 }
 
+function localizePlanLabel(label: string, language: SupportedLanguage) {
+  if (language === "zh") {
+    return label
+      .replace("AI credits/month", "AI credits/月")
+      .replace("Custom credits", "定制 credits")
+      .replace("AI staff", "AI 员工")
+      .replace("Team member", "团队成员")
+      .replace("Team members", "团队成员")
+      .replace("Custom", "定制");
+  }
+
+  if (language === "id" || language === "ms") {
+    return label
+      .replace("AI credits/month", "AI credits/bulan")
+      .replace("Custom credits", "Custom credits");
+  }
+
+  return label;
+}
+
 export default function BillingPage() {
   const { language } = useKolkapLanguage();
-  const t =
-    translations[language as keyof typeof translations] || translations.en;
+  const lang = getSupportedLanguage(language);
+  const t = translations[lang];
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
@@ -299,13 +495,13 @@ export default function BillingPage() {
     },
     {
       label: t.aiStaffLimit,
-      value: getPlanAIStaffLabel(currentPlan),
+      value: localizePlanLabel(getPlanAIStaffLabel(currentPlan), lang),
       note: currentPlan.name,
       icon: Bot,
     },
     {
       label: t.teamLimit,
-      value: getPlanTeamMemberLabel(currentPlan),
+      value: localizePlanLabel(getPlanTeamMemberLabel(currentPlan), lang),
       note: currentPlan.name,
       icon: UsersRound,
     },
@@ -428,9 +624,9 @@ export default function BillingPage() {
               </h3>
 
               <p className="mt-5 text-xl font-semibold leading-9 text-slate-300">
-                {getPlanCreditLabel(currentPlan)} •{" "}
-                {getPlanAIStaffLabel(currentPlan)} •{" "}
-                {getPlanTeamMemberLabel(currentPlan)}
+                {localizePlanLabel(getPlanCreditLabel(currentPlan), lang)} •{" "}
+                {localizePlanLabel(getPlanAIStaffLabel(currentPlan), lang)} •{" "}
+                {localizePlanLabel(getPlanTeamMemberLabel(currentPlan), lang)}
               </p>
 
               <div className="mt-6 grid gap-3 rounded-3xl bg-white/5 p-5">
@@ -494,7 +690,7 @@ export default function BillingPage() {
 
               <div className="mt-5 flex flex-wrap gap-3">
                 <span className="rounded-full bg-white/10 px-5 py-3 text-sm font-black text-white">
-                  {t.cardRequired}
+                  {t.paymentNeeded}
                 </span>
 
                 <span className="rounded-full bg-white/10 px-5 py-3 text-sm font-black text-white">
@@ -561,19 +757,25 @@ export default function BillingPage() {
 
                   <div className="mt-6 grid gap-3">
                     <FeatureItem
-                      text={getPlanCreditLabel(plan)}
+                      text={localizePlanLabel(getPlanCreditLabel(plan), lang)}
                       isCurrent={isCurrent}
                     />
                     <FeatureItem
-                      text={getPlanAIStaffLabel(plan)}
+                      text={localizePlanLabel(getPlanAIStaffLabel(plan), lang)}
                       isCurrent={isCurrent}
                     />
                     <FeatureItem
-                      text={getPlanTeamMemberLabel(plan)}
+                      text={localizePlanLabel(
+                        getPlanTeamMemberLabel(plan),
+                        lang
+                      )}
                       isCurrent={isCurrent}
                     />
                     {plan.cardRequiredForTrial ? (
-                      <FeatureItem text={t.cardRequired} isCurrent={isCurrent} />
+                      <FeatureItem
+                        text={t.paymentNeeded}
+                        isCurrent={isCurrent}
+                      />
                     ) : null}
                   </div>
 
@@ -585,7 +787,9 @@ export default function BillingPage() {
                     ) : (
                       <Link
                         href={
-                          plan.key === "enterprise" ? "/contact" : "/pricing"
+                          plan.key === "enterprise"
+                            ? "/contact"
+                            : `/dashboard/activate-trial?plan=${plan.key}`
                         }
                         className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-lg font-black text-white"
                       >
@@ -628,7 +832,7 @@ export default function BillingPage() {
                 </h3>
 
                 <p className="mt-2 text-xl font-black text-slate-700">
-                  {pack.credits.toLocaleString()} credits
+                  {pack.credits.toLocaleString()} {t.creditWord}
                 </p>
 
                 <Link
