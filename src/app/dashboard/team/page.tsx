@@ -41,7 +41,7 @@ type Option = {
   label: string;
 };
 
-type TeamTranslation = {
+type TeamText = {
   badge: string;
   title: string;
   subtitle: string;
@@ -64,10 +64,10 @@ type TeamTranslation = {
   role: string;
   permission: string;
   status: string;
-  saveMember: string;
-  savingMember: string;
-  memberSaved: string;
-  memberSaveFailed: string;
+  sendInvite: string;
+  sendingInvite: string;
+  inviteSent: string;
+  inviteFailed: string;
   requiredFields: string;
   teamList: string;
   teamListText: string;
@@ -87,12 +87,36 @@ type TeamTranslation = {
   permissionLabels: Record<string, string>;
 };
 
-const translations: Record<string, TeamTranslation> = {
+const baseRoles: Option[] = [
+  { value: "Admin", label: "Admin" },
+  { value: "Manager", label: "Manager" },
+  { value: "Inbox Agent", label: "Inbox Agent" },
+  { value: "Sales Agent", label: "Sales Agent" },
+  { value: "Content Assistant", label: "Content Assistant" },
+  { value: "Viewer", label: "Viewer" },
+];
+
+const basePermissions: Option[] = [
+  { value: "admin", label: "Admin" },
+  { value: "manager", label: "Manager" },
+  { value: "inbox", label: "Inbox" },
+  { value: "sales", label: "Sales" },
+  { value: "content", label: "Content" },
+  { value: "viewer", label: "Viewer" },
+];
+
+const baseStatuses: Option[] = [
+  { value: "invited", label: "Pending" },
+  { value: "active", label: "Active" },
+  { value: "disabled", label: "Disabled" },
+];
+
+const translations: Record<string, TeamText> = {
   en: {
     badge: "Team",
     title: "Manage your workspace team.",
     subtitle:
-      "Add team members, organize roles, and manage who helps with inbox, leads, content, and workspace operations.",
+      "Add team members, send email invitations, organize roles, and manage who helps with inbox, leads, content, and workspace operations.",
     loading: "Loading your team...",
     failed: "Team page could not load.",
     back: "Back to Dashboard",
@@ -108,23 +132,22 @@ const translations: Record<string, TeamTranslation> = {
     ownerAccess: "Full Access",
     addTeam: "Add Team Member",
     addTeamText:
-      "Add people who help manage customer conversations, leads, content, or workspace operations.",
+      "Add a team member and send an email invitation so they can join your workspace.",
     fullName: "Full name",
     email: "Email address",
     role: "Role",
     permission: "Permission level",
     status: "Status",
-    saveMember: "Save Team Member",
-    savingMember: "Saving team member...",
-    memberSaved: "Team member saved successfully.",
-    memberSaveFailed: "Team member could not be saved.",
+    sendInvite: "Send Invite",
+    sendingInvite: "Sending invite...",
+    inviteSent: "Team member saved and invitation email sent.",
+    inviteFailed: "Team invitation could not be sent.",
     requiredFields: "Please add full name and email address.",
     teamList: "Team Members",
-    teamListText:
-      "Manage the people connected to this business workspace.",
+    teamListText: "Manage people connected to this business workspace.",
     noMembers: "No team members yet.",
     noMembersText:
-      "Add your first team member when you are ready to let someone help with inbox, leads, content, or workspace operations.",
+      "Send your first team invitation when you are ready to let someone help with inbox, leads, content, or workspace operations.",
     updateSaved: "Team member updated.",
     updateFailed: "Team member could not be updated.",
     deleteMember: "Delete",
@@ -133,27 +156,9 @@ const translations: Record<string, TeamTranslation> = {
     teamRolesText:
       "Use team roles to organize who helps manage inbox, leads, content, and workspace operations. You can update roles, permissions, and member status anytime as your business grows.",
     saving: "Saving...",
-    roles: [
-      { value: "Admin", label: "Admin" },
-      { value: "Manager", label: "Manager" },
-      { value: "Inbox Agent", label: "Inbox Agent" },
-      { value: "Sales Agent", label: "Sales Agent" },
-      { value: "Content Assistant", label: "Content Assistant" },
-      { value: "Viewer", label: "Viewer" },
-    ],
-    permissions: [
-      { value: "admin", label: "Admin" },
-      { value: "manager", label: "Manager" },
-      { value: "inbox", label: "Inbox" },
-      { value: "sales", label: "Sales" },
-      { value: "content", label: "Content" },
-      { value: "viewer", label: "Viewer" },
-    ],
-    statuses: [
-      { value: "invited", label: "Pending" },
-      { value: "active", label: "Active" },
-      { value: "disabled", label: "Disabled" },
-    ],
+    roles: baseRoles,
+    permissions: basePermissions,
+    statuses: baseStatuses,
     statusLabels: {
       invited: "Pending",
       active: "Active",
@@ -173,7 +178,7 @@ const translations: Record<string, TeamTranslation> = {
     badge: "Team",
     title: "Kelola team workspace Anda.",
     subtitle:
-      "Tambah team member, atur role, dan kelola siapa yang membantu inbox, leads, content, dan operasional workspace.",
+      "Tambah team member, kirim email invitation, atur role, dan kelola siapa yang membantu inbox, leads, content, dan operasional workspace.",
     loading: "Memuat team Anda...",
     failed: "Halaman Team gagal dimuat.",
     back: "Kembali ke Dashboard",
@@ -189,23 +194,23 @@ const translations: Record<string, TeamTranslation> = {
     ownerAccess: "Full Access",
     addTeam: "Add Team Member",
     addTeamText:
-      "Tambah orang yang membantu mengelola percakapan customer, leads, content, atau operasional workspace.",
+      "Tambah team member dan kirim email invitation agar mereka bisa bergabung ke workspace Anda.",
     fullName: "Nama lengkap",
     email: "Alamat email",
     role: "Role",
     permission: "Permission level",
     status: "Status",
-    saveMember: "Save Team Member",
-    savingMember: "Menyimpan team member...",
-    memberSaved: "Team member berhasil disimpan.",
-    memberSaveFailed: "Team member gagal disimpan.",
+    sendInvite: "Send Invite",
+    sendingInvite: "Mengirim invite...",
+    inviteSent:
+      "Team member berhasil disimpan dan email invitation sudah dikirim.",
+    inviteFailed: "Team invitation gagal dikirim.",
     requiredFields: "Mohon isi nama lengkap dan alamat email.",
     teamList: "Team Members",
-    teamListText:
-      "Kelola orang yang terhubung dengan business workspace ini.",
+    teamListText: "Kelola orang yang terhubung dengan business workspace ini.",
     noMembers: "Belum ada team member.",
     noMembersText:
-      "Tambah team member pertama saat Anda siap meminta bantuan untuk inbox, leads, content, atau operasional workspace.",
+      "Kirim invitation pertama saat Anda siap meminta bantuan untuk inbox, leads, content, atau operasional workspace.",
     updateSaved: "Team member berhasil diperbarui.",
     updateFailed: "Team member gagal diperbarui.",
     deleteMember: "Delete",
@@ -214,189 +219,9 @@ const translations: Record<string, TeamTranslation> = {
     teamRolesText:
       "Gunakan team roles untuk mengatur siapa yang membantu mengelola inbox, leads, content, dan operasional workspace. Anda dapat memperbarui role, permission, dan status member kapan saja seiring bisnis berkembang.",
     saving: "Menyimpan...",
-    roles: [
-      { value: "Admin", label: "Admin" },
-      { value: "Manager", label: "Manager" },
-      { value: "Inbox Agent", label: "Inbox Agent" },
-      { value: "Sales Agent", label: "Sales Agent" },
-      { value: "Content Assistant", label: "Content Assistant" },
-      { value: "Viewer", label: "Viewer" },
-    ],
-    permissions: [
-      { value: "admin", label: "Admin" },
-      { value: "manager", label: "Manager" },
-      { value: "inbox", label: "Inbox" },
-      { value: "sales", label: "Sales" },
-      { value: "content", label: "Content" },
-      { value: "viewer", label: "Viewer" },
-    ],
-    statuses: [
-      { value: "invited", label: "Pending" },
-      { value: "active", label: "Active" },
-      { value: "disabled", label: "Disabled" },
-    ],
-    statusLabels: {
-      invited: "Pending",
-      active: "Active",
-      disabled: "Disabled",
-    },
-    permissionLabels: {
-      admin: "Admin",
-      manager: "Manager",
-      inbox: "Inbox",
-      sales: "Sales",
-      content: "Content",
-      viewer: "Viewer",
-    },
-  },
-
-  zh: {
-    badge: "团队",
-    title: "管理您的工作区团队。",
-    subtitle:
-      "添加团队成员、设置角色，并管理谁可以协助 inbox、leads、content 和工作区运营。",
-    loading: "正在加载团队...",
-    failed: "Team 页面加载失败。",
-    back: "返回仪表板",
-    refresh: "刷新",
-    currentPlan: "当前方案",
-    teamMembers: "团队成员",
-    activeMembers: "活跃成员",
-    pendingMembers: "待处理成员",
-    owner: "工作区 Owner",
-    ownerText:
-      "Owner 拥有业务工作区、账单、AI 设置、inbox、leads、reports 和 settings 的完整控制权。",
-    workspaceOwner: "Workspace Owner",
-    ownerAccess: "完整权限",
-    addTeam: "添加团队成员",
-    addTeamText:
-      "添加可协助管理客户对话、线索、内容或工作区运营的人员。",
-    fullName: "全名",
-    email: "邮箱地址",
-    role: "角色",
-    permission: "权限等级",
-    status: "状态",
-    saveMember: "保存团队成员",
-    savingMember: "正在保存团队成员...",
-    memberSaved: "团队成员已成功保存。",
-    memberSaveFailed: "团队成员保存失败。",
-    requiredFields: "请填写全名和邮箱地址。",
-    teamList: "团队成员",
-    teamListText:
-      "管理连接到此业务工作区的人员。",
-    noMembers: "尚无团队成员。",
-    noMembersText:
-      "当您准备让他人协助 inbox、leads、content 或工作区运营时，可以添加第一位团队成员。",
-    updateSaved: "团队成员已更新。",
-    updateFailed: "团队成员更新失败。",
-    deleteMember: "删除",
-    deleteConfirm: "删除此团队成员？",
-    teamRoles: "团队角色",
-    teamRolesText:
-      "使用团队角色来组织谁协助管理 inbox、leads、content 和工作区运营。随着业务成长，您可以随时更新角色、权限和成员状态。",
-    saving: "正在保存...",
-    roles: [
-      { value: "Admin", label: "Admin" },
-      { value: "Manager", label: "Manager" },
-      { value: "Inbox Agent", label: "Inbox Agent" },
-      { value: "Sales Agent", label: "Sales Agent" },
-      { value: "Content Assistant", label: "Content Assistant" },
-      { value: "Viewer", label: "Viewer" },
-    ],
-    permissions: [
-      { value: "admin", label: "Admin" },
-      { value: "manager", label: "Manager" },
-      { value: "inbox", label: "Inbox" },
-      { value: "sales", label: "Sales" },
-      { value: "content", label: "Content" },
-      { value: "viewer", label: "Viewer" },
-    ],
-    statuses: [
-      { value: "invited", label: "Pending" },
-      { value: "active", label: "Active" },
-      { value: "disabled", label: "Disabled" },
-    ],
-    statusLabels: {
-      invited: "Pending",
-      active: "Active",
-      disabled: "Disabled",
-    },
-    permissionLabels: {
-      admin: "Admin",
-      manager: "Manager",
-      inbox: "Inbox",
-      sales: "Sales",
-      content: "Content",
-      viewer: "Viewer",
-    },
-  },
-
-  ms: {
-    badge: "Team",
-    title: "Urus team workspace anda.",
-    subtitle:
-      "Tambah team member, tetapkan role, dan urus siapa yang membantu inbox, leads, content, dan operasi workspace.",
-    loading: "Memuat team anda...",
-    failed: "Halaman Team gagal dimuat.",
-    back: "Kembali ke Dashboard",
-    refresh: "Refresh",
-    currentPlan: "Pakej Semasa",
-    teamMembers: "Team Members",
-    activeMembers: "Member Aktif",
-    pendingMembers: "Member Pending",
-    owner: "Workspace Owner",
-    ownerText:
-      "Owner mempunyai kawalan penuh atas business workspace, billing, AI setup, inbox, leads, reports, dan settings.",
-    workspaceOwner: "Workspace Owner",
-    ownerAccess: "Full Access",
-    addTeam: "Add Team Member",
-    addTeamText:
-      "Tambah orang yang membantu mengurus perbualan customer, leads, content, atau operasi workspace.",
-    fullName: "Nama penuh",
-    email: "Alamat email",
-    role: "Role",
-    permission: "Permission level",
-    status: "Status",
-    saveMember: "Save Team Member",
-    savingMember: "Menyimpan team member...",
-    memberSaved: "Team member berjaya disimpan.",
-    memberSaveFailed: "Team member gagal disimpan.",
-    requiredFields: "Sila isi nama penuh dan alamat email.",
-    teamList: "Team Members",
-    teamListText:
-      "Urus orang yang disambungkan dengan business workspace ini.",
-    noMembers: "Belum ada team member.",
-    noMembersText:
-      "Tambah team member pertama apabila anda bersedia meminta bantuan untuk inbox, leads, content, atau operasi workspace.",
-    updateSaved: "Team member berjaya dikemas kini.",
-    updateFailed: "Team member gagal dikemas kini.",
-    deleteMember: "Delete",
-    deleteConfirm: "Padam team member ini?",
-    teamRoles: "Team Roles",
-    teamRolesText:
-      "Gunakan team roles untuk mengatur siapa yang membantu mengurus inbox, leads, content, dan operasi workspace. Anda boleh mengemas kini role, permission, dan status member bila-bila masa apabila bisnes berkembang.",
-    saving: "Menyimpan...",
-    roles: [
-      { value: "Admin", label: "Admin" },
-      { value: "Manager", label: "Manager" },
-      { value: "Inbox Agent", label: "Inbox Agent" },
-      { value: "Sales Agent", label: "Sales Agent" },
-      { value: "Content Assistant", label: "Content Assistant" },
-      { value: "Viewer", label: "Viewer" },
-    ],
-    permissions: [
-      { value: "admin", label: "Admin" },
-      { value: "manager", label: "Manager" },
-      { value: "inbox", label: "Inbox" },
-      { value: "sales", label: "Sales" },
-      { value: "content", label: "Content" },
-      { value: "viewer", label: "Viewer" },
-    ],
-    statuses: [
-      { value: "invited", label: "Pending" },
-      { value: "active", label: "Active" },
-      { value: "disabled", label: "Disabled" },
-    ],
+    roles: baseRoles,
+    permissions: basePermissions,
+    statuses: baseStatuses,
     statusLabels: {
       invited: "Pending",
       active: "Active",
@@ -431,7 +256,7 @@ export default function TeamPage() {
   const [role, setRole] = useState("Inbox Agent");
   const [permissionLevel, setPermissionLevel] = useState("inbox");
 
-  const [isSavingMember, setIsSavingMember] = useState(false);
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const [savingMemberId, setSavingMemberId] = useState("");
@@ -511,14 +336,14 @@ export default function TeamPage() {
     },
   ];
 
-  async function handleSaveMember(event: FormEvent<HTMLFormElement>) {
+  async function handleSendInvite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setActionMessage("");
     setActionError("");
 
     if (!workspace) {
-      setActionError(t.memberSaveFailed);
+      setActionError(t.inviteFailed);
       return;
     }
 
@@ -527,37 +352,58 @@ export default function TeamPage() {
       return;
     }
 
-    setIsSavingMember(true);
+    setIsSendingInvite(true);
 
-    const supabase = createClient();
+    try {
+      const response = await fetch("/api/team/invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          full_name: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          role,
+          permission_level: permissionLevel,
+        }),
+      });
 
-    const { data, error } = await supabase
-      .from("workspace_team_members")
-      .insert({
-        workspace_id: workspace.id,
-        owner_user_id: workspace.owner_user_id,
-        full_name: fullName.trim(),
-        email: email.trim().toLowerCase(),
-        role,
-        permission_level: permissionLevel,
-        status: "invited",
-      })
-      .select("*")
-      .single();
+      const result = await response.json();
 
-    if (error) {
-      setActionError(error.message || t.memberSaveFailed);
-      setIsSavingMember(false);
-      return;
+      if (!response.ok) {
+        setActionError(result.error || t.inviteFailed);
+        setIsSendingInvite(false);
+        return;
+      }
+
+      const savedMember = result.member as TeamMemberRow;
+
+      setTeamMembers((current) => {
+        const alreadyExists = current.some(
+          (member) => member.id === savedMember.id
+        );
+
+        if (alreadyExists) {
+          return current.map((member) =>
+            member.id === savedMember.id ? savedMember : member
+          );
+        }
+
+        return [savedMember, ...current];
+      });
+
+      setFullName("");
+      setEmail("");
+      setRole("Inbox Agent");
+      setPermissionLevel("inbox");
+      setActionMessage(t.inviteSent);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t.inviteFailed;
+      setActionError(message);
     }
 
-    setTeamMembers((current) => [data as TeamMemberRow, ...current]);
-    setFullName("");
-    setEmail("");
-    setRole("Inbox Agent");
-    setPermissionLevel("inbox");
-    setActionMessage(t.memberSaved);
-    setIsSavingMember(false);
+    setIsSendingInvite(false);
   }
 
   async function updateMember(
@@ -629,6 +475,7 @@ export default function TeamPage() {
     setTeamMembers((current) =>
       current.filter((member) => member.id !== memberId)
     );
+
     setSavingMemberId("");
   }
 
@@ -771,7 +618,7 @@ export default function TeamPage() {
               {t.addTeamText}
             </h2>
 
-            <form onSubmit={handleSaveMember} className="mt-8 grid gap-5">
+            <form onSubmit={handleSendInvite} className="mt-8 grid gap-5">
               <div className="grid gap-5 md:grid-cols-2">
                 <TextInput
                   label={t.fullName}
@@ -820,11 +667,11 @@ export default function TeamPage() {
 
               <button
                 type="submit"
-                disabled={isSavingMember}
+                disabled={isSendingInvite}
                 className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Plus className="h-6 w-6" />
-                {isSavingMember ? t.savingMember : t.saveMember}
+                {isSendingInvite ? t.sendingInvite : t.sendInvite}
               </button>
             </form>
           </section>
