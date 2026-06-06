@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowLeft,
   Bot,
@@ -17,16 +17,15 @@ import {
   Zap,
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
-import {
-  getGenerateButtonLabel,
-  getKolkapPlan,
-} from "@/lib/kolkapPlan";
+import { getKolkapPlan } from "@/lib/kolkapPlan";
 import { createClient } from "@/lib/supabase/client";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 const MAX_QUESTION_LENGTH = 1200;
 const MAX_INSTRUCTION_LENGTH = 1200;
 const TEST_AI_CREDIT_COST = 1;
+
+type SupportedLanguage = "en" | "id" | "zh" | "ms";
 
 type Option = {
   value: string;
@@ -48,32 +47,74 @@ type CreditBalanceRow = {
   updated_at: string;
 };
 
-const languageOptions: Option[] = [
-  { value: "auto", label: "Auto Detect" },
-  { value: "en", label: "English" },
-  { value: "id", label: "Indonesian" },
-  { value: "ms", label: "Malay" },
-  { value: "zh", label: "Chinese" },
+type TestAITranslation = {
+  loading: string;
+  failed: string;
+  back: string;
+  badge: string;
+  title: string;
+  subtitle: string;
+  currentPlan: string;
+  creditsLeft: string;
+  creditsUsed: string;
+  creditCost: string;
+  creditUnit: string;
+  business: string;
+  workspaceFallback: string;
+  workspaceNote: string;
+  purpose: string;
+  purposeText: string;
+  questionTitle: string;
+  questionText: string;
+  questionPlaceholder: string;
+  language: string;
+  tone: string;
+  extraInstructions: string;
+  extraInstructionsPlaceholder: string;
+  generate: string;
+  generateForCredit: string;
+  regenerateForCredit: string;
+  generating: string;
+  clear: string;
+  resultTitle: string;
+  resultPlaceholder: string;
+  copied: string;
+  copy: string;
+  success: string;
+  error: string;
+  questionRequired: string;
+  questionTooLong: string;
+  instructionTooLong: string;
+  characters: string;
+  usingKnowledge: string;
+  sampleTitle: string;
+  sampleText: string;
+  whyTitle: string;
+  whyText: string;
+  safeTest: string;
+  noCreditBalance: string;
+  includedPlanCredits: string;
+  topUpCredits: string;
+  refreshCredits: string;
+  oneCreditNote: string;
+  planNames: Record<string, string>;
+  languageLabels: Record<string, string>;
+  toneLabels: Record<string, string>;
+  sampleQuestions: string[];
+};
+
+const languageValues = ["auto", "en", "id", "ms", "zh"];
+
+const toneValues = [
+  "professional",
+  "friendly",
+  "sales",
+  "simple",
+  "formal",
+  "helpful",
 ];
 
-const toneOptions: Option[] = [
-  { value: "professional", label: "Professional" },
-  { value: "friendly", label: "Friendly" },
-  { value: "sales", label: "Sales" },
-  { value: "simple", label: "Simple" },
-  { value: "formal", label: "Formal" },
-  { value: "helpful", label: "Helpful" },
-];
-
-const sampleQuestions = [
-  "What services do you offer?",
-  "How much is your price?",
-  "How can I contact your team?",
-  "Can I speak with a human?",
-  "Where is your business located?",
-];
-
-const translations = {
+const translations: Record<SupportedLanguage, TestAITranslation> = {
   en: {
     loading: "Loading Test AI...",
     failed: "Test AI could not load.",
@@ -86,7 +127,10 @@ const translations = {
     creditsLeft: "Credits Left",
     creditsUsed: "Credits Used",
     creditCost: "Credit Cost",
+    creditUnit: "Credit",
     business: "Business",
+    workspaceFallback: "Workspace",
+    workspaceNote: "Logged-in workspace",
     purpose: "Purpose",
     purposeText:
       "This page is for safe testing only. It does not send replies to real customers.",
@@ -101,12 +145,13 @@ const translations = {
     extraInstructionsPlaceholder:
       "Optional: Tell the AI what to pay attention to, such as keep it short, mention WhatsApp, or explain step by step.",
     generate: "Generate Test Reply",
+    generateForCredit: "Test AI for 1 Credit",
+    regenerateForCredit: "Test Again for 1 Credit",
     generating: "Generating...",
-    regenerate: "Regenerate Reply",
     clear: "Clear",
     resultTitle: "AI Test Reply",
     resultPlaceholder:
-      "The AI reply will appear here after you click Generate Test Reply.",
+      "The AI reply will appear here after you click Test AI for 1 Credit.",
     copied: "Copied",
     copy: "Copy Reply",
     success:
@@ -116,7 +161,7 @@ const translations = {
     questionTooLong: "Sample question is too long.",
     instructionTooLong: "Extra instructions are too long.",
     characters: "characters",
-    usingKnowledge: "knowledge items",
+    usingKnowledge: "knowledge item(s)",
     sampleTitle: "Quick sample questions",
     sampleText: "Click one to test faster.",
     whyTitle: "Why this matters",
@@ -125,67 +170,318 @@ const translations = {
     safeTest: "Safe Test",
     noCreditBalance: "Credit balance not found yet.",
     includedPlanCredits: "Included plan credits",
+    topUpCredits: "Top-Up credits",
     refreshCredits: "Refresh credits",
-    oneCreditNote:
-      "Every successful test reply generation uses 1 credit.",
+    oneCreditNote: "Every successful test reply generation uses 1 credit.",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    languageLabels: {
+      auto: "Auto Detect",
+      en: "English",
+      id: "Indonesian",
+      ms: "Malay",
+      zh: "Chinese",
+    },
+    toneLabels: {
+      professional: "Professional",
+      friendly: "Friendly",
+      sales: "Sales",
+      simple: "Simple",
+      formal: "Formal",
+      helpful: "Helpful",
+    },
+    sampleQuestions: [
+      "What services do you offer?",
+      "How much is your price?",
+      "How can I contact your team?",
+      "Can I speak with a human?",
+      "Where is your business located?",
+    ],
   },
 
   id: {
     loading: "Memuat Test AI...",
-    failed: "Test AI gagal dimuat.",
+    failed: "Test AI tidak dapat dimuat.",
     back: "Kembali ke Dashboard",
     badge: "Test AI",
-    title: "Test AI Anda sebelum customer melihatnya.",
+    title: "Tes AI Anda sebelum dilihat customer.",
     subtitle:
       "Tulis contoh pertanyaan customer dan cek apakah Kolkap AI Brain menjawab dengan benar menggunakan business profile dan Knowledge Base Anda.",
     currentPlan: "Paket Saat Ini",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
-    creditCost: "Credit Cost",
-    business: "Business",
-    purpose: "Purpose",
+    creditsLeft: "Sisa Kredit",
+    creditsUsed: "Kredit Terpakai",
+    creditCost: "Biaya Kredit",
+    creditUnit: "Kredit",
+    business: "Bisnis",
+    workspaceFallback: "Workspace",
+    workspaceNote: "Workspace yang sedang login",
+    purpose: "Tujuan",
     purposeText:
-      "Halaman ini hanya untuk testing aman. Ini tidak mengirim reply ke customer asli.",
-    questionTitle: "Sample Customer Question",
+      "Halaman ini hanya untuk testing aman. Ini tidak mengirim balasan ke customer asli.",
+    questionTitle: "Contoh Pertanyaan Customer",
     questionText:
       "Tulis pertanyaan seperti customer asli. AI akan menjawab menggunakan bisnis yang sedang login dan Knowledge Base Anda.",
     questionPlaceholder:
       "Contoh: Layanan apa yang Anda tawarkan dan bagaimana cara menghubungi tim Anda?",
-    language: "Reply Language",
-    tone: "Reply Tone",
-    extraInstructions: "Extra Test Instructions",
+    language: "Bahasa Balasan",
+    tone: "Tone Balasan",
+    extraInstructions: "Instruksi Test Tambahan",
     extraInstructionsPlaceholder:
-      "Optional: Beri instruksi khusus, seperti jawab singkat, sebutkan WhatsApp, atau jelaskan step by step.",
-    generate: "Generate Test Reply",
-    generating: "Generating...",
-    regenerate: "Regenerate Reply",
-    clear: "Clear",
-    resultTitle: "AI Test Reply",
+      "Opsional: Beri instruksi khusus, seperti jawab singkat, sebutkan WhatsApp, atau jelaskan step by step.",
+    generate: "Buat Balasan Test",
+    generateForCredit: "Tes AI untuk 1 Kredit",
+    regenerateForCredit: "Tes Ulang untuk 1 Kredit",
+    generating: "Membuat...",
+    clear: "Bersihkan",
+    resultTitle: "Balasan Test AI",
     resultPlaceholder:
-      "AI reply akan muncul di sini setelah klik Generate Test Reply.",
+      "Balasan AI akan muncul di sini setelah Anda klik Tes AI untuk 1 Kredit.",
     copied: "Copied",
-    copy: "Copy Reply",
+    copy: "Copy Balasan",
     success:
-      "Test reply berhasil digenerate. 1 credit sudah digunakan. Review jawabannya sebelum disambungkan ke real customer conversations.",
-    error: "AI reply gagal digenerate.",
-    questionRequired: "Mohon tulis sample customer question dulu.",
-    questionTooLong: "Sample question terlalu panjang.",
-    instructionTooLong: "Extra instructions terlalu panjang.",
-    characters: "characters",
-    usingKnowledge: "knowledge items",
-    sampleTitle: "Quick sample questions",
-    sampleText: "Klik salah satu untuk test lebih cepat.",
+      "Balasan test berhasil dibuat. 1 kredit sudah digunakan. Review jawabannya sebelum disambungkan ke percakapan customer asli.",
+    error: "Balasan AI tidak dapat dibuat.",
+    questionRequired: "Mohon tulis contoh pertanyaan customer terlebih dahulu.",
+    questionTooLong: "Contoh pertanyaan terlalu panjang.",
+    instructionTooLong: "Instruksi tambahan terlalu panjang.",
+    characters: "karakter",
+    usingKnowledge: "knowledge item",
+    sampleTitle: "Contoh pertanyaan cepat",
+    sampleText: "Klik salah satu untuk tes lebih cepat.",
     whyTitle: "Kenapa ini penting",
     whyText:
       "Jika jawaban AI masih lemah di sini, perbaiki Knowledge Base sebelum go live.",
-    safeTest: "Safe Test",
-    noCreditBalance: "Credit balance belum ditemukan.",
-    includedPlanCredits: "Included plan credits",
-    refreshCredits: "Refresh credits",
-    oneCreditNote:
-      "Setiap successful test reply generation menggunakan 1 credit.",
+    safeTest: "Test Aman",
+    noCreditBalance: "Saldo kredit belum ditemukan.",
+    includedPlanCredits: "Kredit termasuk paket",
+    topUpCredits: "Kredit Top-Up",
+    refreshCredits: "Muat ulang kredit",
+    oneCreditNote: "Setiap balasan test yang berhasil dibuat menggunakan 1 kredit.",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    languageLabels: {
+      auto: "Auto Detect",
+      en: "English",
+      id: "Indonesian",
+      ms: "Malay",
+      zh: "Chinese",
+    },
+    toneLabels: {
+      professional: "Professional",
+      friendly: "Friendly",
+      sales: "Sales",
+      simple: "Simple",
+      formal: "Formal",
+      helpful: "Helpful",
+    },
+    sampleQuestions: [
+      "Layanan apa yang Anda tawarkan?",
+      "Berapa harganya?",
+      "Bagaimana cara menghubungi tim Anda?",
+      "Bisa bicara dengan manusia?",
+      "Di mana lokasi bisnis Anda?",
+    ],
+  },
+
+  zh: {
+    loading: "正在加载 Test AI...",
+    failed: "Test AI 无法加载。",
+    back: "返回 Dashboard",
+    badge: "Test AI",
+    title: "在客户看到之前先测试您的 AI。",
+    subtitle:
+      "输入客户可能会问的问题，并检查 Kolkap AI Brain 是否能根据您的 business profile 和 Knowledge Base 正确回答。",
+    currentPlan: "当前套餐",
+    creditsLeft: "剩余积分",
+    creditsUsed: "已用积分",
+    creditCost: "积分费用",
+    creditUnit: "积分",
+    business: "业务",
+    workspaceFallback: "Workspace",
+    workspaceNote: "当前登录的 workspace",
+    purpose: "用途",
+    purposeText:
+      "此页面仅用于安全测试。它不会把回复发送给真实客户。",
+    questionTitle: "客户问题示例",
+    questionText:
+      "写一个真实客户可能会问的问题。AI 会使用当前登录的业务资料和 Knowledge Base 来回答。",
+    questionPlaceholder:
+      "例：你们提供什么服务？我要如何联系你们的团队？",
+    language: "回复语言",
+    tone: "回复语气",
+    extraInstructions: "额外测试指令",
+    extraInstructionsPlaceholder:
+      "可选：告诉 AI 需要注意什么，例如保持简短、提到 WhatsApp，或一步一步解释。",
+    generate: "生成测试回复",
+    generateForCredit: "用 1 积分测试 AI",
+    regenerateForCredit: "用 1 积分再次测试",
+    generating: "正在生成...",
+    clear: "清除",
+    resultTitle: "AI 测试回复",
+    resultPlaceholder:
+      "点击用 1 积分测试 AI 后，AI 回复会显示在这里。",
+    copied: "已复制",
+    copy: "复制回复",
+    success:
+      "测试回复已生成。已使用 1 积分。连接到真实客户对话前，请先检查答案。",
+    error: "无法生成 AI 回复。",
+    questionRequired: "请先填写客户问题示例。",
+    questionTooLong: "客户问题示例太长。",
+    instructionTooLong: "额外指令太长。",
+    characters: "字符",
+    usingKnowledge: "个 knowledge item",
+    sampleTitle: "快速示例问题",
+    sampleText: "点击一个问题，可以更快测试。",
+    whyTitle: "为什么这很重要",
+    whyText:
+      "如果 AI 在这里回答得不够好，请先完善 Knowledge Base，然后再 go live。",
+    safeTest: "安全测试",
+    noCreditBalance: "尚未找到积分余额。",
+    includedPlanCredits: "套餐包含积分",
+    topUpCredits: "充值积分",
+    refreshCredits: "刷新积分",
+    oneCreditNote: "每次成功生成测试回复会使用 1 积分。",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    languageLabels: {
+      auto: "自动识别",
+      en: "英语",
+      id: "印尼语",
+      ms: "马来语",
+      zh: "中文",
+    },
+    toneLabels: {
+      professional: "专业",
+      friendly: "友好",
+      sales: "销售",
+      simple: "简单",
+      formal: "正式",
+      helpful: "有帮助",
+    },
+    sampleQuestions: [
+      "你们提供什么服务？",
+      "价格是多少？",
+      "我要如何联系你们的团队？",
+      "我可以和真人沟通吗？",
+      "你们的业务在哪里？",
+    ],
+  },
+
+  ms: {
+    loading: "Memuatkan Test AI...",
+    failed: "Test AI tidak dapat dimuatkan.",
+    back: "Kembali ke Dashboard",
+    badge: "Test AI",
+    title: "Test AI anda sebelum pelanggan melihatnya.",
+    subtitle:
+      "Tulis contoh soalan pelanggan dan semak sama ada Kolkap AI Brain menjawab dengan betul menggunakan business profile dan Knowledge Base anda.",
+    currentPlan: "Pelan Semasa",
+    creditsLeft: "Baki Kredit",
+    creditsUsed: "Kredit Digunakan",
+    creditCost: "Kos Kredit",
+    creditUnit: "Kredit",
+    business: "Bisnes",
+    workspaceFallback: "Workspace",
+    workspaceNote: "Workspace yang sedang login",
+    purpose: "Tujuan",
+    purposeText:
+      "Halaman ini hanya untuk testing selamat. Ia tidak menghantar balasan kepada pelanggan sebenar.",
+    questionTitle: "Contoh Soalan Pelanggan",
+    questionText:
+      "Tulis soalan seperti pelanggan sebenar. AI akan menjawab menggunakan bisnes yang sedang login dan Knowledge Base anda.",
+    questionPlaceholder:
+      "Contoh: Apakah servis yang anda tawarkan dan bagaimana saya boleh hubungi team anda?",
+    language: "Bahasa Balasan",
+    tone: "Tone Balasan",
+    extraInstructions: "Arahan Test Tambahan",
+    extraInstructionsPlaceholder:
+      "Opsional: Beri arahan khas, seperti jawab pendek, sebut WhatsApp, atau jelaskan step by step.",
+    generate: "Jana Balasan Test",
+    generateForCredit: "Test AI untuk 1 Kredit",
+    regenerateForCredit: "Test Semula untuk 1 Kredit",
+    generating: "Menjana...",
+    clear: "Kosongkan",
+    resultTitle: "Balasan Test AI",
+    resultPlaceholder:
+      "Balasan AI akan muncul di sini selepas anda klik Test AI untuk 1 Kredit.",
+    copied: "Copied",
+    copy: "Copy Balasan",
+    success:
+      "Balasan test berjaya dijana. 1 kredit sudah digunakan. Review jawapan sebelum disambungkan kepada perbualan pelanggan sebenar.",
+    error: "Balasan AI tidak dapat dijana.",
+    questionRequired: "Sila tulis contoh soalan pelanggan dahulu.",
+    questionTooLong: "Contoh soalan terlalu panjang.",
+    instructionTooLong: "Arahan tambahan terlalu panjang.",
+    characters: "aksara",
+    usingKnowledge: "knowledge item",
+    sampleTitle: "Contoh soalan cepat",
+    sampleText: "Klik salah satu untuk test lebih cepat.",
+    whyTitle: "Kenapa ini penting",
+    whyText:
+      "Jika jawapan AI masih lemah di sini, perbaiki Knowledge Base sebelum go live.",
+    safeTest: "Test Selamat",
+    noCreditBalance: "Baki kredit belum dijumpai.",
+    includedPlanCredits: "Kredit termasuk pelan",
+    topUpCredits: "Kredit Top-Up",
+    refreshCredits: "Segar semula kredit",
+    oneCreditNote: "Setiap balasan test yang berjaya dijana menggunakan 1 kredit.",
+    planNames: {
+      starter: "Starter",
+      growth: "Growth",
+      professional: "Professional",
+      business: "Business",
+    },
+    languageLabels: {
+      auto: "Auto Detect",
+      en: "English",
+      id: "Indonesian",
+      ms: "Malay",
+      zh: "Chinese",
+    },
+    toneLabels: {
+      professional: "Professional",
+      friendly: "Friendly",
+      sales: "Sales",
+      simple: "Simple",
+      formal: "Formal",
+      helpful: "Helpful",
+    },
+    sampleQuestions: [
+      "Apakah servis yang anda tawarkan?",
+      "Berapa harga anda?",
+      "Bagaimana saya boleh hubungi team anda?",
+      "Boleh saya bercakap dengan manusia?",
+      "Di mana lokasi bisnes anda?",
+    ],
   },
 };
+
+function getSupportedLanguage(language: string): SupportedLanguage {
+  if (language === "id" || language === "zh" || language === "ms") {
+    return language;
+  }
+
+  return "en";
+}
+
+function getOptions(values: string[], labels: Record<string, string>): Option[] {
+  return values.map((value) => ({
+    value,
+    label: labels[value] || value,
+  }));
+}
 
 function getCreditsLeft(balance: CreditBalanceRow | null) {
   if (!balance) return null;
@@ -198,14 +494,38 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
   );
 }
 
+function localizePlanName(
+  planKey: string | null | undefined,
+  fallback: string,
+  t: TestAITranslation
+) {
+  if (!planKey) return fallback;
+  return t.planNames[planKey] || fallback;
+}
+
 export default function TestAIPage() {
   const { language } = useKolkapLanguage();
-  const t =
-    translations[language as keyof typeof translations] || translations.en;
+  const activeLanguage = getSupportedLanguage(language);
+  const t = translations[activeLanguage];
+
+  const languageOptions = useMemo(
+    () => getOptions(languageValues, t.languageLabels),
+    [t.languageLabels]
+  );
+
+  const toneOptions = useMemo(
+    () => getOptions(toneValues, t.toneLabels),
+    [t.toneLabels]
+  );
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
+  const currentPlanName = localizePlanName(
+    workspaceState.planKey,
+    currentPlan.name,
+    t
+  );
 
   const [question, setQuestion] = useState("");
   const [replyLanguage, setReplyLanguage] = useState("auto");
@@ -291,7 +611,7 @@ export default function TestAIPage() {
           language: replyLanguage,
           tone,
           extra_instructions: extraInstructions,
-          ui_language: language,
+          ui_language: activeLanguage,
         }),
       });
 
@@ -405,18 +725,14 @@ export default function TestAIPage() {
           <InfoCard
             icon={<ShieldCheck className="h-7 w-7" />}
             label={t.currentPlan}
-            value={currentPlan.name}
+            value={currentPlanName}
             note={currentPlan.priceLabel}
           />
 
           <InfoCard
             icon={<CreditCard className="h-7 w-7" />}
             label={t.creditsLeft}
-            value={
-              creditsLeft === null
-                ? "—"
-                : creditsLeft.toLocaleString()
-            }
+            value={creditsLeft === null ? "—" : creditsLeft.toLocaleString()}
             note={
               creditBalance
                 ? `${t.creditsUsed}: ${usedCredits.toLocaleString()}`
@@ -428,7 +744,7 @@ export default function TestAIPage() {
           <InfoCard
             icon={<Zap className="h-7 w-7" />}
             label={t.creditCost}
-            value="1 Credit"
+            value={`${TEST_AI_CREDIT_COST} ${t.creditUnit}`}
             note={t.oneCreditNote}
           />
 
@@ -436,9 +752,9 @@ export default function TestAIPage() {
             icon={<MessageCircle className="h-7 w-7" />}
             label={t.business}
             value={String(
-              workspace?.business_name || businessName || "Workspace"
+              workspace?.business_name || businessName || t.workspaceFallback
             )}
-            note="Logged-in workspace"
+            note={t.workspaceNote}
           />
 
           <InfoCard
@@ -467,7 +783,7 @@ export default function TestAIPage() {
               {creditBalance ? (
                 <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
                   {t.includedPlanCredits}: {planCredits.toLocaleString()} •{" "}
-                  Top-Up: {purchasedCredits.toLocaleString()} •{" "}
+                  {t.topUpCredits}: {purchasedCredits.toLocaleString()} •{" "}
                   {t.creditsUsed}: {usedCredits.toLocaleString()}
                 </p>
               ) : null}
@@ -594,8 +910,8 @@ export default function TestAIPage() {
                   {isGenerating
                     ? t.generating
                     : reply
-                      ? getGenerateButtonLabel("Regenerate Reply", TEST_AI_CREDIT_COST)
-                      : getGenerateButtonLabel("Generate Test Reply", TEST_AI_CREDIT_COST)}
+                      ? t.regenerateForCredit
+                      : t.generateForCredit}
                 </button>
 
                 <button
@@ -660,7 +976,7 @@ export default function TestAIPage() {
               </p>
 
               <div className="mt-5 grid gap-3">
-                {sampleQuestions.map((sample) => (
+                {t.sampleQuestions.map((sample) => (
                   <button
                     key={sample}
                     type="button"
