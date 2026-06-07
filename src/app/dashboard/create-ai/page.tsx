@@ -8,6 +8,7 @@ import {
   ArrowRight,
   Bot,
   CheckCircle2,
+  RefreshCcw,
   Save,
   ShieldCheck,
   Sparkles,
@@ -41,11 +42,81 @@ type AiStaffRow = {
   updated_at: string;
 };
 
-function getAIStaffLimit(planKey: KolkapPlanKey) {
+type CreditBalanceRow = {
+  id: string;
+  workspace_id: string;
+  owner_user_id: string;
+  plan_name: string;
+  plan_credits: number;
+  purchased_credits: number;
+  used_credits: number;
+  billing_period_start: string | null;
+  billing_period_end: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type SupportedLanguage = "en" | "id" | "zh" | "ms";
+
+const supportedLanguages: SupportedLanguage[] = ["en", "id", "zh", "ms"];
+
+function getSupportedLanguage(language: string): SupportedLanguage {
+  return supportedLanguages.includes(language as SupportedLanguage)
+    ? (language as SupportedLanguage)
+    : "en";
+}
+
+function getAIStaffLimit(
+  planKey: KolkapPlanKey,
+  plan: { aiStaffLimit?: number | "custom" }
+) {
+  if (typeof plan.aiStaffLimit === "number") return plan.aiStaffLimit;
+  if (plan.aiStaffLimit === "custom") return 20;
+
   if (planKey === "free_trial") return 1;
+  if (planKey === "starter") return 1;
   if (planKey === "growth") return 2;
   if (planKey === "pro") return 5;
+  if (planKey === "professional") return 5;
+  if (planKey === "business") return 10;
+
   return 20;
+}
+
+function getCreditsLeft(balance: CreditBalanceRow | null) {
+  if (!balance) return null;
+
+  return Math.max(
+    0,
+    Number(balance.plan_credits || 0) +
+      Number(balance.purchased_credits || 0) -
+      Number(balance.used_credits || 0)
+  );
+}
+
+function getCreditsTotal(balance: CreditBalanceRow | null) {
+  if (!balance) return null;
+
+  return Number(balance.plan_credits || 0) + Number(balance.purchased_credits || 0);
+}
+
+function localizePlanLabel(label: string, language: SupportedLanguage) {
+  if (language === "zh") {
+    return label
+      .replace("AI credits/month", "AI credits/月")
+      .replace("Custom credits", "定制 credits")
+      .replace("AI staff", "AI 员工")
+      .replace("Custom", "定制");
+  }
+
+  if (language === "id" || language === "ms") {
+    return label
+      .replace("AI credits/month", "AI credits/bulan")
+      .replace("Custom credits", "Custom credits");
+  }
+
+  return label;
 }
 
 const translations = {
@@ -57,9 +128,13 @@ const translations = {
     loading: "Loading your AI setup...",
     failed: "Create AI page could not load.",
     back: "Back to Dashboard",
+    refresh: "Refresh Credits",
     currentPlan: "Current Plan",
     aiStaffUsage: "AI Staff Usage",
     credits: "Credits",
+    creditsLeft: "Credits Left",
+    creditsUsed: "Credits Used",
+    creditBalanceMissing: "Credit balance has not been created yet.",
     goLiveStatus: "Go Live Status",
     saveAndTest: "Save & Test AI",
     saving: "Saving AI...",
@@ -120,9 +195,13 @@ const translations = {
     loading: "Memuat setup AI Anda...",
     failed: "Halaman Create AI gagal dimuat.",
     back: "Kembali ke Dashboard",
+    refresh: "Refresh Credits",
     currentPlan: "Paket Saat Ini",
     aiStaffUsage: "Pemakaian AI Staff",
     credits: "Credits",
+    creditsLeft: "Sisa Credits",
+    creditsUsed: "Credits Terpakai",
+    creditBalanceMissing: "Credit balance belum dibuat.",
     goLiveStatus: "Status Go Live",
     saveAndTest: "Simpan & Test AI",
     saving: "Menyimpan AI...",
@@ -182,10 +261,14 @@ const translations = {
       "设置 AI 角色、渠道、语气、语言、企业知识和指令。保存后可以马上测试 AI。",
     loading: "正在加载 AI 设置...",
     failed: "创建 AI 页面加载失败。",
-    back: "返回仪表板",
+    back: "返回 Dashboard",
+    refresh: "刷新 Credits",
     currentPlan: "当前方案",
     aiStaffUsage: "AI 员工使用情况",
     credits: "Credits",
+    creditsLeft: "剩余 Credits",
+    creditsUsed: "已使用 Credits",
+    creditBalanceMissing: "Credit balance 尚未创建。",
     goLiveStatus: "上线状态",
     saveAndTest: "保存并测试 AI",
     saving: "正在保存 AI...",
@@ -193,7 +276,7 @@ const translations = {
     saveFailed: "AI 员工保存失败。",
     limitReached: "您的当前方案已达到 AI 员工数量限制。",
     existingAI: "您的 AI 员工",
-    existingAIText: "这些是已经连接到您的 Kolkap 工作区的 AI 员工。",
+    existingAIText: "这些是已经连接到您的 Kolkap workspace 的 AI 员工。",
     aiSetup: "AI 员工设置",
     aiSetupText: "选择这个 AI 要为企业做什么，以及它应该如何回复客户。",
     name: "AI 员工名称",
@@ -244,9 +327,13 @@ const translations = {
     loading: "Memuat setup AI anda...",
     failed: "Halaman Create AI gagal dimuat.",
     back: "Kembali ke Dashboard",
+    refresh: "Refresh Credits",
     currentPlan: "Pakej Semasa",
     aiStaffUsage: "Penggunaan AI Staff",
     credits: "Credits",
+    creditsLeft: "Baki Credits",
+    creditsUsed: "Credits Digunakan",
+    creditBalanceMissing: "Credit balance belum dibuat.",
     goLiveStatus: "Status Go Live",
     saveAndTest: "Simpan & Test AI",
     saving: "Menyimpan AI...",
@@ -303,16 +390,23 @@ const translations = {
 export default function CreateAIPage() {
   const router = useRouter();
   const { language } = useKolkapLanguage();
-  const t = translations[language as keyof typeof translations] || translations.en;
+  const lang = getSupportedLanguage(language);
+  const t = translations[lang];
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
-  const aiLimit = getAIStaffLimit(workspaceState.planKey);
+  const aiLimit = getAIStaffLimit(workspaceState.planKey, currentPlan);
 
   const [aiStaffRows, setAiStaffRows] = useState<AiStaffRow[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(true);
   const [aiListError, setAiListError] = useState("");
+
+  const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
+    null
+  );
+  const [isLoadingCredits, setIsLoadingCredits] = useState(false);
+  const [creditError, setCreditError] = useState("");
 
   const [name, setName] = useState("");
   const [role, setRole] = useState(t.roles[0]);
@@ -327,6 +421,34 @@ export default function CreateAIPage() {
 
   const aiStaffUsed = aiStaffRows.length;
   const hasReachedLimit = aiStaffUsed >= aiLimit;
+
+  const creditsLeft = getCreditsLeft(creditBalance);
+  const creditsTotal = getCreditsTotal(creditBalance);
+  const creditsUsed = Number(creditBalance?.used_credits || 0);
+
+  async function loadCreditBalance() {
+    if (!workspace?.id) return;
+
+    setIsLoadingCredits(true);
+    setCreditError("");
+
+    const supabase = createClient();
+
+    const { data, error } = await supabase
+      .from("workspace_credit_balances")
+      .select("*")
+      .eq("workspace_id", workspace.id)
+      .maybeSingle();
+
+    if (error) {
+      setCreditError(error.message);
+      setIsLoadingCredits(false);
+      return;
+    }
+
+    setCreditBalance((data ?? null) as CreditBalanceRow | null);
+    setIsLoadingCredits(false);
+  }
 
   useEffect(() => {
     if (!workspace) return;
@@ -394,6 +516,11 @@ export default function CreateAIPage() {
       isMounted = false;
     };
   }, [workspace]);
+
+  useEffect(() => {
+    loadCreditBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspace?.id]);
 
   async function handleSaveAndTest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -467,13 +594,18 @@ export default function CreateAIPage() {
       {
         label: t.aiStaffUsage,
         value: `${aiStaffUsed}/${aiLimit}`,
-        note: getPlanAIStaffLabel(currentPlan),
+        note: localizePlanLabel(getPlanAIStaffLabel(currentPlan), lang),
         icon: Bot,
       },
       {
         label: t.credits,
-        value: `${workspaceState.creditsRemaining}/${workspaceState.creditsTotal}`,
-        note: getPlanCreditLabel(currentPlan),
+        value:
+          creditsLeft === null || creditsTotal === null
+            ? "—"
+            : `${creditsLeft.toLocaleString()}/${creditsTotal.toLocaleString()}`,
+        note: creditBalance
+          ? `${creditsUsed.toLocaleString()} ${t.creditsUsed}`
+          : t.creditBalanceMissing,
         icon: Zap,
       },
       {
@@ -488,8 +620,11 @@ export default function CreateAIPage() {
       currentPlan,
       aiStaffUsed,
       aiLimit,
-      workspaceState.creditsRemaining,
-      workspaceState.creditsTotal,
+      lang,
+      creditsLeft,
+      creditsTotal,
+      creditsUsed,
+      creditBalance,
       workspaceState.goLiveStatus,
       workspaceState.whatsappStatus,
     ]
@@ -526,13 +661,25 @@ export default function CreateAIPage() {
     <main className="bg-[#F7F9FA] text-[#07111F]">
       <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8 lg:py-14">
         <div className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9 lg:p-10">
-          <Link
-            href="/dashboard"
-            className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            {t.back}
-          </Link>
+          <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <Link
+              href="/dashboard"
+              className="inline-flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              {t.back}
+            </Link>
+
+            <button
+              type="button"
+              onClick={loadCreditBalance}
+              disabled={isLoadingCredits}
+              className="inline-flex w-fit items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10 disabled:opacity-50"
+            >
+              <RefreshCcw className="h-5 w-5" />
+              {isLoadingCredits ? t.loading : t.refresh}
+            </button>
+          </div>
 
           <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
             <Sparkles className="h-5 w-5" />
@@ -547,6 +694,12 @@ export default function CreateAIPage() {
             {t.subtitle}
           </p>
         </div>
+
+        {creditError ? (
+          <div className="mb-8 rounded-3xl border border-red-200 bg-red-50 p-5 text-red-700">
+            <p className="text-base font-black">{creditError}</p>
+          </div>
+        ) : null}
 
         <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {summaryCards.map((card) => {
@@ -564,9 +717,11 @@ export default function CreateAIPage() {
                 <p className="text-lg font-black text-slate-500">
                   {card.label}
                 </p>
+
                 <p className="mt-2 text-3xl font-black tracking-[-0.04em]">
                   {card.value}
                 </p>
+
                 <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
                   {card.note}
                 </p>
@@ -613,6 +768,7 @@ export default function CreateAIPage() {
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
                           <Bot className="h-6 w-6" />
                         </div>
+
                         <div>
                           <p className="text-xl font-black">{staff.name}</p>
                           <p className="mt-1 text-base font-semibold text-slate-500">
@@ -769,6 +925,7 @@ function SelectInput({
       <span className="block truncate text-base font-black text-slate-700">
         {label}
       </span>
+
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
