@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -43,12 +43,15 @@ type ActivateTrialTranslation = {
   aiStaffIncluded: string;
   teamIncluded: string;
   activateButton: string;
-  comingSoon: string;
-  comingSoonText: string;
+  activatingButton: string;
+  secureSetup: string;
+  secureSetupText: string;
   flowSteps: string[];
   enterpriseNote: string;
   contactUs: string;
   loading: string;
+  errorTitle: string;
+  errorText: string;
 };
 
 const supportedLanguages: SupportedLanguage[] = ["en", "id", "zh", "ms"];
@@ -66,11 +69,11 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     badge: "Activate Trial",
     title: "Start your 7-day free trial.",
     subtitle:
-      "Choose your AI staff plan, activate your trial, and prepare your Kolkap workspace. Payment method is needed to activate your trial. You won’t be charged today.",
+      "Add a payment method to activate your trial. You won’t be charged today. Monthly billing starts after your 7-day trial unless cancelled.",
     back: "Back to Dashboard",
-    choosePlan: "Choose Your Plan",
+    choosePlan: "Select Your Trial Plan",
     choosePlanText:
-      "Select the plan you want to start with. You can upgrade later as your AI usage grows.",
+      "Choose the AI staff plan you want to start with. You can upgrade later as your business grows.",
     selectedPlan: "Selected Plan",
     trialTitle: "7-Day Free Trial",
     trialText:
@@ -83,32 +86,36 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     creditsIncluded: "Credits included",
     aiStaffIncluded: "AI staff included",
     teamIncluded: "Team access included",
-    activateButton: "Continue to Trial Activation",
-    comingSoon: "Payment setup coming soon",
-    comingSoonText:
-      "The checkout connection will be added next. For now, this page prepares the correct trial flow and pricing selection.",
+    activateButton: "Activate Free Trial — No Charge Today",
+    activatingButton: "Opening secure trial setup...",
+    secureSetup: "Secure trial setup",
+    secureSetupText:
+      "Kolkap will open the secure payment-method step. After Stripe confirms it, your trial and credits will be activated automatically.",
     flowSteps: [
-      "Choose your plan",
+      "Select your trial plan",
       "Add payment method",
       "No charge today",
       "Use Kolkap for 7 days",
-      "Billing starts after trial unless cancelled",
+      "Monthly billing starts after trial unless cancelled",
     ],
     enterpriseNote:
       "Enterprise requires a custom setup. Contact us instead of starting automatic trial activation.",
     contactUs: "Contact Us",
     loading: "Loading trial activation...",
+    errorTitle: "Trial setup could not start",
+    errorText:
+      "Please try again. If this keeps happening, contact Kolkap support.",
   },
 
   id: {
     badge: "Aktifkan Trial",
     title: "Mulai 7-day free trial Anda.",
     subtitle:
-      "Pilih paket AI staff, aktifkan trial, dan siapkan Kolkap workspace Anda. Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini.",
+      "Tambahkan payment method untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini. Monthly billing berjalan setelah 7-day trial kecuali dibatalkan.",
     back: "Kembali ke Dashboard",
-    choosePlan: "Pilih Paket Anda",
+    choosePlan: "Pilih Trial Plan Anda",
     choosePlanText:
-      "Pilih paket yang ingin Anda mulai. Anda bisa upgrade nanti saat penggunaan AI bertambah.",
+      "Pilih paket AI staff yang ingin Anda mulai. Anda bisa upgrade nanti saat bisnis berkembang.",
     selectedPlan: "Paket Terpilih",
     trialTitle: "7-Day Free Trial",
     trialText:
@@ -121,32 +128,36 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     creditsIncluded: "Credits termasuk",
     aiStaffIncluded: "AI staff termasuk",
     teamIncluded: "Team access termasuk",
-    activateButton: "Lanjutkan Trial Activation",
-    comingSoon: "Payment setup segera hadir",
-    comingSoonText:
-      "Checkout connection akan ditambahkan berikutnya. Untuk sekarang, halaman ini menyiapkan trial flow dan pilihan pricing yang benar.",
+    activateButton: "Aktifkan Free Trial — Tidak Dibayar Hari Ini",
+    activatingButton: "Membuka secure trial setup...",
+    secureSetup: "Secure trial setup",
+    secureSetupText:
+      "Kolkap akan membuka langkah payment method yang aman. Setelah Stripe mengonfirmasi, trial dan credits Anda akan aktif otomatis.",
     flowSteps: [
-      "Pilih paket",
+      "Pilih trial plan",
       "Tambahkan payment method",
       "Tidak dikenakan biaya hari ini",
       "Gunakan Kolkap selama 7 hari",
-      "Billing berjalan setelah trial kecuali dibatalkan",
+      "Monthly billing berjalan setelah trial kecuali dibatalkan",
     ],
     enterpriseNote:
       "Enterprise membutuhkan custom setup. Hubungi kami, bukan automatic trial activation.",
     contactUs: "Hubungi Kami",
     loading: "Memuat trial activation...",
+    errorTitle: "Trial setup tidak bisa dimulai",
+    errorText:
+      "Silakan coba lagi. Jika masih terjadi, hubungi Kolkap support.",
   },
 
   zh: {
     badge: "激活试用",
     title: "开始您的 7 天免费试用。",
     subtitle:
-      "选择您的 AI 员工方案，激活试用，并准备 Kolkap workspace。需要添加付款方式来激活试用。今天不会收费。",
+      "添加付款方式来激活试用。今天不会收费。7 天试用结束后将按月计费，除非提前取消。",
     back: "返回 Dashboard",
-    choosePlan: "选择您的方案",
+    choosePlan: "选择您的试用方案",
     choosePlanText:
-      "选择您想开始使用的方案。之后可根据 AI usage 增长进行升级。",
+      "选择您想开始使用的 AI 员工方案。之后可根据业务增长升级。",
     selectedPlan: "已选择方案",
     trialTitle: "7 天免费试用",
     trialText: "需要添加付款方式来激活试用。今天不会收费。",
@@ -158,32 +169,34 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     creditsIncluded: "包含 credits",
     aiStaffIncluded: "包含 AI 员工",
     teamIncluded: "包含团队权限",
-    activateButton: "继续激活试用",
-    comingSoon: "付款设置即将推出",
-    comingSoonText:
-      "Checkout connection 将在下一步添加。目前此页面用于准备正确的试用流程和 pricing 选择。",
+    activateButton: "激活免费试用 — 今天不收费",
+    activatingButton: "正在打开安全试用设置...",
+    secureSetup: "安全试用设置",
+    secureSetupText:
+      "Kolkap 将打开安全的付款方式步骤。Stripe 确认后，您的试用和 credits 会自动激活。",
     flowSteps: [
-      "选择方案",
+      "选择试用方案",
       "添加付款方式",
       "今天不会收费",
       "使用 Kolkap 7 天",
-      "试用结束后开始计费，除非提前取消",
+      "试用结束后按月计费，除非提前取消",
     ],
-    enterpriseNote:
-      "Enterprise 需要定制设置。请联系我们，而不是使用自动试用激活。",
+    enterpriseNote: "Enterprise 需要定制设置。请联系我们，而不是使用自动试用激活。",
     contactUs: "联系我们",
     loading: "正在加载试用激活...",
+    errorTitle: "无法开始试用设置",
+    errorText: "请重试。如果问题持续，请联系 Kolkap support。",
   },
 
   ms: {
     badge: "Aktifkan Trial",
     title: "Mulakan 7-day free trial anda.",
     subtitle:
-      "Pilih pakej AI staff, aktifkan trial, dan sediakan Kolkap workspace anda. Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini.",
+      "Tambah payment method untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini. Monthly billing bermula selepas 7-day trial kecuali dibatalkan.",
     back: "Kembali ke Dashboard",
-    choosePlan: "Pilih Pakej Anda",
+    choosePlan: "Pilih Trial Plan Anda",
     choosePlanText:
-      "Pilih pakej yang anda mahu mulakan. Anda boleh upgrade kemudian apabila AI usage bertambah.",
+      "Pilih pakej AI staff yang anda mahu mulakan. Anda boleh upgrade kemudian apabila bisnes berkembang.",
     selectedPlan: "Pakej Dipilih",
     trialTitle: "7-Day Free Trial",
     trialText:
@@ -196,21 +209,25 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     creditsIncluded: "Credits termasuk",
     aiStaffIncluded: "AI staff termasuk",
     teamIncluded: "Team access termasuk",
-    activateButton: "Teruskan Trial Activation",
-    comingSoon: "Payment setup akan datang",
-    comingSoonText:
-      "Checkout connection akan ditambah seterusnya. Buat masa ini, halaman ini menyediakan trial flow dan pilihan pricing yang betul.",
+    activateButton: "Aktifkan Free Trial — Tiada Caj Hari Ini",
+    activatingButton: "Membuka secure trial setup...",
+    secureSetup: "Secure trial setup",
+    secureSetupText:
+      "Kolkap akan membuka langkah payment method yang selamat. Selepas Stripe mengesahkan, trial dan credits anda akan aktif secara automatik.",
     flowSteps: [
-      "Pilih pakej",
+      "Pilih trial plan",
       "Tambah payment method",
       "Tiada caj hari ini",
       "Gunakan Kolkap selama 7 hari",
-      "Billing bermula selepas trial kecuali dibatalkan",
+      "Monthly billing bermula selepas trial kecuali dibatalkan",
     ],
     enterpriseNote:
       "Enterprise memerlukan custom setup. Hubungi kami, bukan automatic trial activation.",
     contactUs: "Hubungi Kami",
     loading: "Memuat trial activation...",
+    errorTitle: "Trial setup tidak dapat dimulakan",
+    errorText:
+      "Sila cuba lagi. Jika masih berlaku, hubungi Kolkap support.",
   },
 };
 
@@ -245,6 +262,7 @@ function localizePlanLabel(label: string, language: SupportedLanguage) {
 }
 
 function ActivateTrialContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { language } = useKolkapLanguage();
   const lang = getSupportedLanguage(language);
@@ -257,6 +275,8 @@ function ActivateTrialContent() {
 
   const [selectedPlanKey, setSelectedPlanKey] =
     useState<KolkapPlanKey>(initialPlanKey);
+  const [isStartingTrial, setIsStartingTrial] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
 
   const selectedPlan = useMemo(
     () => getKolkapPlan(selectedPlanKey),
@@ -264,6 +284,43 @@ function ActivateTrialContent() {
   );
 
   const isEnterprise = selectedPlan.key === "enterprise";
+
+  async function handleStartTrial() {
+    setCheckoutError("");
+
+    if (isEnterprise) {
+      router.push("/contact");
+      return;
+    }
+
+    try {
+      setIsStartingTrial(true);
+
+      const response = await fetch("/api/billing/start-trial", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planKey: selectedPlan.key,
+        }),
+      });
+
+      const result = (await response.json().catch(() => ({}))) as {
+        url?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || t.errorText);
+      }
+
+      window.location.href = result.url;
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : t.errorText);
+      setIsStartingTrial(false);
+    }
+  }
 
   return (
     <main className="bg-[#F7F9FA] text-[#07111F]">
@@ -324,7 +381,10 @@ function ActivateTrialContent() {
                   <button
                     key={plan.key}
                     type="button"
-                    onClick={() => setSelectedPlanKey(plan.key)}
+                    onClick={() => {
+                      setSelectedPlanKey(plan.key);
+                      setCheckoutError("");
+                    }}
                     className={`rounded-[2rem] border p-6 text-left transition hover:-translate-y-1 ${
                       selected
                         ? "border-[#07111F] bg-[#07111F] text-white shadow-xl shadow-slate-900/15"
@@ -376,7 +436,10 @@ function ActivateTrialContent() {
                       />
                       <FeatureLine
                         selected={selected}
-                        text={localizePlanLabel(getPlanAIStaffLabel(plan), lang)}
+                        text={localizePlanLabel(
+                          getPlanAIStaffLabel(plan),
+                          lang
+                        )}
                       />
                       <FeatureLine
                         selected={selected}
@@ -417,11 +480,17 @@ function ActivateTrialContent() {
               <div className="mt-7 grid gap-3 rounded-3xl border border-white/10 bg-white/5 p-5">
                 <SummaryRow
                   label={t.creditsIncluded}
-                  value={localizePlanLabel(getPlanCreditLabel(selectedPlan), lang)}
+                  value={localizePlanLabel(
+                    getPlanCreditLabel(selectedPlan),
+                    lang
+                  )}
                 />
                 <SummaryRow
                   label={t.aiStaffIncluded}
-                  value={localizePlanLabel(getPlanAIStaffLabel(selectedPlan), lang)}
+                  value={localizePlanLabel(
+                    getPlanAIStaffLabel(selectedPlan),
+                    lang
+                  )}
                 />
                 <SummaryRow
                   label={t.teamIncluded}
@@ -438,16 +507,31 @@ function ActivateTrialContent() {
                 </p>
               ) : null}
 
-              <Link
-                href={isEnterprise ? "/contact" : "/dashboard/billing"}
-                className="mt-7 inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
+              {checkoutError ? (
+                <div className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5 text-red-900">
+                  <p className="text-base font-black">{t.errorTitle}</p>
+                  <p className="mt-2 text-sm font-bold leading-6">
+                    {checkoutError}
+                  </p>
+                </div>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={handleStartTrial}
+                disabled={isStartingTrial}
+                className="mt-7 inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
               >
-                {isEnterprise ? t.contactUs : t.activateButton}
+                {isEnterprise
+                  ? t.contactUs
+                  : isStartingTrial
+                    ? t.activatingButton
+                    : t.activateButton}
                 <ArrowRight className="h-6 w-6" />
-              </Link>
+              </button>
 
               <p className="mt-4 text-center text-sm font-bold leading-6 text-slate-400">
-                {isEnterprise ? t.enterpriseNote : t.comingSoon}
+                {isEnterprise ? t.enterpriseNote : t.secureSetup}
               </p>
             </div>
 
@@ -494,11 +578,11 @@ function ActivateTrialContent() {
 
             <div>
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-700">
-                {t.comingSoon}
+                {t.secureSetup}
               </p>
 
               <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em] text-blue-950">
-                {t.comingSoonText}
+                {t.secureSetupText}
               </h2>
             </div>
           </div>
