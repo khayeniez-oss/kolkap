@@ -111,7 +111,7 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     badge: "Aktifkan Trial",
     title: "Mulai 7-day free trial Anda.",
     subtitle:
-      "Tambahkan payment method untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini. Monthly billing berjalan setelah 7-day trial kecuali dibatalkan.",
+      "Tambahkan metode pembayaran untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini. Tagihan bulanan berjalan setelah 7-day trial kecuali dibatalkan.",
     back: "Kembali ke Dashboard",
     choosePlan: "Pilih Trial Plan Anda",
     choosePlanText:
@@ -119,31 +119,31 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     selectedPlan: "Paket Terpilih",
     trialTitle: "7-Day Free Trial",
     trialText:
-      "Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini.",
+      "Metode pembayaran diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini.",
     billingText:
-      "Monthly billing berjalan setelah 7-day trial kecuali dibatalkan sebelum trial selesai.",
+      "Tagihan bulanan berjalan setelah 7-day trial kecuali dibatalkan sebelum trial selesai.",
     noChargeToday: "Tidak dikenakan biaya hari ini",
-    paymentNeeded: "Payment method diperlukan",
+    paymentNeeded: "Metode pembayaran diperlukan",
     cancelBeforeTrial: "Batalkan sebelum trial selesai",
-    creditsIncluded: "Credits termasuk",
+    creditsIncluded: "Kredit termasuk",
     aiStaffIncluded: "AI staff termasuk",
-    teamIncluded: "Team access termasuk",
-    activateButton: "Aktifkan Free Trial — Tidak Dibayar Hari Ini",
-    activatingButton: "Membuka secure trial setup...",
-    secureSetup: "Secure trial setup",
+    teamIncluded: "Akses team termasuk",
+    activateButton: "Aktifkan Free Trial — Tidak Ditagih Hari Ini",
+    activatingButton: "Membuka setup trial aman...",
+    secureSetup: "Setup trial aman",
     secureSetupText:
-      "Kolkap akan membuka langkah payment method yang aman. Setelah Stripe mengonfirmasi, trial dan credits Anda akan aktif otomatis.",
+      "Kolkap akan membuka langkah metode pembayaran yang aman. Setelah Stripe mengonfirmasi, trial dan kredit Anda akan aktif otomatis.",
     flowSteps: [
       "Pilih trial plan",
-      "Tambahkan payment method",
+      "Tambahkan metode pembayaran",
       "Tidak dikenakan biaya hari ini",
       "Gunakan Kolkap selama 7 hari",
-      "Monthly billing berjalan setelah trial kecuali dibatalkan",
+      "Tagihan bulanan berjalan setelah trial kecuali dibatalkan",
     ],
     enterpriseNote:
       "Enterprise membutuhkan custom setup. Hubungi kami, bukan automatic trial activation.",
     contactUs: "Hubungi Kami",
-    loading: "Memuat trial activation...",
+    loading: "Memuat aktivasi trial...",
     errorTitle: "Trial setup tidak bisa dimulai",
     errorText:
       "Silakan coba lagi. Jika masih terjadi, hubungi Kolkap support.",
@@ -166,14 +166,14 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     noChargeToday: "今天不会收费",
     paymentNeeded: "需要付款方式",
     cancelBeforeTrial: "试用结束前可取消",
-    creditsIncluded: "包含 credits",
+    creditsIncluded: "包含积分",
     aiStaffIncluded: "包含 AI 员工",
     teamIncluded: "包含团队权限",
     activateButton: "激活免费试用 — 今天不收费",
     activatingButton: "正在打开安全试用设置...",
     secureSetup: "安全试用设置",
     secureSetupText:
-      "Kolkap 将打开安全的付款方式步骤。Stripe 确认后，您的试用和 credits 会自动激活。",
+      "Kolkap 将打开安全的付款方式步骤。Stripe 确认后，您的试用和积分会自动激活。",
     flowSteps: [
       "选择试用方案",
       "添加付款方式",
@@ -192,7 +192,7 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     badge: "Aktifkan Trial",
     title: "Mulakan 7-day free trial anda.",
     subtitle:
-      "Tambah payment method untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini. Monthly billing bermula selepas 7-day trial kecuali dibatalkan.",
+      "Tambah kaedah pembayaran untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini. Bil bulanan bermula selepas 7-day trial kecuali dibatalkan.",
     back: "Kembali ke Dashboard",
     choosePlan: "Pilih Trial Plan Anda",
     choosePlanText:
@@ -200,26 +200,26 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     selectedPlan: "Pakej Dipilih",
     trialTitle: "7-Day Free Trial",
     trialText:
-      "Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini.",
+      "Kaedah pembayaran diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini.",
     billingText:
-      "Monthly billing bermula selepas 7-day trial kecuali dibatalkan sebelum trial tamat.",
+      "Bil bulanan bermula selepas 7-day trial kecuali dibatalkan sebelum trial tamat.",
     noChargeToday: "Tiada caj hari ini",
-    paymentNeeded: "Payment method diperlukan",
+    paymentNeeded: "Kaedah pembayaran diperlukan",
     cancelBeforeTrial: "Batal sebelum trial tamat",
-    creditsIncluded: "Credits termasuk",
+    creditsIncluded: "Kredit termasuk",
     aiStaffIncluded: "AI staff termasuk",
-    teamIncluded: "Team access termasuk",
+    teamIncluded: "Akses team termasuk",
     activateButton: "Aktifkan Free Trial — Tiada Caj Hari Ini",
-    activatingButton: "Membuka secure trial setup...",
-    secureSetup: "Secure trial setup",
+    activatingButton: "Membuka setup trial selamat...",
+    secureSetup: "Setup trial selamat",
     secureSetupText:
-      "Kolkap akan membuka langkah payment method yang selamat. Selepas Stripe mengesahkan, trial dan credits anda akan aktif secara automatik.",
+      "Kolkap akan membuka langkah kaedah pembayaran yang selamat. Selepas Stripe mengesahkan, trial dan kredit anda akan aktif secara automatik.",
     flowSteps: [
       "Pilih trial plan",
-      "Tambah payment method",
+      "Tambah kaedah pembayaran",
       "Tiada caj hari ini",
       "Gunakan Kolkap selama 7 hari",
-      "Monthly billing bermula selepas trial kecuali dibatalkan",
+      "Bil bulanan bermula selepas trial kecuali dibatalkan",
     ],
     enterpriseNote:
       "Enterprise memerlukan custom setup. Hubungi kami, bukan automatic trial activation.",
@@ -244,18 +244,36 @@ function isValidPlanKey(value: string | null): value is KolkapPlanKey {
 function localizePlanLabel(label: string, language: SupportedLanguage) {
   if (language === "zh") {
     return label
-      .replace("AI credits/month", "AI credits/月")
-      .replace("Custom credits", "定制 credits")
+      .replace("Custom credits", "定制积分")
+      .replace("trial credits", "试用积分")
+      .replace("credits/month", "积分/月")
       .replace("AI staff", "AI 员工")
-      .replace("Team member", "团队成员")
-      .replace("Team members", "团队成员")
+      .replace("Custom team members", "定制团队成员")
+      .replace("team members", "团队成员")
+      .replace("team member", "团队成员")
       .replace("Custom", "定制");
   }
 
-  if (language === "id" || language === "ms") {
+  if (language === "id") {
     return label
-      .replace("AI credits/month", "AI credits/bulan")
-      .replace("Custom credits", "Custom credits");
+      .replace("Custom credits", "Kredit custom")
+      .replace("trial credits", "kredit trial")
+      .replace("credits/month", "kredit/bulan")
+      .replace("Custom AI staff", "AI staff custom")
+      .replace("Custom team members", "Team member custom")
+      .replace("team members", "team member")
+      .replace("team member", "team member");
+  }
+
+  if (language === "ms") {
+    return label
+      .replace("Custom credits", "Kredit custom")
+      .replace("trial credits", "kredit trial")
+      .replace("credits/month", "kredit/bulan")
+      .replace("Custom AI staff", "AI staff custom")
+      .replace("Custom team members", "Team member custom")
+      .replace("team members", "team member")
+      .replace("team member", "team member");
   }
 
   return label;

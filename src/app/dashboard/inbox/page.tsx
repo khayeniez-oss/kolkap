@@ -29,7 +29,7 @@ import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 const CONVERSATIONS_PER_PAGE = 8;
 const MESSAGES_STEP = 10;
-const INBOX_AI_REPLY_CREDIT_COST = 1;
+const INBOX_AI_REPLY_CREDIT_COST = 3;
 
 type SupportedLanguage = "en" | "id" | "zh" | "ms";
 
@@ -170,9 +170,9 @@ const translations: Record<SupportedLanguage, InboxTranslation> = {
     creditsLeft: "Credits Left",
     creditsUsed: "Credits Used",
     creditCost: "Credit Cost",
-    creditUnit: "Credit",
+    creditUnit: "Credits",
     noCreditBalance: "Credit balance not found yet.",
-    oneCreditNote: "Every successful AI reply generation uses 1 credit.",
+    oneCreditNote: "Every successful inbox AI reply generation uses 3 credits.",
     refreshCredits: "Refresh credits",
     conversations: "Conversations",
     leads: "Leads",
@@ -197,10 +197,10 @@ const translations: Record<SupportedLanguage, InboxTranslation> = {
     aiReply: "AI Reply",
     humanReply: "Human Reply",
     generateAiReply: "Generate AI Reply",
-    generateAiReplyForCredit: "Generate AI Reply for 1 Credit",
+    generateAiReplyForCredit: "Generate AI Reply for 3 Credits",
     generatingAiReply: "Generating AI Reply...",
     aiSuggestionReady:
-      "AI suggested reply is ready. 1 credit has been used. Review it before sending.",
+      "AI suggested reply is ready. 3 credits have been used. Review it before sending.",
     aiReplyCouldNotGenerate: "AI reply could not be generated.",
     knowledgeItemsUsed: "knowledge item(s) used.",
     noCustomerMessageForAI: "No customer message found for AI to reply to.",
@@ -279,7 +279,8 @@ const translations: Record<SupportedLanguage, InboxTranslation> = {
     creditCost: "Biaya Kredit",
     creditUnit: "Kredit",
     noCreditBalance: "Saldo kredit belum ditemukan.",
-    oneCreditNote: "Setiap balasan AI yang berhasil dibuat menggunakan 1 kredit.",
+    oneCreditNote:
+      "Setiap balasan AI inbox yang berhasil dibuat menggunakan 3 kredit.",
     refreshCredits: "Muat ulang kredit",
     conversations: "Percakapan",
     leads: "Leads",
@@ -304,10 +305,10 @@ const translations: Record<SupportedLanguage, InboxTranslation> = {
     aiReply: "Balasan AI",
     humanReply: "Balasan Human",
     generateAiReply: "Buat Balasan AI",
-    generateAiReplyForCredit: "Buat Balasan AI untuk 1 Kredit",
+    generateAiReplyForCredit: "Buat Balasan AI untuk 3 Kredit",
     generatingAiReply: "Membuat balasan AI...",
     aiSuggestionReady:
-      "Saran balasan AI sudah siap. 1 kredit sudah digunakan. Review sebelum dikirim.",
+      "Saran balasan AI sudah siap. 3 kredit sudah digunakan. Review sebelum dikirim.",
     aiReplyCouldNotGenerate: "Balasan AI tidak dapat dibuat.",
     knowledgeItemsUsed: "knowledge item digunakan.",
     noCustomerMessageForAI: "Tidak ada pesan pelanggan untuk dibalas AI.",
@@ -386,7 +387,7 @@ const translations: Record<SupportedLanguage, InboxTranslation> = {
     creditCost: "积分费用",
     creditUnit: "积分",
     noCreditBalance: "尚未找到积分余额。",
-    oneCreditNote: "每次成功生成 AI 回复会使用 1 积分。",
+    oneCreditNote: "每次成功生成 inbox AI 回复会使用 3 积分。",
     refreshCredits: "刷新积分",
     conversations: "对话",
     leads: "线索",
@@ -411,10 +412,10 @@ const translations: Record<SupportedLanguage, InboxTranslation> = {
     aiReply: "AI 回复",
     humanReply: "人工回复",
     generateAiReply: "生成 AI 回复",
-    generateAiReplyForCredit: "用 1 积分生成 AI 回复",
+    generateAiReplyForCredit: "用 3 积分生成 AI 回复",
     generatingAiReply: "正在生成 AI 回复...",
     aiSuggestionReady:
-      "AI 建议回复已准备好。已使用 1 积分。发送前请先检查。",
+      "AI 建议回复已准备好。已使用 3 积分。发送前请先检查。",
     aiReplyCouldNotGenerate: "无法生成 AI 回复。",
     knowledgeItemsUsed: "个 knowledge item 已使用。",
     noCustomerMessageForAI: "没有找到可供 AI 回复的客户消息。",
@@ -492,7 +493,8 @@ const translations: Record<SupportedLanguage, InboxTranslation> = {
     creditCost: "Kos Kredit",
     creditUnit: "Kredit",
     noCreditBalance: "Baki kredit belum dijumpai.",
-    oneCreditNote: "Setiap balasan AI yang berjaya dijana menggunakan 1 kredit.",
+    oneCreditNote:
+      "Setiap balasan AI inbox yang berjaya dijana menggunakan 3 kredit.",
     refreshCredits: "Segar semula kredit",
     conversations: "Perbualan",
     leads: "Leads",
@@ -517,10 +519,10 @@ const translations: Record<SupportedLanguage, InboxTranslation> = {
     aiReply: "Balasan AI",
     humanReply: "Balasan Human",
     generateAiReply: "Jana Balasan AI",
-    generateAiReplyForCredit: "Jana Balasan AI untuk 1 Kredit",
+    generateAiReplyForCredit: "Jana Balasan AI untuk 3 Kredit",
     generatingAiReply: "Menjana balasan AI...",
     aiSuggestionReady:
-      "Cadangan balasan AI sudah siap. 1 kredit sudah digunakan. Review sebelum dihantar.",
+      "Cadangan balasan AI sudah siap. 3 kredit sudah digunakan. Review sebelum dihantar.",
     aiReplyCouldNotGenerate: "Balasan AI tidak dapat dijana.",
     knowledgeItemsUsed: "knowledge item digunakan.",
     noCustomerMessageForAI: "Tiada mesej pelanggan untuk dibalas AI.",
@@ -890,7 +892,7 @@ export default function InboxPage() {
     },
     {
       label: t.creditCost,
-      value: `1 ${t.creditUnit}`,
+      value: `${INBOX_AI_REPLY_CREDIT_COST} ${t.creditUnit}`,
       note: t.oneCreditNote,
       icon: Zap,
       href: "/dashboard/usage",

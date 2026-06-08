@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
+import { KOLKAP_AI_GENERATION_MIN_CREDITS } from "@/lib/kolkapPlan";
+
+const INBOX_AI_REPLY_CREDIT_COST = KOLKAP_AI_GENERATION_MIN_CREDITS;
 
 export async function POST(request: Request) {
   try {
@@ -74,11 +77,12 @@ export async function POST(request: Request) {
       eventType: "ai_reply_generated",
       channel: "inbox",
       sourcePage: "/dashboard/inbox",
-      creditsUsed: 1,
+      creditsUsed: INBOX_AI_REPLY_CREDIT_COST,
       metadata: {
         conversation_id: conversationId || null,
         model: result.model,
         knowledge_count: result.knowledgeCount,
+        credit_rule: "inbox_ai_reply_minimum",
       },
     });
 
@@ -90,6 +94,7 @@ export async function POST(request: Request) {
       knowledge_count: result.knowledgeCount,
       model: result.model,
       fallback: result.fallback,
+      credits_used: INBOX_AI_REPLY_CREDIT_COST,
     });
   } catch (error) {
     const message =

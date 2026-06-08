@@ -29,7 +29,7 @@ import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 const MAX_GENERATED_LENGTH = 8000;
 const MAX_DETAILS_LENGTH = 420;
 const MAX_PROMPT_LENGTH = 2000;
-const CONTENT_GENERATION_CREDIT_COST = 1;
+const CONTENT_GENERATION_CREDIT_COST = 5;
 
 type SupportedLanguage = "en" | "id" | "zh" | "ms";
 
@@ -232,9 +232,9 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     creditsLeft: "Credits Left",
     creditsUsed: "Credits Used",
     creditCost: "Credit Cost",
-    creditUnit: "Credit",
+    creditUnit: "Credits",
     noCreditBalance: "Credit balance not found yet.",
-    oneCreditNote: "Every successful content generation uses 1 credit.",
+    oneCreditNote: "Every successful content generation uses 5 credits.",
     includedPlanCredits: "Included plan credits",
     topUpCredits: "Top-Up credits",
     refreshCredits: "Refresh credits",
@@ -261,8 +261,8 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     generatedPlaceholder:
       "Click Generate Content. The result will appear here. You can edit it before saving.",
     generate: "Generate Content",
-    generateForCredit: "Generate Content for 1 Credit",
-    regenererateForCredit: "Regenerate Content for 1 Credit",
+    generateForCredit: "Generate Content for 5 Credits",
+    regenererateForCredit: "Regenerate Content for 5 Credits",
     generating: "Generating...",
     copyGenerated: "Copy Generated",
     saveContent: "Save Content",
@@ -270,11 +270,11 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     saving: "Saving...",
     cancelEdit: "Cancel Edit",
     generated:
-      "Content generated using your business context. 1 credit has been used. Please review and edit before saving.",
+      "Content generated using your business context. 5 credits have been used. Please review and edit before saving.",
     generatedForBusiness: "Content generated for",
     knowledgeItemsUsed: "knowledge item(s) used.",
     reviewBeforeSaving:
-      "1 credit has been used. Please review and edit before saving.",
+      "5 credits have been used. Please review and edit before saving.",
     copied: "Copied",
     saved: "Content saved successfully.",
     updated: "Content updated successfully.",
@@ -305,7 +305,7 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     delete: "Delete",
     noteTitle: "How this works",
     noteText:
-      "Content Studio uses your logged-in business profile, saved Knowledge Base, and your instructions to create business-specific content. Each successful generation uses 1 credit.",
+      "Content Studio uses your logged-in business profile, saved Knowledge Base, and your instructions to create business-specific content. Each successful generation uses 5 credits.",
     shown: "shown",
     differentFormats: "Different formats",
     updatedLabel: "Updated",
@@ -389,7 +389,7 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     creditCost: "Biaya Kredit",
     creditUnit: "Kredit",
     noCreditBalance: "Saldo kredit belum ditemukan.",
-    oneCreditNote: "Setiap konten yang berhasil dibuat menggunakan 1 kredit.",
+    oneCreditNote: "Setiap konten yang berhasil dibuat menggunakan 5 kredit.",
     includedPlanCredits: "Kredit termasuk paket",
     topUpCredits: "Kredit Top-Up",
     refreshCredits: "Muat ulang kredit",
@@ -416,8 +416,8 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     generatedPlaceholder:
       "Klik Buat Konten. Hasilnya akan muncul di sini. Anda bisa edit sebelum disimpan.",
     generate: "Buat Konten",
-    generateForCredit: "Buat Konten untuk 1 Kredit",
-    regenererateForCredit: "Buat Ulang Konten untuk 1 Kredit",
+    generateForCredit: "Buat Konten untuk 5 Kredit",
+    regenererateForCredit: "Buat Ulang Konten untuk 5 Kredit",
     generating: "Membuat...",
     copyGenerated: "Copy Konten",
     saveContent: "Simpan Konten",
@@ -425,11 +425,11 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     saving: "Menyimpan...",
     cancelEdit: "Batalkan Edit",
     generated:
-      "Konten berhasil dibuat menggunakan konteks bisnis Anda. 1 kredit sudah digunakan. Silakan review dan edit sebelum disimpan.",
+      "Konten berhasil dibuat menggunakan konteks bisnis Anda. 5 kredit sudah digunakan. Silakan review dan edit sebelum disimpan.",
     generatedForBusiness: "Konten dibuat untuk",
     knowledgeItemsUsed: "knowledge item digunakan.",
     reviewBeforeSaving:
-      "1 kredit sudah digunakan. Silakan review dan edit sebelum disimpan.",
+      "5 kredit sudah digunakan. Silakan review dan edit sebelum disimpan.",
     copied: "Copied",
     saved: "Konten berhasil disimpan.",
     updated: "Konten berhasil diperbarui.",
@@ -461,7 +461,7 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     delete: "Hapus",
     noteTitle: "Cara kerja halaman ini",
     noteText:
-      "Content Studio menggunakan business profile yang sedang login, Knowledge Base yang tersimpan, dan instruksi Anda untuk membuat konten yang spesifik untuk bisnis. Setiap hasil yang berhasil dibuat menggunakan 1 kredit.",
+      "Content Studio menggunakan business profile yang sedang login, Knowledge Base yang tersimpan, dan instruksi Anda untuk membuat konten yang spesifik untuk bisnis. Setiap hasil yang berhasil dibuat menggunakan 5 kredit.",
     shown: "ditampilkan",
     differentFormats: "Format berbeda",
     updatedLabel: "Diupdate",
@@ -545,7 +545,7 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     creditCost: "积分费用",
     creditUnit: "积分",
     noCreditBalance: "尚未找到积分余额。",
-    oneCreditNote: "每次成功生成内容会使用 1 积分。",
+    oneCreditNote: "每次成功生成内容会使用 5 积分。",
     includedPlanCredits: "套餐包含积分",
     topUpCredits: "充值积分",
     refreshCredits: "刷新积分",
@@ -572,8 +572,8 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     generatedPlaceholder:
       "点击生成内容。结果会显示在这里，您可以在保存前编辑。",
     generate: "生成内容",
-    generateForCredit: "用 1 积分生成内容",
-    regenererateForCredit: "用 1 积分重新生成内容",
+    generateForCredit: "用 5 积分生成内容",
+    regenererateForCredit: "用 5 积分重新生成内容",
     generating: "正在生成...",
     copyGenerated: "复制生成内容",
     saveContent: "保存内容",
@@ -581,10 +581,10 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     saving: "正在保存...",
     cancelEdit: "取消编辑",
     generated:
-      "内容已根据您的业务资料生成。已使用 1 积分。保存前请先检查和编辑。",
+      "内容已根据您的业务资料生成。已使用 5 积分。保存前请先检查和编辑。",
     generatedForBusiness: "内容已生成给",
     knowledgeItemsUsed: "个 knowledge item 已使用。",
-    reviewBeforeSaving: "已使用 1 积分。保存前请先检查和编辑。",
+    reviewBeforeSaving: "已使用 5 积分。保存前请先检查和编辑。",
     copied: "已复制",
     saved: "内容已成功保存。",
     updated: "内容已成功更新。",
@@ -615,7 +615,7 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     delete: "删除",
     noteTitle: "页面如何运作",
     noteText:
-      "Content Studio 会使用已登录的 business profile、已保存的 Knowledge Base 和您的指令，生成适合业务的内容。每次成功生成会使用 1 积分。",
+      "Content Studio 会使用已登录的 business profile、已保存的 Knowledge Base 和您的指令，生成适合业务的内容。每次成功生成会使用 5 积分。",
     shown: "已显示",
     differentFormats: "不同格式",
     updatedLabel: "已更新",
@@ -699,7 +699,7 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     creditCost: "Kos Kredit",
     creditUnit: "Kredit",
     noCreditBalance: "Baki kredit belum dijumpai.",
-    oneCreditNote: "Setiap kandungan yang berjaya dijana menggunakan 1 kredit.",
+    oneCreditNote: "Setiap kandungan yang berjaya dijana menggunakan 5 kredit.",
     includedPlanCredits: "Kredit termasuk pelan",
     topUpCredits: "Kredit Top-Up",
     refreshCredits: "Segar semula kredit",
@@ -726,8 +726,8 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     generatedPlaceholder:
       "Klik Jana Kandungan. Hasilnya akan muncul di sini. Anda boleh edit sebelum disimpan.",
     generate: "Jana Kandungan",
-    generateForCredit: "Jana Kandungan untuk 1 Kredit",
-    regenererateForCredit: "Jana Semula Kandungan untuk 1 Kredit",
+    generateForCredit: "Jana Kandungan untuk 5 Kredit",
+    regenererateForCredit: "Jana Semula Kandungan untuk 5 Kredit",
     generating: "Menjana...",
     copyGenerated: "Copy Kandungan",
     saveContent: "Simpan Kandungan",
@@ -735,11 +735,11 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     saving: "Menyimpan...",
     cancelEdit: "Batal Edit",
     generated:
-      "Kandungan berjaya dijana menggunakan konteks bisnes anda. 1 kredit sudah digunakan. Sila review dan edit sebelum disimpan.",
+      "Kandungan berjaya dijana menggunakan konteks bisnes anda. 5 kredit sudah digunakan. Sila review dan edit sebelum disimpan.",
     generatedForBusiness: "Kandungan dijana untuk",
     knowledgeItemsUsed: "knowledge item digunakan.",
     reviewBeforeSaving:
-      "1 kredit sudah digunakan. Sila review dan edit sebelum disimpan.",
+      "5 kredit sudah digunakan. Sila review dan edit sebelum disimpan.",
     copied: "Copied",
     saved: "Kandungan berjaya disimpan.",
     updated: "Kandungan berjaya dikemaskini.",
@@ -771,7 +771,7 @@ const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
     delete: "Padam",
     noteTitle: "Cara halaman ini berfungsi",
     noteText:
-      "Content Studio menggunakan business profile yang sedang login, Knowledge Base yang disimpan, dan arahan anda untuk mencipta kandungan khusus untuk bisnes. Setiap hasil yang berjaya dijana menggunakan 1 kredit.",
+      "Content Studio menggunakan business profile yang sedang login, Knowledge Base yang disimpan, dan arahan anda untuk mencipta kandungan khusus untuk bisnes. Setiap hasil yang berjaya dijana menggunakan 5 kredit.",
     shown: "dipaparkan",
     differentFormats: "Format berbeza",
     updatedLabel: "Dikemaskini",
@@ -1862,7 +1862,10 @@ export default function ContentStudioPage() {
                 label={t.filterType}
                 value={filterType}
                 onChange={setFilterType}
-                options={[{ value: "all", label: t.allTypes }, ...contentTypeOptions]}
+                options={[
+                  { value: "all", label: t.allTypes },
+                  ...contentTypeOptions,
+                ]}
               />
             </div>
 

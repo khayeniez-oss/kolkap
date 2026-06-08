@@ -11,6 +11,8 @@ import {
   CreditCard,
   Download,
   FileText,
+  HelpCircle,
+  MessageCircle,
   RefreshCcw,
   ShieldCheck,
   Sparkles,
@@ -22,7 +24,6 @@ import {
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import {
-  KOLKAP_TRIAL_NOTE,
   getKolkapPlan,
   getPlanAIStaffLabel,
   getPlanCreditLabel,
@@ -84,6 +85,7 @@ type BillingTranslation = {
   invoiceNotReady: string;
   billingPeriod: string;
   paymentNeeded: string;
+  noChargeToday: string;
   autoBilling: string;
   noCreditBalance: string;
   includedMonthly: string;
@@ -91,12 +93,10 @@ type BillingTranslation = {
   usedFromBalance: string;
   remainingBalance: string;
   creditWord: string;
-  statuses: {
-    trial: string;
-    active: string;
-    past_due: string;
-    cancelled: string;
-  };
+  creditGuideTitle: string;
+  creditGuideText: string;
+  creditRules: [string, string][];
+  statusLabels: Record<string, string>;
 };
 
 const supportedLanguages: SupportedLanguage[] = ["en", "id", "zh", "ms"];
@@ -152,6 +152,7 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
       "Invoices will be available after your first paid subscription or credit top-up.",
     billingPeriod: "Billing Period",
     paymentNeeded: "Payment method needed",
+    noChargeToday: "No charge today",
     autoBilling: "Monthly billing starts after trial unless cancelled.",
     noCreditBalance: "Credit balance has not been created for this workspace yet.",
     includedMonthly: "Included monthly credits",
@@ -159,7 +160,18 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
     usedFromBalance: "Used from balance",
     remainingBalance: "Remaining balance",
     creditWord: "credits",
-    statuses: {
+    creditGuideTitle: "How Credits Are Used",
+    creditGuideText:
+      "Kolkap uses credits only when AI successfully generates or sends output. The button or action page should clearly show the cost before the user clicks.",
+    creditRules: [
+      ["Test AI Reply", "3 credits"],
+      ["Inbox AI Reply", "3 credits"],
+      ["Content Studio Generation", "5 credits"],
+      ["Website Chat AI Reply", "from 3 credits"],
+      ["WhatsApp AI Reply", "from 5 credits"],
+      ["Longer replies / campaign content", "more credits"],
+    ],
+    statusLabels: {
       trial: "Trial",
       active: "Active",
       past_due: "Past Due",
@@ -209,6 +221,7 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
       "Invoice akan tersedia setelah subscription berbayar atau top-up credits pertama.",
     billingPeriod: "Periode Billing",
     paymentNeeded: "Payment method diperlukan",
+    noChargeToday: "Tidak dikenakan biaya hari ini",
     autoBilling: "Monthly billing berjalan setelah trial kecuali dibatalkan.",
     noCreditBalance: "Credit balance belum dibuat untuk workspace ini.",
     includedMonthly: "Monthly credits termasuk",
@@ -216,7 +229,18 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
     usedFromBalance: "Terpakai dari balance",
     remainingBalance: "Sisa balance",
     creditWord: "credits",
-    statuses: {
+    creditGuideTitle: "Cara Credits Digunakan",
+    creditGuideText:
+      "Kolkap menggunakan credits hanya saat AI berhasil membuat atau mengirim output. Button atau halaman action harus menunjukkan cost dengan jelas sebelum user klik.",
+    creditRules: [
+      ["Test AI Reply", "3 credits"],
+      ["Inbox AI Reply", "3 credits"],
+      ["Content Studio Generation", "5 credits"],
+      ["Website Chat AI Reply", "mulai dari 3 credits"],
+      ["WhatsApp AI Reply", "mulai dari 5 credits"],
+      ["Balasan panjang / campaign content", "lebih banyak credits"],
+    ],
+    statusLabels: {
       trial: "Trial",
       active: "Aktif",
       past_due: "Tertunda",
@@ -266,6 +290,7 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
       "发票将在第一次付费 subscription 或 credit top-up 后可用。",
     billingPeriod: "账单周期",
     paymentNeeded: "需要付款方式",
+    noChargeToday: "今天不会收费",
     autoBilling: "试用结束后将按月计费，除非提前取消。",
     noCreditBalance: "此 workspace 还没有创建 credit balance。",
     includedMonthly: "包含的 monthly credits",
@@ -273,7 +298,18 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
     usedFromBalance: "已从 balance 使用",
     remainingBalance: "剩余 balance",
     creditWord: "credits",
-    statuses: {
+    creditGuideTitle: "Credits 如何使用",
+    creditGuideText:
+      "Kolkap 只会在 AI 成功生成或发送输出时使用 credits。按钮或操作页面应在用户点击前清楚显示所需 credits。",
+    creditRules: [
+      ["Test AI Reply", "3 credits"],
+      ["Inbox AI Reply", "3 credits"],
+      ["Content Studio Generation", "5 credits"],
+      ["Website Chat AI Reply", "从 3 credits 起"],
+      ["WhatsApp AI Reply", "从 5 credits 起"],
+      ["较长回复 / campaign content", "使用更多 credits"],
+    ],
+    statusLabels: {
       trial: "试用",
       active: "有效",
       past_due: "逾期",
@@ -323,6 +359,7 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
       "Invoice akan tersedia selepas subscription berbayar atau top-up credits pertama.",
     billingPeriod: "Tempoh Billing",
     paymentNeeded: "Payment method diperlukan",
+    noChargeToday: "Tiada caj hari ini",
     autoBilling: "Monthly billing bermula selepas trial kecuali dibatalkan.",
     noCreditBalance: "Credit balance belum dibuat untuk workspace ini.",
     includedMonthly: "Monthly credits termasuk",
@@ -330,7 +367,18 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
     usedFromBalance: "Digunakan dari balance",
     remainingBalance: "Baki balance",
     creditWord: "credits",
-    statuses: {
+    creditGuideTitle: "Cara Credits Digunakan",
+    creditGuideText:
+      "Kolkap menggunakan credits hanya apabila AI berjaya menjana atau menghantar output. Button atau halaman action perlu menunjukkan cost dengan jelas sebelum user klik.",
+    creditRules: [
+      ["Test AI Reply", "3 credits"],
+      ["Inbox AI Reply", "3 credits"],
+      ["Content Studio Generation", "5 credits"],
+      ["Website Chat AI Reply", "bermula daripada 3 credits"],
+      ["WhatsApp AI Reply", "bermula daripada 5 credits"],
+      ["Balasan panjang / campaign content", "lebih banyak credits"],
+    ],
+    statusLabels: {
       trial: "Trial",
       active: "Aktif",
       past_due: "Tertunggak",
@@ -368,21 +416,39 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
   );
 }
 
+function getStatusLabel(labels: Record<string, string>, value: string) {
+  return labels[value] || value;
+}
+
 function localizePlanLabel(label: string, language: SupportedLanguage) {
   if (language === "zh") {
     return label
-      .replace("AI credits/month", "AI credits/月")
+            .replace("credits/month", "credits/月")
       .replace("Custom credits", "定制 credits")
+      .replace("trial credits", "试用 credits")
       .replace("AI staff", "AI 员工")
-      .replace("Team member", "团队成员")
       .replace("Team members", "团队成员")
+      .replace("Team member", "团队成员")
+      .replace("Custom team members", "定制团队成员")
       .replace("Custom", "定制");
   }
 
-  if (language === "id" || language === "ms") {
+  if (language === "id") {
     return label
-      .replace("AI credits/month", "AI credits/bulan")
-      .replace("Custom credits", "Custom credits");
+            .replace("credits/month", "credits/bulan")
+      .replace("Custom credits", "Custom credits")
+      .replace("trial credits", "trial credits")
+      .replace("Custom AI staff", "Custom AI staff")
+      .replace("Custom team members", "Custom team members");
+  }
+
+  if (language === "ms") {
+    return label
+            .replace("credits/month", "credits/bulan")
+      .replace("Custom credits", "Custom credits")
+      .replace("trial credits", "trial credits")
+      .replace("Custom AI staff", "Custom AI staff")
+      .replace("Custom team members", "Custom team members");
   }
 
   return label;
@@ -473,7 +539,7 @@ export default function BillingPage() {
     },
     {
       label: t.planStatus,
-      value: t.statuses[workspaceState.status] || workspaceState.status,
+      value: getStatusLabel(t.statusLabels, workspaceState.status),
       note:
         workspaceState.status === "trial"
           ? `${workspaceState.trialDaysRemaining} ${t.trialDaysLeft}`
@@ -664,6 +730,44 @@ export default function BillingPage() {
         <section className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
+              <HelpCircle className="h-8 w-8" />
+            </div>
+
+            <div className="w-full">
+              <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
+                {t.creditGuideTitle}
+              </p>
+
+              <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
+                {t.creditGuideText}
+              </h2>
+
+              <div className="mt-7 grid gap-3 lg:grid-cols-2">
+                {t.creditRules.map(([action, cost]) => (
+                  <div
+                    key={action}
+                    className="flex flex-col gap-2 rounded-3xl border border-white/10 bg-white/5 p-5 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <MessageCircle className="h-5 w-5 text-[#7CFF3D]" />
+                      <p className="text-base font-black text-white">
+                        {action}
+                      </p>
+                    </div>
+
+                    <span className="w-fit rounded-full bg-[#7CFF3D] px-4 py-2 text-sm font-black text-[#07111F]">
+                      {cost}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
               <CalendarDays className="h-8 w-8" />
             </div>
 
@@ -676,10 +780,6 @@ export default function BillingPage() {
                 {t.trialText}
               </h2>
 
-              <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
-                {KOLKAP_TRIAL_NOTE}
-              </p>
-
               {creditBalance ? (
                 <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
                   {t.billingPeriod}:{" "}
@@ -691,6 +791,10 @@ export default function BillingPage() {
               <div className="mt-5 flex flex-wrap gap-3">
                 <span className="rounded-full bg-white/10 px-5 py-3 text-sm font-black text-white">
                   {t.paymentNeeded}
+                </span>
+
+                <span className="rounded-full bg-white/10 px-5 py-3 text-sm font-black text-white">
+                  {t.noChargeToday}
                 </span>
 
                 <span className="rounded-full bg-white/10 px-5 py-3 text-sm font-black text-white">

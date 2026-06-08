@@ -194,7 +194,7 @@ const translations: Record<SupportedLanguage, DashboardTranslation> = {
     stepLeadsText:
       "Track customer opportunities, update lead status, and follow up with potential customers.",
     contentStudioQuickText:
-      "Generate business content for 1 credit per successful generation.",
+      "Generate business content for 5 credits per successful generation.",
     usageQuickText:
       "Track credits used, credits left, AI actions, and workspace activity.",
     noCreditBalance: "Credit balance not found yet.",
@@ -293,7 +293,7 @@ const translations: Record<SupportedLanguage, DashboardTranslation> = {
     stepLeadsText:
       "Pantau peluang pelanggan, update status lead, dan follow up calon pelanggan.",
     contentStudioQuickText:
-      "Buat konten bisnis dengan 1 kredit untuk setiap hasil yang berhasil dibuat.",
+      "Buat konten bisnis dengan 5 kredit untuk setiap hasil yang berhasil dibuat.",
     usageQuickText:
       "Pantau kredit terpakai, sisa kredit, aktivitas AI, dan aktivitas workspace.",
     noCreditBalance: "Saldo kredit belum ditemukan.",
@@ -386,7 +386,7 @@ const translations: Record<SupportedLanguage, DashboardTranslation> = {
     stepInboxText: "查看客户对话、AI 回复、人工回复和接手请求。",
     stepLeads: "6. 线索",
     stepLeadsText: "追踪客户机会，更新线索状态，并跟进潜在客户。",
-    contentStudioQuickText: "每次成功生成业务内容会使用 1 积分。",
+    contentStudioQuickText: "每次成功生成业务内容会使用 5 积分。",
     usageQuickText:
       "追踪已用积分、剩余积分、AI 操作和 workspace 活动。",
     noCreditBalance: "尚未找到积分余额。",
@@ -485,7 +485,7 @@ const translations: Record<SupportedLanguage, DashboardTranslation> = {
     stepLeadsText:
       "Pantau peluang pelanggan, update status lead, dan follow up bakal pelanggan.",
     contentStudioQuickText:
-      "Jana kandungan bisnes dengan 1 kredit untuk setiap hasil yang berjaya dijana.",
+      "Jana kandungan bisnes dengan 5 kredit untuk setiap hasil yang berjaya dijana.",
     usageQuickText:
       "Pantau kredit digunakan, baki kredit, aksi AI, dan aktiviti workspace.",
     noCreditBalance: "Baki kredit belum dijumpai.",
@@ -607,7 +607,9 @@ export default function DashboardPage() {
   const totalCredits = planCredits + purchasedCredits;
 
   const aiLimitValue =
-    aiLimit === "custom" ? `${stats.aiStaffCount}/${t.custom}` : `${stats.aiStaffCount}/${aiLimit}`;
+    aiLimit === "custom"
+      ? `${stats.aiStaffCount}/${t.custom}`
+      : `${stats.aiStaffCount}/${aiLimit}`;
 
   const aiLimitNote =
     aiLimit === "custom"

@@ -102,7 +102,7 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
     features: [
       "7-day free trial",
       "Payment method needed to activate trial",
-      "1,500 AI credits/month",
+      "1,500 credits/month",
       "1 AI staff",
       "1 workspace",
       "Knowledge Base",
@@ -129,7 +129,7 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
     features: [
       "7-day free trial",
       "Payment method needed to activate trial",
-      "4,000 AI credits/month",
+      "4,000 credits/month",
       "3 AI staff",
       "3 team members",
       "Knowledge Base",
@@ -158,7 +158,7 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
     features: [
       "7-day free trial",
       "Payment method needed to activate trial",
-      "10,000 AI credits/month",
+      "10,000 credits/month",
       "5 AI staff",
       "10 team members",
       "Advanced Knowledge Base",
@@ -188,7 +188,7 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
     features: [
       "7-day free trial",
       "Payment method needed to activate trial",
-      "18,000 AI credits/month",
+      "18,000 credits/month",
       "10 AI staff",
       "Custom team members",
       "Multi-channel AI",
@@ -274,7 +274,7 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
     features: [
       "7-day free trial",
       "Payment method needed to activate trial",
-      "10,000 AI credits/month",
+      "10,000 credits/month",
       "5 AI staff",
       "10 team members",
       "Advanced Knowledge Base",

@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   ArrowLeft,
   Bot,
@@ -17,13 +23,16 @@ import {
   Zap,
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
-import { getKolkapPlan } from "@/lib/kolkapPlan";
+import {
+  getKolkapPlan,
+  KOLKAP_AI_GENERATION_MIN_CREDITS,
+} from "@/lib/kolkapPlan";
 import { createClient } from "@/lib/supabase/client";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 const MAX_QUESTION_LENGTH = 1200;
 const MAX_INSTRUCTION_LENGTH = 1200;
-const TEST_AI_CREDIT_COST = 1;
+const TEST_AI_CREDIT_COST = KOLKAP_AI_GENERATION_MIN_CREDITS;
 
 type SupportedLanguage = "en" | "id" | "zh" | "ms";
 
@@ -96,7 +105,7 @@ type TestAITranslation = {
   includedPlanCredits: string;
   topUpCredits: string;
   refreshCredits: string;
-  oneCreditNote: string;
+  creditCostNote: string;
   planNames: Record<string, string>;
   languageLabels: Record<string, string>;
   toneLabels: Record<string, string>;
@@ -127,7 +136,7 @@ const translations: Record<SupportedLanguage, TestAITranslation> = {
     creditsLeft: "Credits Left",
     creditsUsed: "Credits Used",
     creditCost: "Credit Cost",
-    creditUnit: "Credit",
+    creditUnit: "Credits",
     business: "Business",
     workspaceFallback: "Workspace",
     workspaceNote: "Logged-in workspace",
@@ -145,17 +154,17 @@ const translations: Record<SupportedLanguage, TestAITranslation> = {
     extraInstructionsPlaceholder:
       "Optional: Tell the AI what to pay attention to, such as keep it short, mention WhatsApp, or explain step by step.",
     generate: "Generate Test Reply",
-    generateForCredit: "Test AI for 1 Credit",
-    regenerateForCredit: "Test Again for 1 Credit",
+    generateForCredit: "Test AI for 3 Credits",
+    regenerateForCredit: "Test Again for 3 Credits",
     generating: "Generating...",
     clear: "Clear",
     resultTitle: "AI Test Reply",
     resultPlaceholder:
-      "The AI reply will appear here after you click Test AI for 1 Credit.",
+      "The AI reply will appear here after you click Test AI for 3 Credits.",
     copied: "Copied",
     copy: "Copy Reply",
     success:
-      "Test reply generated. 1 credit has been used. Review the answer before connecting it to real customer conversations.",
+      "Test reply generated. 3 credits have been used. Review the answer before connecting it to real customer conversations.",
     error: "AI reply could not be generated.",
     questionRequired: "Please write a sample customer question first.",
     questionTooLong: "Sample question is too long.",
@@ -172,7 +181,7 @@ const translations: Record<SupportedLanguage, TestAITranslation> = {
     includedPlanCredits: "Included plan credits",
     topUpCredits: "Top-Up credits",
     refreshCredits: "Refresh credits",
-    oneCreditNote: "Every successful test reply generation uses 1 credit.",
+    creditCostNote: "Every successful test reply generation uses 3 credits.",
     planNames: {
       starter: "Starter",
       growth: "Growth",
@@ -233,17 +242,17 @@ const translations: Record<SupportedLanguage, TestAITranslation> = {
     extraInstructionsPlaceholder:
       "Opsional: Beri instruksi khusus, seperti jawab singkat, sebutkan WhatsApp, atau jelaskan step by step.",
     generate: "Buat Balasan Test",
-    generateForCredit: "Tes AI untuk 1 Kredit",
-    regenerateForCredit: "Tes Ulang untuk 1 Kredit",
+    generateForCredit: "Tes AI untuk 3 Kredit",
+    regenerateForCredit: "Tes Ulang untuk 3 Kredit",
     generating: "Membuat...",
     clear: "Bersihkan",
     resultTitle: "Balasan Test AI",
     resultPlaceholder:
-      "Balasan AI akan muncul di sini setelah Anda klik Tes AI untuk 1 Kredit.",
+      "Balasan AI akan muncul di sini setelah Anda klik Tes AI untuk 3 Kredit.",
     copied: "Copied",
     copy: "Copy Balasan",
     success:
-      "Balasan test berhasil dibuat. 1 kredit sudah digunakan. Review jawabannya sebelum disambungkan ke percakapan customer asli.",
+      "Balasan test berhasil dibuat. 3 kredit sudah digunakan. Review jawabannya sebelum disambungkan ke percakapan customer asli.",
     error: "Balasan AI tidak dapat dibuat.",
     questionRequired: "Mohon tulis contoh pertanyaan customer terlebih dahulu.",
     questionTooLong: "Contoh pertanyaan terlalu panjang.",
@@ -260,7 +269,8 @@ const translations: Record<SupportedLanguage, TestAITranslation> = {
     includedPlanCredits: "Kredit termasuk paket",
     topUpCredits: "Kredit Top-Up",
     refreshCredits: "Muat ulang kredit",
-    oneCreditNote: "Setiap balasan test yang berhasil dibuat menggunakan 1 kredit.",
+    creditCostNote:
+      "Setiap balasan test yang berhasil dibuat menggunakan 3 kredit.",
     planNames: {
       starter: "Starter",
       growth: "Growth",
@@ -321,17 +331,17 @@ const translations: Record<SupportedLanguage, TestAITranslation> = {
     extraInstructionsPlaceholder:
       "可选：告诉 AI 需要注意什么，例如保持简短、提到 WhatsApp，或一步一步解释。",
     generate: "生成测试回复",
-    generateForCredit: "用 1 积分测试 AI",
-    regenerateForCredit: "用 1 积分再次测试",
+    generateForCredit: "用 3 积分测试 AI",
+    regenerateForCredit: "用 3 积分再次测试",
     generating: "正在生成...",
     clear: "清除",
     resultTitle: "AI 测试回复",
     resultPlaceholder:
-      "点击用 1 积分测试 AI 后，AI 回复会显示在这里。",
+      "点击用 3 积分测试 AI 后，AI 回复会显示在这里。",
     copied: "已复制",
     copy: "复制回复",
     success:
-      "测试回复已生成。已使用 1 积分。连接到真实客户对话前，请先检查答案。",
+      "测试回复已生成。已使用 3 积分。连接到真实客户对话前，请先检查答案。",
     error: "无法生成 AI 回复。",
     questionRequired: "请先填写客户问题示例。",
     questionTooLong: "客户问题示例太长。",
@@ -348,7 +358,7 @@ const translations: Record<SupportedLanguage, TestAITranslation> = {
     includedPlanCredits: "套餐包含积分",
     topUpCredits: "充值积分",
     refreshCredits: "刷新积分",
-    oneCreditNote: "每次成功生成测试回复会使用 1 积分。",
+    creditCostNote: "每次成功生成测试回复会使用 3 积分。",
     planNames: {
       starter: "Starter",
       growth: "Growth",
@@ -409,17 +419,17 @@ const translations: Record<SupportedLanguage, TestAITranslation> = {
     extraInstructionsPlaceholder:
       "Opsional: Beri arahan khas, seperti jawab pendek, sebut WhatsApp, atau jelaskan step by step.",
     generate: "Jana Balasan Test",
-    generateForCredit: "Test AI untuk 1 Kredit",
-    regenerateForCredit: "Test Semula untuk 1 Kredit",
+    generateForCredit: "Test AI untuk 3 Kredit",
+    regenerateForCredit: "Test Semula untuk 3 Kredit",
     generating: "Menjana...",
     clear: "Kosongkan",
     resultTitle: "Balasan Test AI",
     resultPlaceholder:
-      "Balasan AI akan muncul di sini selepas anda klik Test AI untuk 1 Kredit.",
+      "Balasan AI akan muncul di sini selepas anda klik Test AI untuk 3 Kredit.",
     copied: "Copied",
     copy: "Copy Balasan",
     success:
-      "Balasan test berjaya dijana. 1 kredit sudah digunakan. Review jawapan sebelum disambungkan kepada perbualan pelanggan sebenar.",
+      "Balasan test berjaya dijana. 3 kredit sudah digunakan. Review jawapan sebelum disambungkan kepada perbualan pelanggan sebenar.",
     error: "Balasan AI tidak dapat dijana.",
     questionRequired: "Sila tulis contoh soalan pelanggan dahulu.",
     questionTooLong: "Contoh soalan terlalu panjang.",
@@ -436,7 +446,8 @@ const translations: Record<SupportedLanguage, TestAITranslation> = {
     includedPlanCredits: "Kredit termasuk pelan",
     topUpCredits: "Kredit Top-Up",
     refreshCredits: "Segar semula kredit",
-    oneCreditNote: "Setiap balasan test yang berjaya dijana menggunakan 1 kredit.",
+    creditCostNote:
+      "Setiap balasan test yang berjaya dijana menggunakan 3 kredit.",
     planNames: {
       starter: "Starter",
       growth: "Growth",
@@ -745,7 +756,7 @@ export default function TestAIPage() {
             icon={<Zap className="h-7 w-7" />}
             label={t.creditCost}
             value={`${TEST_AI_CREDIT_COST} ${t.creditUnit}`}
-            note={t.oneCreditNote}
+            note={t.creditCostNote}
           />
 
           <InfoCard

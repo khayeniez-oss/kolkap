@@ -76,7 +76,7 @@ function getAIStaffLimit(
 
   if (planKey === "free_trial") return 1;
   if (planKey === "starter") return 1;
-  if (planKey === "growth") return 2;
+  if (planKey === "growth") return 3;
   if (planKey === "pro") return 5;
   if (planKey === "professional") return 5;
   if (planKey === "business") return 10;
@@ -104,16 +104,27 @@ function getCreditsTotal(balance: CreditBalanceRow | null) {
 function localizePlanLabel(label: string, language: SupportedLanguage) {
   if (language === "zh") {
     return label
-      .replace("AI credits/month", "AI credits/月")
       .replace("Custom credits", "定制 credits")
+      .replace("trial credits", "试用 credits")
+      .replace("credits/month", "credits/月")
       .replace("AI staff", "AI 员工")
       .replace("Custom", "定制");
   }
 
-  if (language === "id" || language === "ms") {
+  if (language === "id") {
     return label
-      .replace("AI credits/month", "AI credits/bulan")
-      .replace("Custom credits", "Custom credits");
+      .replace("Custom credits", "Custom credits")
+      .replace("trial credits", "trial credits")
+      .replace("credits/month", "credits/bulan")
+      .replace("Custom AI staff", "Custom AI staff");
+  }
+
+  if (language === "ms") {
+    return label
+      .replace("Custom credits", "Custom credits")
+      .replace("trial credits", "trial credits")
+      .replace("credits/month", "credits/bulan")
+      .replace("Custom AI staff", "Custom AI staff");
   }
 
   return label;
@@ -163,6 +174,11 @@ const translations = {
     noAIYet: "No AI staff created yet.",
     testAI: "Test AI",
     draft: "Draft",
+    saveNote:
+      "Saving an AI staff does not use credits. Testing the AI after saving starts from 3 credits.",
+    setupNoteTitle: "Before you test",
+    setupNoteText:
+      "Give this AI clear business knowledge and instructions. Better setup means better replies when you test it or connect it to customer conversations.",
     channels: ["WhatsApp", "Website Chat", "Email", "Social Media"],
     languages: ["Auto-detect", "English", "中文", "Bahasa Indonesia", "Malay"],
     tones: [
@@ -230,6 +246,11 @@ const translations = {
     noAIYet: "Belum ada AI staff dibuat.",
     testAI: "Test AI",
     draft: "Draft",
+    saveNote:
+      "Menyimpan AI staff tidak memakai credits. Test AI setelah disimpan mulai dari 3 credits.",
+    setupNoteTitle: "Sebelum test",
+    setupNoteText:
+      "Berikan business knowledge dan instruksi yang jelas. Setup yang lebih baik akan menghasilkan balasan yang lebih baik saat AI dites atau disambungkan ke percakapan customer.",
     channels: ["WhatsApp", "Website Chat", "Email", "Social Media"],
     languages: ["Auto-detect", "English", "中文", "Bahasa Indonesia", "Malay"],
     tones: [
@@ -295,6 +316,11 @@ const translations = {
     noAIYet: "尚未创建 AI 员工。",
     testAI: "测试 AI",
     draft: "草稿",
+    saveNote:
+      "保存 AI 员工不会使用 credits。保存后测试 AI 从 3 credits 开始。",
+    setupNoteTitle: "测试前",
+    setupNoteText:
+      "请给 AI 清楚的业务知识和指令。设置越清楚，测试或连接客户对话时回复质量越好。",
     channels: ["WhatsApp", "Website Chat", "Email", "Social Media"],
     languages: ["Auto-detect", "English", "中文", "Bahasa Indonesia", "Malay"],
     tones: [
@@ -362,6 +388,11 @@ const translations = {
     noAIYet: "Belum ada AI staff dicipta.",
     testAI: "Test AI",
     draft: "Draft",
+    saveNote:
+      "Menyimpan AI staff tidak menggunakan credits. Test AI selepas disimpan bermula daripada 3 credits.",
+    setupNoteTitle: "Sebelum test",
+    setupNoteText:
+      "Berikan business knowledge dan arahan yang jelas. Setup yang lebih baik akan menghasilkan balasan yang lebih baik apabila AI diuji atau disambungkan kepada perbualan pelanggan.",
     channels: ["WhatsApp", "Website Chat", "Email", "Social Media"],
     languages: ["Auto-detect", "English", "中文", "Bahasa Indonesia", "Malay"],
     tones: [
@@ -449,6 +480,12 @@ export default function CreateAIPage() {
     setCreditBalance((data ?? null) as CreditBalanceRow | null);
     setIsLoadingCredits(false);
   }
+
+  useEffect(() => {
+    setRole(t.roles[0]);
+    setChannel(t.channels[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
 
   useEffect(() => {
     if (!workspace) return;
@@ -730,6 +767,28 @@ export default function CreateAIPage() {
           })}
         </div>
 
+        <section className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
+              <CheckCircle2 className="h-8 w-8" />
+            </div>
+
+            <div>
+              <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
+                {t.setupNoteTitle}
+              </p>
+
+              <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
+                {t.setupNoteText}
+              </h2>
+
+              <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
+                {t.saveNote}
+              </p>
+            </div>
+          </div>
+        </section>
+
         <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
           <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
             <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
@@ -901,6 +960,10 @@ export default function CreateAIPage() {
                 {isSaving ? t.saving : t.saveAndTest}
                 <ArrowRight className="h-6 w-6" />
               </button>
+
+              <p className="text-center text-sm font-black leading-6 text-slate-500">
+                {t.saveNote}
+              </p>
             </form>
           </section>
         </div>

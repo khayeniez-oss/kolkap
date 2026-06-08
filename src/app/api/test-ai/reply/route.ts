@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
+import { KOLKAP_AI_GENERATION_MIN_CREDITS } from "@/lib/kolkapPlan";
 
 export async function POST(request: Request) {
   try {
@@ -55,29 +56,30 @@ export async function POST(request: Request) {
     }
 
     const result = await runKolkapBrain({
-  userId: user.id,
-  userEmail: user.email,
-  task: "test_ai",
-  customerMessage,
-  language: body.language,
-  tone: body.tone,
-  extraInstructions: body.extra_instructions,
-  uiLanguage: body.ui_language,
-});
+      userId: user.id,
+      userEmail: user.email,
+      task: "test_ai",
+      customerMessage,
+      language: body.language,
+      tone: body.tone,
+      extraInstructions: body.extra_instructions,
+      uiLanguage: body.ui_language,
+    });
 
-await logWorkspaceUsage({
-  workspaceId: result.workspaceId,
-  userId: user.id,
-  eventType: "test_ai_generated",
-  channel: "test_ai",
-  sourcePage: "/dashboard/test-ai",
-  creditsUsed: 1,
-  metadata: {
-    model: result.model,
-    knowledge_count: result.knowledgeCount,
-    customer_message: customerMessage,
-  },
-});
+    await logWorkspaceUsage({
+      workspaceId: result.workspaceId,
+      userId: user.id,
+      eventType: "test_ai_generated",
+      channel: "test_ai",
+      sourcePage: "/dashboard/test-ai",
+      creditsUsed: KOLKAP_AI_GENERATION_MIN_CREDITS,
+      metadata: {
+        model: result.model,
+        knowledge_count: result.knowledgeCount,
+        customer_message: customerMessage,
+        credit_rule: "ai_generation_minimum",
+      },
+    });
 
     return NextResponse.json({
       reply: result.content,
@@ -86,6 +88,7 @@ await logWorkspaceUsage({
       knowledge_count: result.knowledgeCount,
       model: result.model,
       fallback: result.fallback,
+      credits_used: KOLKAP_AI_GENERATION_MIN_CREDITS,
     });
   } catch (error) {
     const message =

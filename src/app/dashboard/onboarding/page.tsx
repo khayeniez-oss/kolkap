@@ -113,7 +113,7 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
     goLiveLogic: "Go Live Logic",
     goLiveLogicTitle: "Go live only when the workspace is ready.",
     goLiveLogicText:
-      "Auto-reply should only run when there is an active trial or plan, at least one AI staff, enough business knowledge, and available credits. Every successful AI reply uses 1 credit.",
+      "Auto-reply should only run when there is an active trial or plan, at least one AI staff, enough business knowledge, and available credits. Website chat AI replies start from 3 credits, WhatsApp AI replies start from 5 credits, and longer replies may use more credits.",
     continueSetup: "Continue Setup",
     manageCredits: "Manage Credits",
     statuses: {
@@ -144,15 +144,15 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
       },
       {
         title: "Test the AI safely",
-        text: "Use Test AI to send sample customer questions, review replies, and improve your Knowledge Base before real customers see it.",
+        text: "Use Test AI to send sample customer questions, review replies, and improve your Knowledge Base before real customers see it. Each successful Test AI reply starts from 3 credits.",
       },
       {
         title: "Check usage and credits",
-        text: "Every successful AI generation uses credits. Test AI, Inbox AI Reply, Content Studio, website chat, and WhatsApp AI replies normally use 1 credit.",
+        text: "Every successful AI generation or AI reply uses credits. Test AI and Inbox AI Reply start from 3 credits, Content Studio starts from 5 credits, website chat starts from 3 credits, and WhatsApp AI replies start from 5 credits. Longer replies may use more credits.",
       },
       {
         title: "Connect customer channel",
-        text: "Connect WhatsApp, website chat, email, or another customer channel so real messages can reach Kolkap.",
+        text: "Choose the customer channel you want to use, such as WhatsApp, website chat, email, or another customer channel, then review it from Go Live before activating real replies.",
       },
       {
         title: "Go live",
@@ -188,7 +188,7 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
       {
         label: "Channel connection",
         value: "Recommended",
-        note: "Connect WhatsApp, website chat, email, or another customer channel.",
+        note: "Choose WhatsApp, website chat, email, or another customer channel before going live.",
       },
     ],
     safetyRulesList: [
@@ -196,6 +196,11 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
       "Monthly billing starts after the 7-day trial unless cancelled before the trial ends.",
       "AI must use the correct business workspace and Knowledge Base.",
       "Every successful AI generation or AI reply should consume credits.",
+      "Test AI and Inbox AI Reply start from 3 credits.",
+      "Content Studio starts from 5 credits.",
+      "Website chat AI replies start from 3 credits.",
+      "WhatsApp AI replies start from 5 credits.",
+      "Longer replies may use more credits.",
       "Auto-reply should pause if the workspace has no credits left.",
       "Human review should be available for sensitive issues, complaints, payment questions, legal questions, or urgent cases.",
       "Conversations and leads must be saved under the correct business workspace.",
@@ -236,7 +241,7 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
     goLiveLogic: "Logika Go Live",
     goLiveLogicTitle: "Go live hanya saat workspace sudah siap.",
     goLiveLogicText:
-      "Auto-reply hanya boleh berjalan jika ada trial atau paket aktif, minimal satu AI staff, business knowledge yang cukup, dan kredit tersedia. Setiap balasan AI yang berhasil menggunakan 1 kredit.",
+      "Auto-reply hanya boleh berjalan jika ada trial atau paket aktif, minimal satu AI staff, business knowledge yang cukup, dan kredit tersedia. Balasan AI website chat mulai dari 3 kredit, balasan AI WhatsApp mulai dari 5 kredit, dan balasan yang lebih panjang bisa memakai lebih banyak kredit.",
     continueSetup: "Lanjutkan Setup",
     manageCredits: "Kelola Kredit",
     statuses: {
@@ -267,15 +272,15 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
       },
       {
         title: "Test AI dengan aman",
-        text: "Gunakan Test AI untuk mengirim contoh pertanyaan customer, review balasan, dan perbaiki Knowledge Base sebelum customer asli melihatnya.",
+        text: "Gunakan Test AI untuk mengirim contoh pertanyaan customer, review balasan, dan perbaiki Knowledge Base sebelum customer asli melihatnya. Setiap Test AI reply yang berhasil mulai dari 3 kredit.",
       },
       {
         title: "Cek penggunaan dan kredit",
-        text: "Setiap AI generation yang berhasil menggunakan kredit. Test AI, Inbox AI Reply, Content Studio, website chat, dan WhatsApp AI reply biasanya menggunakan 1 kredit.",
+        text: "Setiap AI generation atau AI reply yang berhasil menggunakan kredit. Test AI dan Inbox AI Reply mulai dari 3 kredit, Content Studio mulai dari 5 kredit, website chat mulai dari 3 kredit, dan WhatsApp AI reply mulai dari 5 kredit. Balasan yang lebih panjang bisa memakai lebih banyak kredit.",
       },
       {
         title: "Hubungkan channel customer",
-        text: "Hubungkan WhatsApp, website chat, email, atau channel customer lain agar pesan asli bisa masuk ke Kolkap.",
+        text: "Pilih channel customer yang ingin digunakan, seperti WhatsApp, website chat, email, atau channel customer lain, lalu review dari Go Live sebelum mengaktifkan balasan asli.",
       },
       {
         title: "Go live",
@@ -311,7 +316,7 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
       {
         label: "Channel connection",
         value: "Disarankan",
-        note: "Hubungkan WhatsApp, website chat, email, atau channel customer lain.",
+        note: "Pilih WhatsApp, website chat, email, atau channel customer lain sebelum go live.",
       },
     ],
     safetyRulesList: [
@@ -319,6 +324,11 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
       "Billing bulanan mulai setelah trial 7 hari kecuali dibatalkan sebelum trial berakhir.",
       "AI harus memakai workspace bisnis dan Knowledge Base yang benar.",
       "Setiap AI generation atau AI reply yang berhasil harus menggunakan kredit.",
+      "Test AI dan Inbox AI Reply mulai dari 3 kredit.",
+      "Content Studio mulai dari 5 kredit.",
+      "Balasan AI website chat mulai dari 3 kredit.",
+      "Balasan AI WhatsApp mulai dari 5 kredit.",
+      "Balasan yang lebih panjang bisa memakai lebih banyak kredit.",
       "Auto-reply harus pause jika workspace tidak memiliki sisa kredit.",
       "Human review harus tersedia untuk masalah sensitif, komplain, pertanyaan pembayaran, pertanyaan legal, atau kasus urgent.",
       "Percakapan dan leads harus disimpan di workspace bisnis yang benar.",
@@ -359,7 +369,7 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
     goLiveLogic: "Go Live 逻辑",
     goLiveLogicTitle: "只有 workspace 准备好后才 go live。",
     goLiveLogicText:
-      "Auto-reply 只应在有有效 trial 或套餐、至少一个 AI staff、足够业务知识和可用积分时运行。每次成功的 AI 回复会使用 1 积分。",
+      "Auto-reply 只应在有有效 trial 或套餐、至少一个 AI staff、足够业务知识和可用积分时运行。Website chat AI 回复从 3 积分开始，WhatsApp AI 回复从 5 积分开始，较长回复可能会使用更多积分。",
     continueSetup: "继续设置",
     manageCredits: "管理积分",
     statuses: {
@@ -390,15 +400,15 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
       },
       {
         title: "安全测试 AI",
-        text: "使用 Test AI 发送客户问题示例，检查回复，并在真实客户看到前改进 Knowledge Base。",
+        text: "使用 Test AI 发送客户问题示例，检查回复，并在真实客户看到前改进 Knowledge Base。每次成功的 Test AI reply 从 3 积分开始。",
       },
       {
         title: "检查使用量和积分",
-        text: "每次成功的 AI generation 会使用积分。Test AI、Inbox AI Reply、Content Studio、website chat 和 WhatsApp AI replies 通常使用 1 积分。",
+        text: "每次成功的 AI generation 或 AI reply 都会使用积分。Test AI 和 Inbox AI Reply 从 3 积分开始，Content Studio 从 5 积分开始，website chat 从 3 积分开始，WhatsApp AI reply 从 5 积分开始。较长回复可能会使用更多积分。",
       },
       {
         title: "连接客户 channel",
-        text: "连接 WhatsApp、website chat、email 或其他客户 channel，让真实消息进入 Kolkap。",
+        text: "选择要使用的客户 channel，例如 WhatsApp、website chat、email 或其他客户 channel，然后在 Go Live 页面检查后再启用真实回复。",
       },
       {
         title: "Go live",
@@ -434,7 +444,7 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
       {
         label: "Channel connection",
         value: "建议",
-        note: "连接 WhatsApp、website chat、email 或其他客户 channel。",
+        note: "Go live 前请选择 WhatsApp、website chat、email 或其他客户 channel。",
       },
     ],
     safetyRulesList: [
@@ -442,6 +452,11 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
       "7 天 trial 结束后开始 monthly billing，除非 trial 结束前取消。",
       "AI 必须使用正确的业务 workspace 和 Knowledge Base。",
       "每次成功的 AI generation 或 AI reply 都应消耗积分。",
+      "Test AI 和 Inbox AI Reply 从 3 积分开始。",
+      "Content Studio 从 5 积分开始。",
+      "Website chat AI 回复从 3 积分开始。",
+      "WhatsApp AI 回复从 5 积分开始。",
+      "较长回复可能会使用更多积分。",
       "如果 workspace 没有剩余积分，auto-reply 应暂停。",
       "敏感问题、投诉、付款问题、法律问题或紧急情况应有 human review。",
       "对话和 leads 必须保存到正确的业务 workspace。",
@@ -482,7 +497,7 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
     goLiveLogic: "Logik Go Live",
     goLiveLogicTitle: "Go live hanya apabila workspace sudah siap.",
     goLiveLogicText:
-      "Auto-reply hanya patut berjalan apabila ada trial atau pelan aktif, sekurang-kurangnya satu AI staff, business knowledge yang mencukupi, dan kredit tersedia. Setiap balasan AI yang berjaya menggunakan 1 kredit.",
+      "Auto-reply hanya patut berjalan apabila ada trial atau pelan aktif, sekurang-kurangnya satu AI staff, business knowledge yang mencukupi, dan kredit tersedia. Balasan AI website chat bermula daripada 3 kredit, balasan AI WhatsApp bermula daripada 5 kredit, dan balasan yang lebih panjang mungkin menggunakan lebih banyak kredit.",
     continueSetup: "Teruskan Setup",
     manageCredits: "Urus Kredit",
     statuses: {
@@ -513,15 +528,15 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
       },
       {
         title: "Test AI dengan selamat",
-        text: "Gunakan Test AI untuk hantar contoh soalan pelanggan, review balasan, dan perbaiki Knowledge Base sebelum pelanggan sebenar melihatnya.",
+        text: "Gunakan Test AI untuk hantar contoh soalan pelanggan, review balasan, dan perbaiki Knowledge Base sebelum pelanggan sebenar melihatnya. Setiap Test AI reply yang berjaya bermula daripada 3 kredit.",
       },
       {
         title: "Semak penggunaan dan kredit",
-        text: "Setiap AI generation yang berjaya menggunakan kredit. Test AI, Inbox AI Reply, Content Studio, website chat, dan WhatsApp AI replies biasanya menggunakan 1 kredit.",
+        text: "Setiap AI generation atau AI reply yang berjaya menggunakan kredit. Test AI dan Inbox AI Reply bermula daripada 3 kredit, Content Studio bermula daripada 5 kredit, website chat bermula daripada 3 kredit, dan WhatsApp AI replies bermula daripada 5 kredit. Balasan yang lebih panjang mungkin menggunakan lebih banyak kredit.",
       },
       {
         title: "Sambungkan customer channel",
-        text: "Sambungkan WhatsApp, website chat, email, atau customer channel lain supaya mesej sebenar boleh masuk ke Kolkap.",
+        text: "Pilih customer channel yang mahu digunakan, seperti WhatsApp, website chat, email, atau customer channel lain, lalu review dari Go Live sebelum mengaktifkan balasan sebenar.",
       },
       {
         title: "Go live",
@@ -557,7 +572,7 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
       {
         label: "Channel connection",
         value: "Disarankan",
-        note: "Sambungkan WhatsApp, website chat, email, atau customer channel lain.",
+        note: "Pilih WhatsApp, website chat, email, atau customer channel lain sebelum go live.",
       },
     ],
     safetyRulesList: [
@@ -565,6 +580,11 @@ const translations: Record<SupportedLanguage, OnboardingTranslation> = {
       "Billing bulanan bermula selepas trial 7 hari kecuali dibatalkan sebelum trial tamat.",
       "AI mesti menggunakan business workspace dan Knowledge Base yang betul.",
       "Setiap AI generation atau AI reply yang berjaya harus menggunakan kredit.",
+      "Test AI dan Inbox AI Reply bermula daripada 3 kredit.",
+      "Content Studio bermula daripada 5 kredit.",
+      "Balasan AI website chat bermula daripada 3 kredit.",
+      "Balasan AI WhatsApp bermula daripada 5 kredit.",
+      "Balasan yang lebih panjang mungkin menggunakan lebih banyak kredit.",
       "Auto-reply perlu pause jika workspace tiada baki kredit.",
       "Human review perlu tersedia untuk isu sensitif, aduan, soalan bayaran, soalan legal, atau kes urgent.",
       "Perbualan dan leads mesti disimpan di business workspace yang betul.",
@@ -648,7 +668,7 @@ export default function OnboardingPage() {
       step: "07",
       title: t.setupSteps[6].title,
       text: t.setupSteps[6].text,
-      href: "/dashboard/integrations",
+      href: "/dashboard/go-live",
       icon: PlugZap,
       status: t.statuses.channel,
     },

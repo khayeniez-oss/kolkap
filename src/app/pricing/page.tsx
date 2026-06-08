@@ -21,7 +21,6 @@ import {
   getPlanAIStaffLabel,
   getPlanCreditLabel,
   getPlanTeamMemberLabel,
-  kolkapCreditRules,
   kolkapTopUpPackages,
   type KolkapPlanKey,
 } from "@/lib/kolkapPlan";
@@ -91,7 +90,10 @@ function getTrialHref(planKey: KolkapPlanKey) {
   )}`;
 }
 
-const planCopy: Record<SupportedLanguage, Partial<Record<KolkapPlanKey, PlanText>>> = {
+const planCopy: Record<
+  SupportedLanguage,
+  Partial<Record<KolkapPlanKey, PlanText>>
+> = {
   en: {
     free_trial: {
       name: "Free Trial",
@@ -421,7 +423,7 @@ const translations: Record<SupportedLanguage, PricingTranslation> = {
       "Kolkap is built as a 24/7 AI business assistant for replies, content, inbox support, customer questions, and future WhatsApp or website chat automation.",
     creditTitle: "How AI credits work",
     creditText:
-      "Every successful AI generation uses credits. The button will clearly show the cost before the user clicks.",
+      "Every successful AI generation or AI reply uses credits. The button will clearly show the cost before the user clicks.",
     topupTitle: "Need more AI credits?",
     topupText:
       "Top up anytime when your business needs more AI replies, content generation, or campaign support before the next billing cycle.",
@@ -439,12 +441,12 @@ const translations: Record<SupportedLanguage, PricingTranslation> = {
     bestValue: "Best Value",
     creditWord: "credits",
     creditRules: [
-      ["Generate Test AI Reply", "1 credit"],
-      ["Generate Inbox AI Reply", "1 credit"],
-      ["Generate Content Studio content", "1 credit"],
-      ["Website Chat AI Reply", "1 credit"],
-      ["WhatsApp AI Reply", "1 credit"],
-      ["Long content / campaign pack", "More credits later"],
+      ["Generate Test AI Reply", "3 credits"],
+      ["Generate Inbox AI Reply", "3 credits"],
+      ["Generate Content Studio content", "5 credits"],
+      ["Website Chat AI Reply", "from 3 credits"],
+      ["WhatsApp AI Reply", "from 5 credits"],
+      ["Long content / campaign pack", "more credits"],
     ],
     faqs: [
       {
@@ -452,8 +454,8 @@ const translations: Record<SupportedLanguage, PricingTranslation> = {
         a: "Yes. A payment method is needed to activate the trial, but the user will not be charged today. Monthly billing starts after the 7-day trial unless cancelled before the trial ends.",
       },
       {
-        q: "What is 1 credit?",
-        a: "One normal AI generation or AI reply uses 1 credit, such as Test AI, Inbox AI Reply, Content Studio, website chat, or WhatsApp AI reply.",
+        q: "How are credits used?",
+        a: "Credits are used whenever Kolkap generates or sends AI-powered output. Test AI and Inbox AI Reply start from 3 credits, Content Studio starts from 5 credits, Website Chat starts from 3 credits, and WhatsApp AI Reply starts from 5 credits. Longer replies may use more credits.",
       },
       {
         q: "Can users top up credits?",
@@ -486,7 +488,7 @@ const translations: Record<SupportedLanguage, PricingTranslation> = {
       "Kolkap dibuat sebagai 24/7 AI business assistant untuk replies, content, inbox support, pertanyaan customer, dan nanti WhatsApp atau website chat automation.",
     creditTitle: "Cara kerja AI credits",
     creditText:
-      "Setiap successful AI generation menggunakan credits. Button akan menunjukkan cost dengan jelas sebelum user klik.",
+      "Setiap successful AI generation atau AI reply menggunakan credits. Button akan menunjukkan cost dengan jelas sebelum user klik.",
     topupTitle: "Butuh lebih banyak AI credits?",
     topupText:
       "Top up kapan saja saat bisnis Anda butuh lebih banyak AI replies, content generation, atau campaign support sebelum billing cycle berikutnya.",
@@ -504,12 +506,12 @@ const translations: Record<SupportedLanguage, PricingTranslation> = {
     bestValue: "Best Value",
     creditWord: "credits",
     creditRules: [
-      ["Generate Test AI Reply", "1 credit"],
-      ["Generate Inbox AI Reply", "1 credit"],
-      ["Generate Content Studio content", "1 credit"],
-      ["Website Chat AI Reply", "1 credit"],
-      ["WhatsApp AI Reply", "1 credit"],
-      ["Long content / campaign pack", "Credits tambahan nanti"],
+      ["Generate Test AI Reply", "3 credits"],
+      ["Generate Inbox AI Reply", "3 credits"],
+      ["Generate Content Studio content", "5 credits"],
+      ["Website Chat AI Reply", "mulai dari 3 credits"],
+      ["WhatsApp AI Reply", "mulai dari 5 credits"],
+      ["Long content / campaign pack", "lebih banyak credits"],
     ],
     faqs: [
       {
@@ -517,8 +519,8 @@ const translations: Record<SupportedLanguage, PricingTranslation> = {
         a: "Ya. Payment method diperlukan untuk mengaktifkan trial, tetapi user tidak akan dikenakan biaya hari ini. Monthly billing berjalan setelah 7-day trial kecuali dibatalkan sebelum trial selesai.",
       },
       {
-        q: "Apa itu 1 credit?",
-        a: "Satu normal AI generation atau AI reply menggunakan 1 credit, seperti Test AI, Inbox AI Reply, Content Studio, website chat, atau WhatsApp AI reply.",
+        q: "Bagaimana credits digunakan?",
+        a: "Credits digunakan setiap kali Kolkap membuat atau mengirim output AI. Test AI dan Inbox AI Reply mulai dari 3 credits, Content Studio mulai dari 5 credits, Website Chat mulai dari 3 credits, dan WhatsApp AI Reply mulai dari 5 credits. Balasan yang lebih panjang bisa memakai lebih banyak credits.",
       },
       {
         q: "Apakah user bisa top up credits?",
@@ -550,7 +552,7 @@ const translations: Record<SupportedLanguage, PricingTranslation> = {
       "Kolkap 是 24/7 AI business assistant，可支持客户回复、内容生成、inbox support、客户问题，以及未来的 WhatsApp 或网站聊天自动化。",
     creditTitle: "AI credits 如何运作",
     creditText:
-      "每次成功的 AI generation 都会使用 credits。按钮会在用户点击前清楚显示所需 credits。",
+      "每次成功的 AI generation 或 AI reply 都会使用 credits。按钮会在用户点击前清楚显示所需 credits。",
     topupTitle: "需要更多 AI credits？",
     topupText:
       "当业务在下一个 billing cycle 前需要更多 AI 回复、内容生成或 campaign support 时，可以随时 top up。",
@@ -568,12 +570,12 @@ const translations: Record<SupportedLanguage, PricingTranslation> = {
     bestValue: "最划算",
     creditWord: "credits",
     creditRules: [
-      ["生成 Test AI 回复", "1 credit"],
-      ["生成 Inbox AI 回复", "1 credit"],
-      ["生成 Content Studio 内容", "1 credit"],
-      ["Website Chat AI 回复", "1 credit"],
-      ["WhatsApp AI 回复", "1 credit"],
-      ["长内容 / campaign pack", "之后可能使用更多 credits"],
+      ["生成 Test AI 回复", "3 credits"],
+      ["生成 Inbox AI 回复", "3 credits"],
+      ["生成 Content Studio 内容", "5 credits"],
+      ["Website Chat AI 回复", "从 3 credits 起"],
+      ["WhatsApp AI 回复", "从 5 credits 起"],
+      ["长内容 / campaign pack", "使用更多 credits"],
     ],
     faqs: [
       {
@@ -581,8 +583,8 @@ const translations: Record<SupportedLanguage, PricingTranslation> = {
         a: "需要。付款方式用于激活试用，但今天不会收费。7 天试用结束后将按月计费，除非用户在试用结束前取消。",
       },
       {
-        q: "什么是 1 credit？",
-        a: "一次普通 AI generation 或 AI reply 通常使用 1 credit，例如 Test AI、Inbox AI Reply、Content Studio、website chat 或 WhatsApp AI reply。",
+        q: "credits 如何使用？",
+        a: "每当 Kolkap 生成或发送 AI 输出时都会使用 credits。Test AI 和 Inbox AI Reply 从 3 credits 开始，Content Studio 从 5 credits 开始，Website Chat 从 3 credits 开始，WhatsApp AI Reply 从 5 credits 开始。较长回复可能会使用更多 credits。",
       },
       {
         q: "用户可以 top up credits 吗？",
@@ -615,7 +617,7 @@ const translations: Record<SupportedLanguage, PricingTranslation> = {
       "Kolkap dibina sebagai 24/7 AI business assistant untuk replies, content, inbox support, soalan pelanggan, dan nanti WhatsApp atau website chat automation.",
     creditTitle: "Cara AI credits berfungsi",
     creditText:
-      "Setiap successful AI generation menggunakan credits. Button akan menunjukkan cost dengan jelas sebelum user klik.",
+      "Setiap successful AI generation atau AI reply menggunakan credits. Button akan menunjukkan cost dengan jelas sebelum user klik.",
     topupTitle: "Perlukan lebih banyak AI credits?",
     topupText:
       "Top up bila-bila masa apabila bisnes anda memerlukan lebih banyak AI replies, content generation, atau campaign support sebelum billing cycle seterusnya.",
@@ -633,12 +635,12 @@ const translations: Record<SupportedLanguage, PricingTranslation> = {
     bestValue: "Best Value",
     creditWord: "credits",
     creditRules: [
-      ["Generate Test AI Reply", "1 credit"],
-      ["Generate Inbox AI Reply", "1 credit"],
-      ["Generate Content Studio content", "1 credit"],
-      ["Website Chat AI Reply", "1 credit"],
-      ["WhatsApp AI Reply", "1 credit"],
-      ["Long content / campaign pack", "Credits tambahan nanti"],
+      ["Generate Test AI Reply", "3 credits"],
+      ["Generate Inbox AI Reply", "3 credits"],
+      ["Generate Content Studio content", "5 credits"],
+      ["Website Chat AI Reply", "bermula daripada 3 credits"],
+      ["WhatsApp AI Reply", "bermula daripada 5 credits"],
+      ["Long content / campaign pack", "lebih banyak credits"],
     ],
     faqs: [
       {
@@ -646,8 +648,8 @@ const translations: Record<SupportedLanguage, PricingTranslation> = {
         a: "Ya. Payment method diperlukan untuk mengaktifkan trial, tetapi user tidak akan dikenakan caj hari ini. Monthly billing bermula selepas 7-day trial kecuali dibatalkan sebelum trial tamat.",
       },
       {
-        q: "Apa itu 1 credit?",
-        a: "Satu normal AI generation atau AI reply menggunakan 1 credit, seperti Test AI, Inbox AI Reply, Content Studio, website chat, atau WhatsApp AI reply.",
+        q: "Bagaimana credits digunakan?",
+        a: "Credits digunakan setiap kali Kolkap menjana atau menghantar output AI. Test AI dan Inbox AI Reply bermula daripada 3 credits, Content Studio bermula daripada 5 credits, Website Chat bermula daripada 3 credits, dan WhatsApp AI Reply bermula daripada 5 credits. Balasan yang lebih panjang mungkin menggunakan lebih banyak credits.",
       },
       {
         q: "Boleh user top up credits?",
@@ -670,18 +672,32 @@ function getSupportedLanguage(language: string): SupportedLanguage {
 function localizePlanLabel(label: string, language: SupportedLanguage) {
   if (language === "zh") {
     return label
-      .replace("AI credits/month", "AI credits/月")
       .replace("Custom credits", "定制 credits")
+      .replace("trial credits", "试用 credits")
+      .replace("credits/month", "credits/月")
       .replace("AI staff", "AI 员工")
-      .replace("Team member", "团队成员")
-      .replace("Team members", "团队成员")
+      .replace("Custom team members", "定制团队成员")
+      .replace("team members", "团队成员")
+      .replace("team member", "团队成员")
       .replace("Custom", "定制");
   }
 
-  if (language === "id" || language === "ms") {
+  if (language === "id") {
     return label
-      .replace("AI credits/month", "AI credits/bulan")
-      .replace("Custom credits", "Custom credits");
+      .replace("Custom credits", "Custom credits")
+      .replace("trial credits", "trial credits")
+      .replace("credits/month", "credits/bulan")
+      .replace("Custom AI staff", "Custom AI staff")
+      .replace("Custom team members", "Custom team members");
+  }
+
+  if (language === "ms") {
+    return label
+      .replace("Custom credits", "Custom credits")
+      .replace("trial credits", "trial credits")
+      .replace("credits/month", "credits/bulan")
+      .replace("Custom AI staff", "Custom AI staff")
+      .replace("Custom team members", "Custom team members");
   }
 
   return label;
@@ -796,7 +812,7 @@ export default function PricingPage() {
                 </div>
 
                 <h3 className="text-3xl font-black tracking-[-0.04em]">
-                 {translatedPlan?.name || plan.name}
+                  {translatedPlan?.name || plan.name}
                 </h3>
 
                 <p className="mt-3 text-5xl font-black tracking-[-0.06em]">
@@ -909,14 +925,6 @@ export default function PricingPage() {
           <div className="grid gap-3">
             {t.creditRules.map(([action, credits]) => (
               <CreditRuleRow key={action} action={action} credits={credits} />
-            ))}
-
-            {kolkapCreditRules.slice(0, 4).map((rule) => (
-              <CreditRuleRow
-                key={rule.label}
-                action={rule.label}
-                credits={`${rule.credits} ${t.creditWord}`}
-              />
             ))}
           </div>
         </div>

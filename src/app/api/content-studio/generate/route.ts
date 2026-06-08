@@ -4,6 +4,8 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
 
+const CONTENT_GENERATION_CREDIT_COST = 5;
+
 type GenerateBody = {
   content_type?: string;
   content_purpose?: string;
@@ -244,6 +246,7 @@ export async function POST(request: Request) {
       .order("updated_at", { ascending: false })
       .limit(30);
 
+    const knowledgeCount = knowledgeItems?.length ?? 0;
     const businessContext = pickBusinessContext(workspace);
     const knowledgeContext = buildKnowledgeContext(
       (knowledgeItems ?? []) as Array<Record<string, unknown>>
@@ -251,6 +254,8 @@ export async function POST(request: Request) {
 
     const openAiKey =
       process.env.OPENAI_API_KEY || process.env.KOLKAP_OPENAI_API_KEY;
+
+    const model = process.env.KOLKAP_OPENAI_MODEL || "gpt-4o-mini";
 
     if (!openAiKey) {
       const content = fallbackContent({
@@ -264,11 +269,29 @@ export async function POST(request: Request) {
         prompt,
       });
 
+      await logWorkspaceUsage({
+        workspaceId,
+        userId: user.id,
+        eventType: "content_generated",
+        channel: "content_studio",
+        sourcePage: "/dashboard/content-studio",
+        creditsUsed: CONTENT_GENERATION_CREDIT_COST,
+        metadata: {
+          content_type: contentType,
+          content_purpose: contentPurpose,
+          platform,
+          model: "fallback",
+          knowledge_count: knowledgeCount,
+          credit_rule: "content_generation_minimum",
+        },
+      });
+
       return NextResponse.json({
         content,
         business_name: businessName,
-        knowledge_count: knowledgeItems?.length ?? 0,
+        knowledge_count: knowledgeCount,
         fallback: true,
+        credits_used: CONTENT_GENERATION_CREDIT_COST,
       });
     }
 
@@ -318,14 +341,14 @@ ${prompt || "No extra instructions."}
 Generate the final content now.
 `.trim();
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${openAiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: process.env.KOLKAP_OPENAI_MODEL || "gpt-4o-mini",
+        model,
         temperature: 0.7,
         messages: [
           { role: "system", content: systemPrompt },
@@ -334,36 +357,20 @@ Generate the final content now.
       }),
     });
 
-    const result = await response.json();
+    const openAiResult = await openAiResponse.json();
 
-    await logWorkspaceUsage({
-  workspaceId: result.workspaceId,
-  userId: user.id,
-  eventType: "content_generated",
-  channel: "content_studio",
-  sourcePage: "/dashboard/content-studio",
-  creditsUsed: 1,
-  metadata: {
-    content_type: body.content_type,
-    content_purpose: body.content_purpose,
-    platform: body.platform,
-    model: result.model,
-    knowledge_count: result.knowledgeCount,
-  },
-});
-
-    if (!response.ok) {
+    if (!openAiResponse.ok) {
       return NextResponse.json(
         {
           error:
-            result?.error?.message ||
+            openAiResult?.error?.message ||
             "Content could not be generated. Please try again.",
         },
         { status: 500 }
       );
     }
 
-    const content = cleanText(result?.choices?.[0]?.message?.content);
+    const content = cleanText(openAiResult?.choices?.[0]?.message?.content);
 
     if (!content) {
       return NextResponse.json(
@@ -372,11 +379,29 @@ Generate the final content now.
       );
     }
 
+    await logWorkspaceUsage({
+      workspaceId,
+      userId: user.id,
+      eventType: "content_generated",
+      channel: "content_studio",
+      sourcePage: "/dashboard/content-studio",
+      creditsUsed: CONTENT_GENERATION_CREDIT_COST,
+      metadata: {
+        content_type: contentType,
+        content_purpose: contentPurpose,
+        platform,
+        model,
+        knowledge_count: knowledgeCount,
+        credit_rule: "content_generation_minimum",
+      },
+    });
+
     return NextResponse.json({
       content,
       business_name: businessName,
-      knowledge_count: knowledgeItems?.length ?? 0,
+      knowledge_count: knowledgeCount,
       fallback: false,
+      credits_used: CONTENT_GENERATION_CREDIT_COST,
     });
   } catch (error) {
     const message =

@@ -81,6 +81,7 @@ type GoLiveTranslation = {
   creditsLeft: string;
   creditsUsed: string;
   creditUnit: string;
+  creditsUnit: string;
   planCredits: string;
   topUpCredits: string;
   creditCost: string;
@@ -92,6 +93,9 @@ type GoLiveTranslation = {
   readinessText: string;
   creditRuleTitle: string;
   creditRuleText: string;
+  websiteReplyCost: string;
+  whatsappReplyCost: string;
+  longerReplyNote: string;
   businessReady: string;
   aiReady: string;
   testReady: string;
@@ -119,7 +123,7 @@ type GoLiveTranslation = {
   topUp: string;
   usage: string;
   billing: string;
-  oneCredit: string;
+  selectedCostNote: string;
   noCreditBalance: string;
   planNames: Record<string, string>;
   statuses: Record<string, string>;
@@ -142,6 +146,7 @@ const translations: Record<SupportedLanguage, GoLiveTranslation> = {
     creditsLeft: "Credits Left",
     creditsUsed: "Credits Used",
     creditUnit: "Credit",
+    creditsUnit: "Credits",
     planCredits: "Plan credits",
     topUpCredits: "Top-Up credits",
     creditCost: "Auto-Reply Cost",
@@ -155,7 +160,10 @@ const translations: Record<SupportedLanguage, GoLiveTranslation> = {
       "Your AI is ready when the important setup items are complete.",
     creditRuleTitle: "Important Credit Rule",
     creditRuleText:
-      "When auto-reply is live, every successful AI reply uses 1 credit. If credits run out, auto-reply should pause until the workspace tops up or upgrades.",
+      "When auto-reply is live, every successful AI reply uses credits. Website chat replies start from 3 credits, WhatsApp replies start from 5 credits, and longer replies may use more credits. If credits run out, auto-reply should pause until the workspace tops up or upgrades.",
+    websiteReplyCost: "Website chat AI reply starts from 3 credits",
+    whatsappReplyCost: "WhatsApp AI reply starts from 5 credits",
+    longerReplyNote: "Longer replies may use more credits",
     businessReady: "Business details added",
     aiReady: "AI staff created",
     testReady: "AI test saved",
@@ -186,7 +194,7 @@ const translations: Record<SupportedLanguage, GoLiveTranslation> = {
     topUp: "Top Up",
     usage: "Usage",
     billing: "Billing",
-    oneCredit: "1 AI reply = 1 credit",
+    selectedCostNote: "Minimum cost based on the selected AI channel",
     noCreditBalance:
       "Credit balance has not been created for this workspace yet.",
     planNames: {
@@ -225,6 +233,7 @@ const translations: Record<SupportedLanguage, GoLiveTranslation> = {
     creditsLeft: "Sisa Kredit",
     creditsUsed: "Kredit Terpakai",
     creditUnit: "Kredit",
+    creditsUnit: "Kredit",
     planCredits: "Kredit paket",
     topUpCredits: "Kredit Top-Up",
     creditCost: "Biaya Auto-Reply",
@@ -238,7 +247,10 @@ const translations: Record<SupportedLanguage, GoLiveTranslation> = {
       "AI Anda siap saat bagian setup penting sudah lengkap.",
     creditRuleTitle: "Aturan Kredit Penting",
     creditRuleText:
-      "Saat auto-reply live, setiap balasan AI yang berhasil menggunakan 1 kredit. Jika kredit habis, auto-reply harus pause sampai workspace melakukan top up atau upgrade.",
+      "Saat auto-reply live, setiap balasan AI yang berhasil menggunakan kredit. Balasan website chat mulai dari 3 kredit, balasan WhatsApp mulai dari 5 kredit, dan balasan yang lebih panjang dapat memakai lebih banyak kredit. Jika kredit habis, auto-reply harus pause sampai workspace melakukan top up atau upgrade.",
+    websiteReplyCost: "Balasan AI website chat mulai dari 3 kredit",
+    whatsappReplyCost: "Balasan AI WhatsApp mulai dari 5 kredit",
+    longerReplyNote: "Balasan yang lebih panjang dapat memakai lebih banyak kredit",
     businessReady: "Detail bisnis sudah ditambahkan",
     aiReady: "AI staff sudah dibuat",
     testReady: "Test AI sudah disimpan",
@@ -269,7 +281,7 @@ const translations: Record<SupportedLanguage, GoLiveTranslation> = {
     topUp: "Top Up",
     usage: "Penggunaan",
     billing: "Billing",
-    oneCredit: "1 balasan AI = 1 kredit",
+    selectedCostNote: "Minimum biaya berdasarkan channel AI yang dipilih",
     noCreditBalance: "Saldo kredit belum dibuat untuk workspace ini.",
     planNames: {
       starter: "Starter",
@@ -307,20 +319,22 @@ const translations: Record<SupportedLanguage, GoLiveTranslation> = {
     creditsLeft: "剩余积分",
     creditsUsed: "已用积分",
     creditUnit: "积分",
+    creditsUnit: "积分",
     planCredits: "套餐积分",
     topUpCredits: "充值积分",
     creditCost: "Auto-Reply 积分费用",
     goLiveStatus: "Go Live 状态",
     whatsappStatus: "WhatsApp 状态",
     selectAI: "选择 AI Staff",
-    selectAIText:
-      "选择您要为业务 workspace 启用的 AI staff。",
+    selectAIText: "选择您要为业务 workspace 启用的 AI staff。",
     readiness: "Go-Live 准备情况",
-    readinessText:
-      "当重要设置项目完成后，您的 AI 就可以准备上线。",
+    readinessText: "当重要设置项目完成后，您的 AI 就可以准备上线。",
     creditRuleTitle: "重要积分规则",
     creditRuleText:
-      "Auto-reply 上线后，每次成功的 AI 回复会使用 1 积分。如果积分用完，auto-reply 应暂停，直到 workspace top up 或升级。",
+      "Auto-reply 上线后，每次成功的 AI 回复都会使用积分。Website chat AI 回复从 3 积分开始，WhatsApp AI 回复从 5 积分开始，较长回复可能会使用更多积分。如果积分用完，auto-reply 应暂停，直到 workspace top up 或升级。",
+    websiteReplyCost: "Website chat AI 回复从 3 积分开始",
+    whatsappReplyCost: "WhatsApp AI 回复从 5 积分开始",
+    longerReplyNote: "较长回复可能会使用更多积分",
     businessReady: "业务资料已添加",
     aiReady: "AI staff 已创建",
     testReady: "AI 测试已保存",
@@ -341,8 +355,7 @@ const translations: Record<SupportedLanguage, GoLiveTranslation> = {
     openSettings: "打开 Settings",
     selectedAI: "已选择 AI",
     recentTest: "最新已保存测试",
-    noTest:
-      "此 AI 尚未保存测试。请先测试 AI，再 go live。",
+    noTest: "此 AI 尚未保存测试。请先测试 AI，再 go live。",
     required: "必需",
     recommended: "建议",
     complete: "完成",
@@ -350,7 +363,7 @@ const translations: Record<SupportedLanguage, GoLiveTranslation> = {
     topUp: "Top Up",
     usage: "使用量",
     billing: "Billing",
-    oneCredit: "1 个 AI 回复 = 1 积分",
+    selectedCostNote: "最低积分费用会根据所选 AI 渠道显示",
     noCreditBalance: "此 workspace 尚未创建积分余额。",
     planNames: {
       starter: "Starter",
@@ -388,6 +401,7 @@ const translations: Record<SupportedLanguage, GoLiveTranslation> = {
     creditsLeft: "Baki Kredit",
     creditsUsed: "Kredit Digunakan",
     creditUnit: "Kredit",
+    creditsUnit: "Kredit",
     planCredits: "Kredit pelan",
     topUpCredits: "Kredit Top-Up",
     creditCost: "Kos Auto-Reply",
@@ -401,7 +415,10 @@ const translations: Record<SupportedLanguage, GoLiveTranslation> = {
       "AI anda sedia apabila item setup penting sudah lengkap.",
     creditRuleTitle: "Peraturan Kredit Penting",
     creditRuleText:
-      "Apabila auto-reply live, setiap balasan AI yang berjaya menggunakan 1 kredit. Jika kredit habis, auto-reply harus pause sehingga workspace top up atau upgrade.",
+      "Apabila auto-reply live, setiap balasan AI yang berjaya menggunakan kredit. Balasan website chat bermula daripada 3 kredit, balasan WhatsApp bermula daripada 5 kredit, dan balasan yang lebih panjang mungkin menggunakan lebih banyak kredit. Jika kredit habis, auto-reply harus pause sehingga workspace top up atau upgrade.",
+    websiteReplyCost: "Balasan AI website chat bermula daripada 3 kredit",
+    whatsappReplyCost: "Balasan AI WhatsApp bermula daripada 5 kredit",
+    longerReplyNote: "Balasan yang lebih panjang mungkin menggunakan lebih banyak kredit",
     businessReady: "Detail bisnes sudah ditambah",
     aiReady: "AI staff sudah dibuat",
     testReady: "Test AI sudah disimpan",
@@ -432,7 +449,7 @@ const translations: Record<SupportedLanguage, GoLiveTranslation> = {
     topUp: "Top Up",
     usage: "Penggunaan",
     billing: "Billing",
-    oneCredit: "1 balasan AI = 1 kredit",
+    selectedCostNote: "Kos minimum berdasarkan channel AI yang dipilih",
     noCreditBalance: "Baki kredit belum dibuat untuk workspace ini.",
     planNames: {
       starter: "Starter",
@@ -500,6 +517,36 @@ function getAIStaffLimitLabel(
   }
 
   return `${plan.aiStaffLimit} ${t.aiStaffIncluded}`;
+}
+
+function getAutoReplyMinimumCredits(channel?: string | null) {
+  const normalized = String(channel || "").toLowerCase();
+
+  if (normalized.includes("whatsapp")) return 5;
+
+  return 3;
+}
+
+function getAutoReplyCostLabel(
+  channel: string | null | undefined,
+  t: GoLiveTranslation
+) {
+  const credits = getAutoReplyMinimumCredits(channel);
+
+  return `${credits} ${t.creditsUnit}`;
+}
+
+function getAutoReplyCostNote(
+  channel: string | null | undefined,
+  t: GoLiveTranslation
+) {
+  const normalized = String(channel || "").toLowerCase();
+
+  if (normalized.includes("whatsapp")) {
+    return t.whatsappReplyCost;
+  }
+
+  return t.websiteReplyCost;
 }
 
 export default function GoLivePage() {
@@ -639,6 +686,15 @@ export default function GoLivePage() {
     workspaceState.status === "trial" || workspaceState.status === "active";
   const hasWhatsappNumber = Boolean(workspace?.whatsapp_number);
 
+  const selectedAutoReplyCostLabel = getAutoReplyCostLabel(
+    selectedAiStaff?.channel,
+    t
+  );
+  const selectedAutoReplyCostNote = getAutoReplyCostNote(
+    selectedAiStaff?.channel,
+    t
+  );
+
   const requiredReady =
     hasBusinessDetails &&
     hasAiStaff &&
@@ -718,8 +774,8 @@ export default function GoLivePage() {
     },
     {
       label: t.creditCost,
-      value: `1 ${t.creditUnit}`,
-      note: t.oneCredit,
+      value: selectedAutoReplyCostLabel,
+      note: selectedAutoReplyCostNote,
       icon: Zap,
     },
     {
@@ -912,6 +968,26 @@ export default function GoLivePage() {
                 {t.creditRuleText}
               </h2>
 
+              <div className="mt-6 grid gap-3 lg:grid-cols-3">
+                <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                  <p className="text-lg font-black text-[#7CFF3D]">
+                    {t.websiteReplyCost}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                  <p className="text-lg font-black text-[#7CFF3D]">
+                    {t.whatsappReplyCost}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                  <p className="text-lg font-black text-[#7CFF3D]">
+                    {t.longerReplyNote}
+                  </p>
+                </div>
+              </div>
+
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 <Link
                   href="/dashboard/usage"
@@ -1024,6 +1100,10 @@ export default function GoLivePage() {
                       <p className="mt-4 inline-flex rounded-full bg-white px-5 py-3 text-sm font-black text-[#07111F]">
                         {statusLabel(t.statuses, selectedAiStaff.status)}
                       </p>
+
+                      <p className="mt-4 rounded-2xl bg-white p-4 text-base font-black leading-7 text-slate-700">
+                        {t.selectedCostNote}: {selectedAutoReplyCostLabel}
+                      </p>
                     </div>
                   ) : null}
 
@@ -1128,8 +1208,8 @@ export default function GoLivePage() {
                   </h2>
 
                   <p className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-5 text-base font-semibold leading-8 text-slate-300">
-                    {t.oneCredit} • {t.planCredits}:{" "}
-                    {totalCredits.toLocaleString()} •{" "}
+                    {t.selectedCostNote}: {selectedAutoReplyCostLabel} •{" "}
+                    {t.planCredits}: {totalCredits.toLocaleString()} •{" "}
                     {creditsLeft === null
                       ? t.noCreditBalance
                       : `${t.creditsLeft}: ${creditsLeft.toLocaleString()}`}
