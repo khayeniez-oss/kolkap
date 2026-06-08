@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Bot,
@@ -108,15 +107,18 @@ type BillingTranslation = {
   creditGuideTitle: string;
   creditGuideText: string;
   creditRules: [string, string][];
-  cancelTitle: string;
-  cancelText: string;
+  managePlanTitle: string;
+  managePlanText: string;
+  keepBuildingTitle: string;
+  keepBuildingText: string;
+  continueWithKolkap: string;
+  cancellationHelpTitle: string;
+  cancellationHelpText: string;
   cancelTrial: string;
   cancelSubscription: string;
   cancelling: string;
   cancelScheduledTitle: string;
   cancelScheduledText: string;
-  cancelWarningTitle: string;
-  cancelWarningText: string;
   cancelConfirmTitle: string;
   cancelConfirmText: string;
   keepPlan: string;
@@ -143,7 +145,7 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
     badge: "Billing",
     title: "Manage your Kolkap plan, trial, and credits.",
     subtitle:
-      "View your current plan, 7-day trial status, monthly credits, top-up credits, billing details, and upgrade options.",
+      "View your current plan, trial status, monthly credits, top-up credits, billing details, and upgrade options.",
     loading: "Loading your billing details...",
     failed: "Billing could not load.",
     back: "Back to Dashboard",
@@ -191,7 +193,7 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
     creditWord: "credits",
     creditGuideTitle: "How Credits Are Used",
     creditGuideText:
-      "Kolkap uses credits only when AI successfully generates or sends output. The button or action page should clearly show the cost before the user clicks.",
+      "Kolkap uses credits only when AI successfully generates or sends output.",
     creditRules: [
       ["Test AI Reply", "3 credits"],
       ["Inbox AI Reply", "3 credits"],
@@ -200,23 +202,27 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
       ["WhatsApp AI Reply", "from 5 credits"],
       ["Longer replies / campaign content", "more credits"],
     ],
-    cancelTitle: "Cancel Trial or Subscription",
-    cancelText:
-      "You can schedule cancellation anytime. You will keep access until your current trial or billing period ends.",
-    cancelTrial: "Cancel Trial",
-    cancelSubscription: "Cancel Subscription",
+    managePlanTitle: "Manage Your Plan",
+    managePlanText:
+      "You are always in control of your Kolkap plan. You can keep building, upgrade when you need more capacity, or schedule cancellation before the next billing period.",
+    keepBuildingTitle: "Keep building with Kolkap",
+    keepBuildingText:
+      "Your AI staff, inbox, leads, knowledge base, and credit history stay inside your workspace so your business can continue smoothly.",
+    continueWithKolkap: "Continue with Kolkap",
+    cancellationHelpTitle: "Need to stop your plan?",
+    cancellationHelpText:
+      "You can schedule cancellation anytime. Your workspace remains available until the current trial or billing period ends.",
+    cancelTrial: "Schedule Trial Cancellation",
+    cancelSubscription: "Schedule Subscription Cancellation",
     cancelling: "Scheduling cancellation...",
     cancelScheduledTitle: "Cancellation Scheduled",
     cancelScheduledText:
-      "Your Kolkap access will remain available until the current trial or billing period ends. You will not be charged again after cancellation takes effect.",
-    cancelWarningTitle: "Before you cancel",
-    cancelWarningText:
-      "Your AI staff, inbox, leads, knowledge base, and credit usage will remain in your workspace, but auto-reply access may stop after the trial or billing period ends.",
+      "Your Kolkap access remains available until the current trial or billing period ends. You will not be charged again after cancellation takes effect.",
     cancelConfirmTitle: "Confirm Cancellation",
     cancelConfirmText:
-      "Do you want to schedule cancellation for this plan? You can continue using Kolkap until the current trial or billing period ends.",
+      "Do you want to schedule cancellation for this plan? You can still use Kolkap until the current trial or billing period ends.",
     keepPlan: "Keep My Plan",
-    confirmCancel: "Yes, Cancel",
+    confirmCancel: "Yes, Schedule Cancellation",
     cancelErrorTitle: "Cancellation failed",
     cancelSuccess:
       "Cancellation has been scheduled. You can continue using Kolkap until the trial or billing period ends.",
@@ -235,7 +241,7 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
     badge: "Billing",
     title: "Kelola paket, trial, dan credits Kolkap Anda.",
     subtitle:
-      "Lihat paket saat ini, status trial 7 hari, monthly credits, top-up credits, detail billing, dan pilihan upgrade.",
+      "Lihat paket saat ini, status trial, monthly credits, top-up credits, detail billing, dan pilihan upgrade.",
     loading: "Memuat detail billing Anda...",
     failed: "Billing gagal dimuat.",
     back: "Kembali ke Dashboard",
@@ -283,7 +289,7 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
     creditWord: "credits",
     creditGuideTitle: "Cara Credits Digunakan",
     creditGuideText:
-      "Kolkap menggunakan credits hanya saat AI berhasil membuat atau mengirim output. Button atau halaman action harus menunjukkan cost dengan jelas sebelum user klik.",
+      "Kolkap menggunakan credits hanya saat AI berhasil membuat atau mengirim output.",
     creditRules: [
       ["Test AI Reply", "3 credits"],
       ["Inbox AI Reply", "3 credits"],
@@ -292,23 +298,27 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
       ["WhatsApp AI Reply", "mulai dari 5 credits"],
       ["Balasan panjang / campaign content", "lebih banyak credits"],
     ],
-    cancelTitle: "Batalkan Trial atau Subscription",
-    cancelText:
-      "Anda bisa menjadwalkan pembatalan kapan saja. Akses tetap tersedia sampai trial atau billing period saat ini berakhir.",
-    cancelTrial: "Batalkan Trial",
-    cancelSubscription: "Batalkan Subscription",
+    managePlanTitle: "Kelola Paket Anda",
+    managePlanText:
+      "Anda selalu punya kontrol atas paket Kolkap. Anda bisa lanjut membangun, upgrade saat butuh kapasitas lebih, atau menjadwalkan pembatalan sebelum periode billing berikutnya.",
+    keepBuildingTitle: "Lanjut membangun dengan Kolkap",
+    keepBuildingText:
+      "AI staff, inbox, leads, knowledge base, dan riwayat credits tetap tersimpan di workspace agar bisnis Anda bisa berjalan lancar.",
+    continueWithKolkap: "Lanjut dengan Kolkap",
+    cancellationHelpTitle: "Perlu menghentikan paket?",
+    cancellationHelpText:
+      "Anda bisa menjadwalkan pembatalan kapan saja. Workspace tetap tersedia sampai trial atau billing period saat ini berakhir.",
+    cancelTrial: "Jadwalkan Pembatalan Trial",
+    cancelSubscription: "Jadwalkan Pembatalan Subscription",
     cancelling: "Menjadwalkan pembatalan...",
     cancelScheduledTitle: "Pembatalan Dijadwalkan",
     cancelScheduledText:
       "Akses Kolkap tetap tersedia sampai trial atau billing period saat ini berakhir. Anda tidak akan ditagih lagi setelah pembatalan berlaku.",
-    cancelWarningTitle: "Sebelum membatalkan",
-    cancelWarningText:
-      "AI staff, inbox, leads, knowledge base, dan credit usage tetap tersimpan di workspace Anda, tetapi akses auto-reply bisa berhenti setelah trial atau billing period selesai.",
     cancelConfirmTitle: "Konfirmasi Pembatalan",
     cancelConfirmText:
       "Apakah Anda ingin menjadwalkan pembatalan paket ini? Anda tetap bisa menggunakan Kolkap sampai trial atau billing period saat ini berakhir.",
     keepPlan: "Tetap Gunakan Paket",
-    confirmCancel: "Ya, Batalkan",
+    confirmCancel: "Ya, Jadwalkan Pembatalan",
     cancelErrorTitle: "Pembatalan gagal",
     cancelSuccess:
       "Pembatalan telah dijadwalkan. Anda tetap bisa menggunakan Kolkap sampai trial atau billing period selesai.",
@@ -327,7 +337,7 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
     badge: "账单",
     title: "管理您的 Kolkap 方案、试用和 credits。",
     subtitle:
-      "查看当前方案、7 天试用状态、monthly credits、top-up credits、账单详情和升级选项。",
+      "查看当前方案、试用状态、monthly credits、top-up credits、账单详情和升级选项。",
     loading: "正在加载账单详情...",
     failed: "账单无法加载。",
     back: "返回 Dashboard",
@@ -375,7 +385,7 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
     creditWord: "credits",
     creditGuideTitle: "Credits 如何使用",
     creditGuideText:
-      "Kolkap 只会在 AI 成功生成或发送输出时使用 credits。按钮或操作页面应在用户点击前清楚显示所需 credits。",
+      "Kolkap 只会在 AI 成功生成或发送输出时使用 credits。",
     creditRules: [
       ["Test AI Reply", "3 credits"],
       ["Inbox AI Reply", "3 credits"],
@@ -384,23 +394,27 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
       ["WhatsApp AI Reply", "从 5 credits 起"],
       ["较长回复 / campaign content", "使用更多 credits"],
     ],
-    cancelTitle: "取消试用或订阅",
-    cancelText:
-      "您可以随时安排取消。当前试用或账单周期结束前，您仍可继续使用。",
-    cancelTrial: "取消试用",
-    cancelSubscription: "取消订阅",
+    managePlanTitle: "管理您的方案",
+    managePlanText:
+      "您始终可以控制 Kolkap 方案。您可以继续使用、在需要更多容量时升级，或在下一个账单周期前安排取消。",
+    keepBuildingTitle: "继续使用 Kolkap",
+    keepBuildingText:
+      "您的 AI 员工、inbox、leads、knowledge base 和 credits 历史会保留在 workspace 中，帮助业务继续顺利运行。",
+    continueWithKolkap: "继续使用 Kolkap",
+    cancellationHelpTitle: "需要停止方案？",
+    cancellationHelpText:
+      "您可以随时安排取消。当前试用或账单周期结束前，workspace 仍可继续使用。",
+    cancelTrial: "安排取消试用",
+    cancelSubscription: "安排取消订阅",
     cancelling: "正在安排取消...",
     cancelScheduledTitle: "取消已安排",
     cancelScheduledText:
       "您的 Kolkap 访问权限将保留到当前试用或账单周期结束。取消生效后不会再次收费。",
-    cancelWarningTitle: "取消前请注意",
-    cancelWarningText:
-      "您的 AI 员工、inbox、leads、knowledge base 和 credit usage 会保留在 workspace 中，但 auto-reply 访问可能会在试用或账单周期结束后停止。",
     cancelConfirmTitle: "确认取消",
     cancelConfirmText:
       "您确定要安排取消此套餐吗？在当前试用或账单周期结束前，您仍可继续使用 Kolkap。",
     keepPlan: "保留套餐",
-    confirmCancel: "是的，取消",
+    confirmCancel: "是的，安排取消",
     cancelErrorTitle: "取消失败",
     cancelSuccess:
       "取消已安排。您仍可继续使用 Kolkap，直到试用或账单周期结束。",
@@ -418,7 +432,7 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
     badge: "Billing",
     title: "Urus pakej, trial, dan credits Kolkap anda.",
     subtitle:
-      "Lihat pakej semasa, status trial 7 hari, monthly credits, top-up credits, detail billing, dan pilihan upgrade.",
+      "Lihat pakej semasa, status trial, monthly credits, top-up credits, detail billing, dan pilihan upgrade.",
     loading: "Memuat detail billing anda...",
     failed: "Billing gagal dimuat.",
     back: "Kembali ke Dashboard",
@@ -466,7 +480,7 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
     creditWord: "credits",
     creditGuideTitle: "Cara Credits Digunakan",
     creditGuideText:
-      "Kolkap menggunakan credits hanya apabila AI berjaya menjana atau menghantar output. Button atau halaman action perlu menunjukkan cost dengan jelas sebelum user klik.",
+      "Kolkap menggunakan credits hanya apabila AI berjaya menjana atau menghantar output.",
     creditRules: [
       ["Test AI Reply", "3 credits"],
       ["Inbox AI Reply", "3 credits"],
@@ -475,23 +489,27 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
       ["WhatsApp AI Reply", "bermula daripada 5 credits"],
       ["Balasan panjang / campaign content", "lebih banyak credits"],
     ],
-    cancelTitle: "Batalkan Trial atau Subscription",
-    cancelText:
-      "Anda boleh jadualkan pembatalan bila-bila masa. Akses kekal tersedia sehingga trial atau billing period semasa tamat.",
-    cancelTrial: "Batalkan Trial",
-    cancelSubscription: "Batalkan Subscription",
+    managePlanTitle: "Urus Pelan Anda",
+    managePlanText:
+      "Anda sentiasa mempunyai kawalan ke atas pelan Kolkap. Anda boleh terus membina, upgrade apabila perlukan kapasiti lebih, atau menjadualkan pembatalan sebelum billing period seterusnya.",
+    keepBuildingTitle: "Terus membina dengan Kolkap",
+    keepBuildingText:
+      "AI staff, inbox, leads, knowledge base, dan sejarah credits kekal dalam workspace supaya bisnes anda boleh terus berjalan lancar.",
+    continueWithKolkap: "Teruskan dengan Kolkap",
+    cancellationHelpTitle: "Perlu hentikan pelan?",
+    cancellationHelpText:
+      "Anda boleh menjadualkan pembatalan bila-bila masa. Workspace kekal tersedia sehingga trial atau billing period semasa tamat.",
+    cancelTrial: "Jadualkan Pembatalan Trial",
+    cancelSubscription: "Jadualkan Pembatalan Subscription",
     cancelling: "Menjadualkan pembatalan...",
     cancelScheduledTitle: "Pembatalan Dijadualkan",
     cancelScheduledText:
       "Akses Kolkap anda akan kekal tersedia sehingga trial atau billing period semasa tamat. Anda tidak akan dicaj lagi selepas pembatalan berkuat kuasa.",
-    cancelWarningTitle: "Sebelum membatalkan",
-    cancelWarningText:
-      "AI staff, inbox, leads, knowledge base, dan credit usage kekal dalam workspace anda, tetapi akses auto-reply mungkin berhenti selepas trial atau billing period tamat.",
     cancelConfirmTitle: "Sahkan Pembatalan",
     cancelConfirmText:
       "Adakah anda mahu menjadualkan pembatalan pelan ini? Anda masih boleh menggunakan Kolkap sehingga trial atau billing period semasa tamat.",
     keepPlan: "Kekalkan Pelan",
-    confirmCancel: "Ya, Batalkan",
+    confirmCancel: "Ya, Jadualkan Pembatalan",
     cancelErrorTitle: "Pembatalan gagal",
     cancelSuccess:
       "Pembatalan telah dijadualkan. Anda masih boleh menggunakan Kolkap sehingga trial atau billing period tamat.",
@@ -690,6 +708,12 @@ export default function BillingPage() {
     loadCreditBalance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspace?.id]);
+
+  useEffect(() => {
+    if (workspaceRecord?.subscription_cancel_at) {
+      setCancelAt(workspaceRecord.subscription_cancel_at);
+    }
+  }, [workspaceRecord?.subscription_cancel_at]);
 
   if (workspaceState.isLoading) {
     return (
@@ -915,19 +939,19 @@ export default function BillingPage() {
           </div>
         </section>
 
-        <section className="mb-8 rounded-[2.2rem] border border-red-200 bg-red-50 p-6 shadow-sm shadow-red-900/5 sm:p-8">
+        <section className="mb-8 rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
           <div className="grid gap-7 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
             <div>
-              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-950 text-white">
-                <XCircle className="h-8 w-8" />
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+                <ShieldCheck className="h-8 w-8" />
               </div>
 
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-red-700">
-                {t.cancelTitle}
+              <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+                {t.managePlanTitle}
               </p>
 
-              <h2 className="mt-3 text-4xl font-black tracking-[-0.05em] text-red-950">
-                {t.cancelText}
+              <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
+                {t.managePlanText}
               </h2>
 
               {cancellationScheduled ? (
@@ -956,7 +980,7 @@ export default function BillingPage() {
               ) : null}
 
               {cancelError ? (
-                <div className="mt-6 rounded-3xl border border-red-300 bg-white p-5 text-red-800">
+                <div className="mt-6 rounded-3xl border border-red-200 bg-red-50 p-5 text-red-800">
                   <p className="text-base font-black">{t.cancelErrorTitle}</p>
                   <p className="mt-2 text-base font-semibold leading-7">
                     {cancelError}
@@ -965,70 +989,94 @@ export default function BillingPage() {
               ) : null}
             </div>
 
-            <div className="rounded-[2rem] border border-red-200 bg-white p-6">
-              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-950 text-white">
-                <AlertTriangle className="h-7 w-7" />
+            <div className="grid gap-5">
+              <div className="rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-6">
+                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+                  <Sparkles className="h-7 w-7" />
+                </div>
+
+                <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+                  {t.keepBuildingTitle}
+                </p>
+
+                <p className="mt-3 text-lg font-semibold leading-8 text-slate-700">
+                  {t.keepBuildingText}
+                </p>
+
+                <Link
+                  href="/dashboard"
+                  className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-lg font-black text-white transition hover:-translate-y-0.5"
+                >
+                  {t.continueWithKolkap}
+                  <ArrowRight className="h-5 w-5" />
+                </Link>
               </div>
 
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-red-700">
-                {t.cancelWarningTitle}
-              </p>
-
-              <p className="mt-3 text-lg font-semibold leading-8 text-slate-700">
-                {t.cancelWarningText}
-              </p>
-
-              {!isActiveOrTrial ? (
-                <p className="mt-6 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 text-base font-black leading-7 text-slate-700">
-                  {t.noActiveSubscription}
-                </p>
-              ) : null}
-
-              {showCancelConfirm ? (
-                <div className="mt-6 rounded-3xl border border-red-200 bg-red-50 p-5">
-                  <p className="text-xl font-black text-red-950">
-                    {t.cancelConfirmTitle}
-                  </p>
-
-                  <p className="mt-3 text-base font-semibold leading-7 text-red-900">
-                    {t.cancelConfirmText}
-                  </p>
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowCancelConfirm(false)}
-                      disabled={isCancelling}
-                      className="rounded-full border border-slate-200 bg-white px-6 py-4 text-base font-black text-[#07111F] disabled:opacity-60"
-                    >
-                      {t.keepPlan}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleCancelSubscription}
-                      disabled={isCancelling}
-                      className="rounded-full bg-red-700 px-6 py-4 text-base font-black text-white disabled:opacity-60"
-                    >
-                      {isCancelling ? t.cancelling : t.confirmCancel}
-                    </button>
-                  </div>
+              <div className="rounded-[2rem] border border-slate-200 bg-white p-6">
+                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-[#07111F]">
+                  <HelpCircle className="h-7 w-7" />
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCancelError("");
-                    setCancelMessage("");
-                    setShowCancelConfirm(true);
-                  }}
-                  disabled={!isActiveOrTrial || cancellationScheduled}
-                  className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-full bg-red-700 px-6 py-4 text-lg font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
-                >
-                  <XCircle className="h-5 w-5" />
-                  {isTrial ? t.cancelTrial : t.cancelSubscription}
-                </button>
-              )}
+
+                <p className="text-lg font-black uppercase tracking-[0.18em] text-slate-500">
+                  {t.cancellationHelpTitle}
+                </p>
+
+                <p className="mt-3 text-lg font-semibold leading-8 text-slate-700">
+                  {t.cancellationHelpText}
+                </p>
+
+                {!isActiveOrTrial ? (
+                  <p className="mt-6 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 text-base font-black leading-7 text-slate-700">
+                    {t.noActiveSubscription}
+                  </p>
+                ) : null}
+
+                {showCancelConfirm ? (
+                  <div className="mt-6 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5">
+                    <p className="text-xl font-black text-[#07111F]">
+                      {t.cancelConfirmTitle}
+                    </p>
+
+                    <p className="mt-3 text-base font-semibold leading-7 text-slate-700">
+                      {t.cancelConfirmText}
+                    </p>
+
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowCancelConfirm(false)}
+                        disabled={isCancelling}
+                        className="rounded-full bg-[#07111F] px-6 py-4 text-base font-black text-white disabled:opacity-60"
+                      >
+                        {t.keepPlan}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleCancelSubscription}
+                        disabled={isCancelling}
+                        className="rounded-full border border-slate-300 bg-white px-6 py-4 text-base font-black text-slate-700 disabled:opacity-60"
+                      >
+                        {isCancelling ? t.cancelling : t.confirmCancel}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCancelError("");
+                      setCancelMessage("");
+                      setShowCancelConfirm(true);
+                    }}
+                    disabled={!isActiveOrTrial || cancellationScheduled}
+                    className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-full border border-slate-300 bg-white px-6 py-4 text-lg font-black text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+                  >
+                    <XCircle className="h-5 w-5" />
+                    {isTrial ? t.cancelTrial : t.cancelSubscription}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </section>
