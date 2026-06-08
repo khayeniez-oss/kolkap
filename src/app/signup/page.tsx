@@ -58,7 +58,7 @@ const translations = {
       "Account created. Please check your email to confirm your account before logging in.",
     noteTitle: "What happens after signup?",
     noteText:
-      "After signup, you will be taken to secure Stripe checkout to activate your 7-day trial. You won’t be charged today.",
+      "After signup, you’ll activate your 7-day trial, create your AI staff, test your replies, and go live when you’re ready. Kolkap helps your business reply to customers 24/7, capture leads, and support daily conversations.",
     loading: "Loading signup...",
     businessTypes: [
       "Real Estate",
@@ -119,7 +119,7 @@ const translations = {
       "Akun berhasil dibuat. Silakan cek email Anda untuk konfirmasi sebelum login.",
     noteTitle: "What happens after signup?",
     noteText:
-      "Setelah signup, Anda akan diarahkan ke secure Stripe checkout untuk mengaktifkan 7-day trial. Anda tidak akan dikenakan biaya hari ini.",
+       "Setelah signup, Anda akan mengaktifkan 7-day trial, membuat AI staff, mengetes balasan, lalu go live saat sudah siap. Kolkap membantu bisnis Anda membalas customer 24/7, menangkap leads, dan mendukung percakapan harian.",
     loading: "Loading signup...",
     businessTypes: [
       "Real Estate",
@@ -178,7 +178,7 @@ const translations = {
     confirmEmail: "账户已创建。请检查邮箱并确认账户，然后再登录。",
     noteTitle: "注册后会发生什么？",
     noteText:
-      "注册后，您会进入安全的 Stripe checkout 来激活 7 天试用。今天不会收费。",
+      "注册后，您将激活 7 天试用，创建 AI 员工，测试回复，并在准备好后上线。Kolkap 可帮助您的企业 24/7 回复客户、获取线索并支持日常对话。",
     loading: "正在加载注册页面...",
     businessTypes: [
       "房地产",
@@ -239,8 +239,7 @@ const translations = {
       "Akaun berjaya dicipta. Sila semak email anda untuk pengesahan sebelum login.",
     noteTitle: "What happens after signup?",
     noteText:
-      "Selepas signup, anda akan dibawa ke secure Stripe checkout untuk mengaktifkan 7-day trial. Anda tidak akan dikenakan caj hari ini.",
-    loading: "Loading signup...",
+       "Selepas signup, anda akan mengaktifkan 7-day trial, mencipta AI staff, menguji balasan, dan go live apabila sudah bersedia. Kolkap membantu bisnes anda membalas pelanggan 24/7, menangkap leads, dan menyokong perbualan harian.",
     businessTypes: [
       "Real Estate",
       "Hotel / Villa / Penginapan",
@@ -506,7 +505,6 @@ function SignupContent() {
             <label className="grid gap-2">
               <span className="flex items-center gap-2 text-base font-black text-slate-700">
                 <BriefcaseBusiness className="h-5 w-5 text-slate-400" />
-                {t.businessType}
               </span>
 
               <select
