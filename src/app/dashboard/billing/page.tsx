@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Bot,
@@ -19,6 +20,7 @@ import {
   TrendingUp,
   UsersRound,
   WalletCards,
+  XCircle,
   Zap,
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
@@ -48,6 +50,16 @@ type CreditBalanceRow = {
   status: string;
   created_at: string;
   updated_at: string;
+};
+
+type WorkspaceBillingRecord = {
+  id?: string;
+  subscription_cancel_at?: string | null;
+  subscription_cancelled_at?: string | null;
+  billing_current_period_end?: string | null;
+  trial_ends_at?: string | null;
+  plan_status?: string | null;
+  billing_status?: string | null;
 };
 
 type BillingTranslation = {
@@ -96,6 +108,23 @@ type BillingTranslation = {
   creditGuideTitle: string;
   creditGuideText: string;
   creditRules: [string, string][];
+  cancelTitle: string;
+  cancelText: string;
+  cancelTrial: string;
+  cancelSubscription: string;
+  cancelling: string;
+  cancelScheduledTitle: string;
+  cancelScheduledText: string;
+  cancelWarningTitle: string;
+  cancelWarningText: string;
+  cancelConfirmTitle: string;
+  cancelConfirmText: string;
+  keepPlan: string;
+  confirmCancel: string;
+  cancelErrorTitle: string;
+  cancelSuccess: string;
+  cancelledAt: string;
+  noActiveSubscription: string;
   statusLabels: Record<string, string>;
 };
 
@@ -171,6 +200,29 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
       ["WhatsApp AI Reply", "from 5 credits"],
       ["Longer replies / campaign content", "more credits"],
     ],
+    cancelTitle: "Cancel Trial or Subscription",
+    cancelText:
+      "You can schedule cancellation anytime. You will keep access until your current trial or billing period ends.",
+    cancelTrial: "Cancel Trial",
+    cancelSubscription: "Cancel Subscription",
+    cancelling: "Scheduling cancellation...",
+    cancelScheduledTitle: "Cancellation Scheduled",
+    cancelScheduledText:
+      "Your Kolkap access will remain available until the current trial or billing period ends. You will not be charged again after cancellation takes effect.",
+    cancelWarningTitle: "Before you cancel",
+    cancelWarningText:
+      "Your AI staff, inbox, leads, knowledge base, and credit usage will remain in your workspace, but auto-reply access may stop after the trial or billing period ends.",
+    cancelConfirmTitle: "Confirm Cancellation",
+    cancelConfirmText:
+      "Do you want to schedule cancellation for this plan? You can continue using Kolkap until the current trial or billing period ends.",
+    keepPlan: "Keep My Plan",
+    confirmCancel: "Yes, Cancel",
+    cancelErrorTitle: "Cancellation failed",
+    cancelSuccess:
+      "Cancellation has been scheduled. You can continue using Kolkap until the trial or billing period ends.",
+    cancelledAt: "Ends on",
+    noActiveSubscription:
+      "No active subscription is connected to this workspace yet.",
     statusLabels: {
       trial: "Trial",
       active: "Active",
@@ -240,6 +292,29 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
       ["WhatsApp AI Reply", "mulai dari 5 credits"],
       ["Balasan panjang / campaign content", "lebih banyak credits"],
     ],
+    cancelTitle: "Batalkan Trial atau Subscription",
+    cancelText:
+      "Anda bisa menjadwalkan pembatalan kapan saja. Akses tetap tersedia sampai trial atau billing period saat ini berakhir.",
+    cancelTrial: "Batalkan Trial",
+    cancelSubscription: "Batalkan Subscription",
+    cancelling: "Menjadwalkan pembatalan...",
+    cancelScheduledTitle: "Pembatalan Dijadwalkan",
+    cancelScheduledText:
+      "Akses Kolkap tetap tersedia sampai trial atau billing period saat ini berakhir. Anda tidak akan ditagih lagi setelah pembatalan berlaku.",
+    cancelWarningTitle: "Sebelum membatalkan",
+    cancelWarningText:
+      "AI staff, inbox, leads, knowledge base, dan credit usage tetap tersimpan di workspace Anda, tetapi akses auto-reply bisa berhenti setelah trial atau billing period selesai.",
+    cancelConfirmTitle: "Konfirmasi Pembatalan",
+    cancelConfirmText:
+      "Apakah Anda ingin menjadwalkan pembatalan paket ini? Anda tetap bisa menggunakan Kolkap sampai trial atau billing period saat ini berakhir.",
+    keepPlan: "Tetap Gunakan Paket",
+    confirmCancel: "Ya, Batalkan",
+    cancelErrorTitle: "Pembatalan gagal",
+    cancelSuccess:
+      "Pembatalan telah dijadwalkan. Anda tetap bisa menggunakan Kolkap sampai trial atau billing period selesai.",
+    cancelledAt: "Berakhir pada",
+    noActiveSubscription:
+      "Belum ada subscription aktif yang terhubung ke workspace ini.",
     statusLabels: {
       trial: "Trial",
       active: "Aktif",
@@ -309,6 +384,28 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
       ["WhatsApp AI Reply", "从 5 credits 起"],
       ["较长回复 / campaign content", "使用更多 credits"],
     ],
+    cancelTitle: "取消试用或订阅",
+    cancelText:
+      "您可以随时安排取消。当前试用或账单周期结束前，您仍可继续使用。",
+    cancelTrial: "取消试用",
+    cancelSubscription: "取消订阅",
+    cancelling: "正在安排取消...",
+    cancelScheduledTitle: "取消已安排",
+    cancelScheduledText:
+      "您的 Kolkap 访问权限将保留到当前试用或账单周期结束。取消生效后不会再次收费。",
+    cancelWarningTitle: "取消前请注意",
+    cancelWarningText:
+      "您的 AI 员工、inbox、leads、knowledge base 和 credit usage 会保留在 workspace 中，但 auto-reply 访问可能会在试用或账单周期结束后停止。",
+    cancelConfirmTitle: "确认取消",
+    cancelConfirmText:
+      "您确定要安排取消此套餐吗？在当前试用或账单周期结束前，您仍可继续使用 Kolkap。",
+    keepPlan: "保留套餐",
+    confirmCancel: "是的，取消",
+    cancelErrorTitle: "取消失败",
+    cancelSuccess:
+      "取消已安排。您仍可继续使用 Kolkap，直到试用或账单周期结束。",
+    cancelledAt: "结束于",
+    noActiveSubscription: "此 workspace 尚未连接有效订阅。",
     statusLabels: {
       trial: "试用",
       active: "有效",
@@ -378,6 +475,29 @@ const translations: Record<SupportedLanguage, BillingTranslation> = {
       ["WhatsApp AI Reply", "bermula daripada 5 credits"],
       ["Balasan panjang / campaign content", "lebih banyak credits"],
     ],
+    cancelTitle: "Batalkan Trial atau Subscription",
+    cancelText:
+      "Anda boleh jadualkan pembatalan bila-bila masa. Akses kekal tersedia sehingga trial atau billing period semasa tamat.",
+    cancelTrial: "Batalkan Trial",
+    cancelSubscription: "Batalkan Subscription",
+    cancelling: "Menjadualkan pembatalan...",
+    cancelScheduledTitle: "Pembatalan Dijadualkan",
+    cancelScheduledText:
+      "Akses Kolkap anda akan kekal tersedia sehingga trial atau billing period semasa tamat. Anda tidak akan dicaj lagi selepas pembatalan berkuat kuasa.",
+    cancelWarningTitle: "Sebelum membatalkan",
+    cancelWarningText:
+      "AI staff, inbox, leads, knowledge base, dan credit usage kekal dalam workspace anda, tetapi akses auto-reply mungkin berhenti selepas trial atau billing period tamat.",
+    cancelConfirmTitle: "Sahkan Pembatalan",
+    cancelConfirmText:
+      "Adakah anda mahu menjadualkan pembatalan pelan ini? Anda masih boleh menggunakan Kolkap sehingga trial atau billing period semasa tamat.",
+    keepPlan: "Kekalkan Pelan",
+    confirmCancel: "Ya, Batalkan",
+    cancelErrorTitle: "Pembatalan gagal",
+    cancelSuccess:
+      "Pembatalan telah dijadualkan. Anda masih boleh menggunakan Kolkap sehingga trial atau billing period tamat.",
+    cancelledAt: "Tamat pada",
+    noActiveSubscription:
+      "Belum ada subscription aktif yang disambungkan ke workspace ini.",
     statusLabels: {
       trial: "Trial",
       active: "Aktif",
@@ -393,7 +513,7 @@ function getSupportedLanguage(language: string): SupportedLanguage {
     : "en";
 }
 
-function formatDate(value: string | null) {
+function formatDate(value: string | null | undefined) {
   if (!value) return "—";
 
   const date = new Date(value);
@@ -423,7 +543,7 @@ function getStatusLabel(labels: Record<string, string>, value: string) {
 function localizePlanLabel(label: string, language: SupportedLanguage) {
   if (language === "zh") {
     return label
-            .replace("credits/month", "credits/月")
+      .replace("credits/month", "credits/月")
       .replace("Custom credits", "定制 credits")
       .replace("trial credits", "试用 credits")
       .replace("AI staff", "AI 员工")
@@ -435,7 +555,7 @@ function localizePlanLabel(label: string, language: SupportedLanguage) {
 
   if (language === "id") {
     return label
-            .replace("credits/month", "credits/bulan")
+      .replace("credits/month", "credits/bulan")
       .replace("Custom credits", "Custom credits")
       .replace("trial credits", "trial credits")
       .replace("Custom AI staff", "Custom AI staff")
@@ -444,7 +564,7 @@ function localizePlanLabel(label: string, language: SupportedLanguage) {
 
   if (language === "ms") {
     return label
-            .replace("credits/month", "credits/bulan")
+      .replace("credits/month", "credits/bulan")
       .replace("Custom credits", "Custom credits")
       .replace("trial credits", "trial credits")
       .replace("Custom AI staff", "Custom AI staff")
@@ -461,6 +581,7 @@ export default function BillingPage() {
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
+  const workspaceRecord = (workspace ?? null) as WorkspaceBillingRecord | null;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
 
   const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
@@ -468,11 +589,33 @@ export default function BillingPage() {
   );
   const [isLoadingCredits, setIsLoadingCredits] = useState(false);
   const [creditError, setCreditError] = useState("");
+  const [cancelError, setCancelError] = useState("");
+  const [cancelMessage, setCancelMessage] = useState("");
+  const [cancelAt, setCancelAt] = useState<string | null>(
+    workspaceRecord?.subscription_cancel_at || null
+  );
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const creditsLeft = getCreditsLeft(creditBalance);
   const planCredits = Number(creditBalance?.plan_credits || 0);
   const purchasedCredits = Number(creditBalance?.purchased_credits || 0);
   const usedCredits = Number(creditBalance?.used_credits || 0);
+
+  const workspaceStatus = workspaceState.status;
+  const isTrial = workspaceStatus === "trial";
+  const isActiveOrTrial =
+    workspaceStatus === "trial" ||
+    workspaceStatus === "active" ||
+    workspaceStatus === "past_due";
+
+  const effectiveCancelAt =
+    cancelAt ||
+    workspaceRecord?.subscription_cancel_at ||
+    workspaceRecord?.subscription_cancelled_at ||
+    null;
+
+  const cancellationScheduled = Boolean(effectiveCancelAt);
 
   async function loadCreditBalance() {
     if (!workspace?.id) return;
@@ -496,6 +639,51 @@ export default function BillingPage() {
 
     setCreditBalance((data ?? null) as CreditBalanceRow | null);
     setIsLoadingCredits(false);
+  }
+
+  async function handleCancelSubscription() {
+    setCancelError("");
+    setCancelMessage("");
+
+    if (!workspaceRecord?.id) {
+      setCancelError(t.noActiveSubscription);
+      return;
+    }
+
+    try {
+      setIsCancelling(true);
+
+      const response = await fetch("/api/billing/cancel-subscription", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          workspace_id: workspaceRecord.id,
+        }),
+      });
+
+      const result = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        error?: string;
+        cancel_at?: string | null;
+        message?: string;
+      };
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || t.noActiveSubscription);
+      }
+
+      setCancelAt(result.cancel_at || null);
+      setCancelMessage(result.message || t.cancelSuccess);
+      setShowCancelConfirm(false);
+    } catch (error) {
+      setCancelError(
+        error instanceof Error ? error.message : t.noActiveSubscription
+      );
+    } finally {
+      setIsCancelling(false);
+    }
   }
 
   useEffect(() => {
@@ -723,6 +911,124 @@ export default function BillingPage() {
                   {t.upgradePlan}
                 </Link>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-8 rounded-[2.2rem] border border-red-200 bg-red-50 p-6 shadow-sm shadow-red-900/5 sm:p-8">
+          <div className="grid gap-7 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+            <div>
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-950 text-white">
+                <XCircle className="h-8 w-8" />
+              </div>
+
+              <p className="text-lg font-black uppercase tracking-[0.18em] text-red-700">
+                {t.cancelTitle}
+              </p>
+
+              <h2 className="mt-3 text-4xl font-black tracking-[-0.05em] text-red-950">
+                {t.cancelText}
+              </h2>
+
+              {cancellationScheduled ? (
+                <div className="mt-6 rounded-3xl border border-green-200 bg-green-50 p-5 text-green-800">
+                  <p className="text-base font-black">
+                    {t.cancelScheduledTitle}
+                  </p>
+                  <p className="mt-2 text-base font-semibold leading-7">
+                    {t.cancelScheduledText}
+                  </p>
+                  <p className="mt-3 text-sm font-black">
+                    {t.cancelledAt}: {formatDate(effectiveCancelAt)}
+                  </p>
+                </div>
+              ) : null}
+
+              {cancelMessage ? (
+                <div className="mt-6 rounded-3xl border border-green-200 bg-green-50 p-5 text-green-800">
+                  <p className="text-base font-black">{t.cancelSuccess}</p>
+                  {effectiveCancelAt ? (
+                    <p className="mt-2 text-sm font-black">
+                      {t.cancelledAt}: {formatDate(effectiveCancelAt)}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {cancelError ? (
+                <div className="mt-6 rounded-3xl border border-red-300 bg-white p-5 text-red-800">
+                  <p className="text-base font-black">{t.cancelErrorTitle}</p>
+                  <p className="mt-2 text-base font-semibold leading-7">
+                    {cancelError}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="rounded-[2rem] border border-red-200 bg-white p-6">
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-950 text-white">
+                <AlertTriangle className="h-7 w-7" />
+              </div>
+
+              <p className="text-lg font-black uppercase tracking-[0.18em] text-red-700">
+                {t.cancelWarningTitle}
+              </p>
+
+              <p className="mt-3 text-lg font-semibold leading-8 text-slate-700">
+                {t.cancelWarningText}
+              </p>
+
+              {!isActiveOrTrial ? (
+                <p className="mt-6 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 text-base font-black leading-7 text-slate-700">
+                  {t.noActiveSubscription}
+                </p>
+              ) : null}
+
+              {showCancelConfirm ? (
+                <div className="mt-6 rounded-3xl border border-red-200 bg-red-50 p-5">
+                  <p className="text-xl font-black text-red-950">
+                    {t.cancelConfirmTitle}
+                  </p>
+
+                  <p className="mt-3 text-base font-semibold leading-7 text-red-900">
+                    {t.cancelConfirmText}
+                  </p>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelConfirm(false)}
+                      disabled={isCancelling}
+                      className="rounded-full border border-slate-200 bg-white px-6 py-4 text-base font-black text-[#07111F] disabled:opacity-60"
+                    >
+                      {t.keepPlan}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCancelSubscription}
+                      disabled={isCancelling}
+                      className="rounded-full bg-red-700 px-6 py-4 text-base font-black text-white disabled:opacity-60"
+                    >
+                      {isCancelling ? t.cancelling : t.confirmCancel}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCancelError("");
+                    setCancelMessage("");
+                    setShowCancelConfirm(true);
+                  }}
+                  disabled={!isActiveOrTrial || cancellationScheduled}
+                  className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-full bg-red-700 px-6 py-4 text-lg font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+                >
+                  <XCircle className="h-5 w-5" />
+                  {isTrial ? t.cancelTrial : t.cancelSubscription}
+                </button>
+              )}
             </div>
           </div>
         </section>
