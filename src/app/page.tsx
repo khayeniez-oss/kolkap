@@ -19,6 +19,8 @@ import {
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import KolkapLogo from "@/components/brand/KolkapLogo";
 
+const STARTER_SIGNUP_URL = "/signup?plan=starter";
+
 const translations = {
   en: {
     badge: "AI staff for replies, leads, support, and content",
@@ -430,7 +432,7 @@ export default function Home() {
 
             <div className="mt-9 flex flex-col gap-4 sm:flex-row">
               <Link
-                href="/signup"
+                href={STARTER_SIGNUP_URL}
                 className="rounded-full bg-[#07111F] px-8 py-4 text-center text-lg font-black text-white shadow-xl shadow-slate-900/15 transition hover:-translate-y-0.5"
               >
                 {t.start}
@@ -511,6 +513,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* The rest of the page stays exactly the same, except final CTA links below. */}
 
       <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:py-20">
         <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
@@ -687,14 +691,14 @@ export default function Home() {
 
           <div className="mt-9 flex flex-col justify-center gap-4 sm:flex-row">
             <Link
-              href="/dashboard/create-ai"
+              href={STARTER_SIGNUP_URL}
               className="rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
             >
               {t.finalButton}
             </Link>
 
             <Link
-              href="/signup"
+              href={STARTER_SIGNUP_URL}
               className="rounded-full border border-white/15 bg-white/5 px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10"
             >
               {t.start}

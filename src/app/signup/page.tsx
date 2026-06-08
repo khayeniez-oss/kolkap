@@ -21,12 +21,14 @@ import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { ensureKolkapWorkspace } from "@/lib/kolkapWorkspace";
 
+type BillablePlanKey = "starter" | "growth" | "professional" | "business";
+
 const translations = {
   en: {
     badge: "Start Now",
-    title: "Create your AI staff. Start now.",
+    title: "Create your AI staff. Start your trial.",
     subtitle:
-      "Set up your AI staff for 24/7 automated responses. Set up your AI, test replies, and deploy when ready.",
+      "Create your account, activate your 7-day trial with a payment method, then set up your AI staff for customer replies, content, leads, and support.",
     trialTitle: "7-day free trial",
     trialText:
       "Payment method needed to activate your trial. You won’t be charged today.",
@@ -44,17 +46,19 @@ const translations = {
     passwordPlaceholder: "Create a password",
     createAccount: "Start Free Trial",
     creating: "Creating account...",
+    openingCheckout: "Opening secure checkout...",
     alreadyHaveAccount: "Already have an account?",
     login: "Log in",
     errorTitle: "Signup failed",
     emptyError: "Please complete all required fields.",
     passwordError: "Password must be at least 6 characters.",
-    success: "Account created successfully. Redirecting...",
+    checkoutError: "Unable to open Stripe checkout. Please try again.",
+    success: "Account created. Opening secure checkout...",
     confirmEmail:
       "Account created. Please check your email to confirm your account before logging in.",
     noteTitle: "What happens after signup?",
     noteText:
-      "You will be directed to your dashboard to create your AI staff, add your business knowledge, test replies, go live, and so much more.",
+      "After signup, you will be taken to secure Stripe checkout to activate your 7-day trial. You won’t be charged today.",
     loading: "Loading signup...",
     businessTypes: [
       "Real Estate",
@@ -83,14 +87,14 @@ const translations = {
 
   id: {
     badge: "Start Now",
-    title: "Create your AI staff. Start now.",
+    title: "Create your AI staff. Start trial Anda.",
     subtitle:
-      "Set up AI staff Anda untuk automated responses 24/7. Setup AI, test replies, dan deploy saat sudah siap.",
+      "Buat akun, aktifkan 7-day trial dengan payment method, lalu setup AI staff untuk balasan customer, konten, leads, dan support.",
     trialTitle: "7-day free trial",
     trialText:
-      "Payment method needed to activate your trial. You won’t be charged today.",
+      "Payment method dibutuhkan untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini.",
     billingNote:
-      "Monthly billing akan berjalan setelah 7-day trial kecuali dibatalkan sebelum trial selesai.",
+      "Monthly billing berjalan setelah 7-day trial kecuali dibatalkan sebelum trial selesai.",
     noChargeToday: "No charge today",
     creditsIncluded: "Trial credits included",
     aiSetup: "AI staff setup included",
@@ -103,17 +107,19 @@ const translations = {
     passwordPlaceholder: "Buat password",
     createAccount: "Start Free Trial",
     creating: "Sedang membuat akun...",
+    openingCheckout: "Membuka secure checkout...",
     alreadyHaveAccount: "Sudah punya akun?",
     login: "Login",
     errorTitle: "Signup gagal",
     emptyError: "Mohon lengkapi semua field yang dibutuhkan.",
     passwordError: "Password minimal 6 karakter.",
-    success: "Akun berhasil dibuat. Mengarahkan...",
+    checkoutError: "Tidak dapat membuka Stripe checkout. Silakan coba lagi.",
+    success: "Akun berhasil dibuat. Membuka secure checkout...",
     confirmEmail:
       "Akun berhasil dibuat. Silakan cek email Anda untuk konfirmasi sebelum login.",
     noteTitle: "What happens after signup?",
     noteText:
-      "Anda akan diarahkan ke dashboard untuk membuat AI staff, menambahkan business knowledge, test replies, go live, dan masih banyak lagi.",
+      "Setelah signup, Anda akan diarahkan ke secure Stripe checkout untuk mengaktifkan 7-day trial. Anda tidak akan dikenakan biaya hari ini.",
     loading: "Loading signup...",
     businessTypes: [
       "Real Estate",
@@ -142,9 +148,9 @@ const translations = {
 
   zh: {
     badge: "立即开始",
-    title: "创建您的 AI 员工。现在开始。",
+    title: "创建您的 AI 员工。开始试用。",
     subtitle:
-      "设置您的 AI 员工，实现 24/7 自动回复。创建 AI、测试回复，并在准备好后上线。",
+      "创建账户，通过付款方式激活 7 天试用，然后设置您的 AI 员工，用于客户回复、内容、线索和支持。",
     trialTitle: "7 天免费试用",
     trialText: "需要添加付款方式来激活试用。今天不会收费。",
     billingNote:
@@ -161,16 +167,18 @@ const translations = {
     passwordPlaceholder: "创建密码",
     createAccount: "开始免费试用",
     creating: "正在创建账户...",
+    openingCheckout: "正在打开安全结账页面...",
     alreadyHaveAccount: "已经有账户？",
     login: "登录",
     errorTitle: "注册失败",
     emptyError: "请填写所有必填字段。",
     passwordError: "密码至少需要 6 个字符。",
-    success: "账户创建成功。正在跳转...",
+    checkoutError: "无法打开 Stripe checkout。请重试。",
+    success: "账户创建成功。正在打开安全结账页面...",
     confirmEmail: "账户已创建。请检查邮箱并确认账户，然后再登录。",
     noteTitle: "注册后会发生什么？",
     noteText:
-      "您将进入 dashboard，可创建 AI 员工、添加业务知识、测试回复、上线，并使用更多功能。",
+      "注册后，您会进入安全的 Stripe checkout 来激活 7 天试用。今天不会收费。",
     loading: "正在加载注册页面...",
     businessTypes: [
       "房地产",
@@ -199,12 +207,12 @@ const translations = {
 
   ms: {
     badge: "Start Now",
-    title: "Create your AI staff. Start now.",
+    title: "Create your AI staff. Start trial anda.",
     subtitle:
-      "Set up AI staff anda untuk automated responses 24/7. Setup AI, test replies, dan deploy bila sudah bersedia.",
+      "Cipta akaun, aktifkan 7-day trial dengan payment method, kemudian setup AI staff untuk balasan customer, kandungan, leads, dan support.",
     trialTitle: "7-day free trial",
     trialText:
-      "Payment method needed to activate your trial. You won’t be charged today.",
+      "Payment method diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini.",
     billingNote:
       "Monthly billing akan bermula selepas 7-day trial kecuali dibatalkan sebelum trial tamat.",
     noChargeToday: "No charge today",
@@ -219,17 +227,19 @@ const translations = {
     passwordPlaceholder: "Cipta password",
     createAccount: "Start Free Trial",
     creating: "Sedang mencipta akaun...",
+    openingCheckout: "Membuka secure checkout...",
     alreadyHaveAccount: "Sudah ada akaun?",
     login: "Login",
     errorTitle: "Signup gagal",
     emptyError: "Sila lengkapkan semua field yang diperlukan.",
     passwordError: "Password mesti sekurang-kurangnya 6 karakter.",
-    success: "Akaun berjaya dicipta. Mengarahkan...",
+    checkoutError: "Tidak dapat membuka Stripe checkout. Sila cuba lagi.",
+    success: "Akaun berjaya dicipta. Membuka secure checkout...",
     confirmEmail:
       "Akaun berjaya dicipta. Sila semak email anda untuk pengesahan sebelum login.",
     noteTitle: "What happens after signup?",
     noteText:
-      "Anda akan dibawa ke dashboard untuk mencipta AI staff, tambah business knowledge, test replies, go live, dan banyak lagi.",
+      "Selepas signup, anda akan dibawa ke secure Stripe checkout untuk mengaktifkan 7-day trial. Anda tidak akan dikenakan caj hari ini.",
     loading: "Loading signup...",
     businessTypes: [
       "Real Estate",
@@ -257,18 +267,28 @@ const translations = {
   },
 };
 
+function normalizePlanKey(value: string | null): BillablePlanKey {
+  if (
+    value === "starter" ||
+    value === "growth" ||
+    value === "professional" ||
+    value === "business"
+  ) {
+    return value;
+  }
+
+  return "starter";
+}
+
 function SignupContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { language } = useKolkapLanguage();
   const t =
     translations[language as keyof typeof translations] || translations.en;
 
-  const rawNextPath = searchParams.get("next") || "/dashboard";
-  const nextPath =
-    rawNextPath.startsWith("/") && !rawNextPath.startsWith("//")
-      ? rawNextPath
-      : "/dashboard";
+  const planKey = normalizePlanKey(searchParams.get("plan"));
+  const activateTrialPath = `/dashboard/activate-trial?plan=${planKey}`;
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -276,8 +296,29 @@ function SignupContent() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isOpeningCheckout, setIsOpeningCheckout] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  async function openStripeCheckout(selectedPlanKey: BillablePlanKey) {
+    const response = await fetch("/api/billing/start-trial", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        planKey: selectedPlanKey,
+      }),
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result?.url) {
+      throw new Error(result?.error || t.checkoutError);
+    }
+
+    window.location.assign(result.url);
+  }
 
   async function handleSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -311,6 +352,7 @@ function SignupContent() {
             full_name: cleanName,
             business_type: businessType,
             trial_intent: true,
+            selected_plan: planKey,
           },
         },
       });
@@ -321,26 +363,34 @@ function SignupContent() {
         return;
       }
 
-      if (data.session) {
-        await ensureKolkapWorkspace(supabase);
-
-        setMessage(t.success);
-        router.replace(nextPath);
-        router.refresh();
+      if (!data.session) {
+        setMessage(t.confirmEmail);
+        setIsSubmitting(false);
         return;
       }
 
-      setMessage(t.confirmEmail);
-      setIsSubmitting(false);
+      await ensureKolkapWorkspace(supabase);
+
+      setMessage(t.success);
+      setIsOpeningCheckout(true);
+
+      await openStripeCheckout(planKey);
     } catch (signupError) {
       setError(
         signupError instanceof Error
           ? signupError.message
           : "Something went wrong. Please try again."
       );
+      setIsOpeningCheckout(false);
       setIsSubmitting(false);
     }
   }
+
+  const buttonText = isOpeningCheckout
+    ? t.openingCheckout
+    : isSubmitting
+      ? t.creating
+      : t.createAccount;
 
   return (
     <main className="bg-[#F7F9FA] text-[#07111F]">
@@ -518,10 +568,10 @@ function SignupContent() {
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isOpeningCheckout}
               className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? t.creating : t.createAccount}
+              {buttonText}
               <ArrowRight className="h-6 w-6" />
             </button>
 
@@ -532,7 +582,7 @@ function SignupContent() {
             <p className="text-center text-base font-black text-slate-600">
               {t.alreadyHaveAccount}{" "}
               <Link
-                href={`/login?next=${encodeURIComponent(nextPath)}`}
+                href={`/login?next=${encodeURIComponent(activateTrialPath)}`}
                 className="text-blue-600"
               >
                 {t.login}

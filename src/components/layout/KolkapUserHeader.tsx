@@ -23,6 +23,8 @@ import {
 import KolkapLogo from "@/components/brand/KolkapLogo";
 import { createClient } from "@/lib/supabase/client";
 
+const STARTER_SIGNUP_URL = "/signup?plan=starter";
+
 const navItems = [
   {
     label: "Home",
@@ -32,6 +34,7 @@ const navItems = [
   {
     label: "Create AI",
     href: "/dashboard/create-ai",
+    publicHref: STARTER_SIGNUP_URL,
     icon: Bot,
   },
   {
@@ -94,6 +97,7 @@ export default function KolkapUserHeader() {
     translations[language as keyof typeof translations] || translations.en;
 
   const isInsideDashboard = pathname.startsWith("/dashboard");
+  const isPublicVisitor = isCheckingAuth ? true : !isLoggedIn;
 
   useEffect(() => {
     const supabase = createClient();
@@ -131,12 +135,14 @@ export default function KolkapUserHeader() {
         <nav className="hidden items-center gap-3 lg:flex">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const href =
+              isPublicVisitor && item.publicHref ? item.publicHref : item.href;
             const active = isActivePath(pathname, item.href);
 
             return (
               <Link
                 key={item.label}
-                href={item.href}
+                href={href}
                 className={`inline-flex items-center gap-2 rounded-full border px-5 py-3 text-base font-black transition ${
                   active
                     ? "border-[#07111F] bg-[#07111F] text-white"
@@ -224,7 +230,7 @@ export default function KolkapUserHeader() {
               </Link>
 
               <Link
-                href="/signup"
+                href={STARTER_SIGNUP_URL}
                 className="inline-flex items-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-base font-black text-white shadow-sm transition hover:-translate-y-0.5"
               >
                 <Sparkles className="h-5 w-5" />
@@ -249,12 +255,14 @@ export default function KolkapUserHeader() {
           <div className="mx-auto grid max-w-7xl gap-3">
             {navItems.map((item) => {
               const Icon = item.icon;
+              const href =
+                isPublicVisitor && item.publicHref ? item.publicHref : item.href;
               const active = isActivePath(pathname, item.href);
 
               return (
                 <Link
                   key={item.label}
-                  href={item.href}
+                  href={href}
                   onClick={() => setOpen(false)}
                   className={`flex items-center gap-3 rounded-2xl border px-5 py-4 text-lg font-black transition ${
                     active
@@ -341,7 +349,7 @@ export default function KolkapUserHeader() {
                 </Link>
 
                 <Link
-                  href="/signup"
+                  href={STARTER_SIGNUP_URL}
                   onClick={() => setOpen(false)}
                   className="rounded-full bg-[#07111F] px-5 py-4 text-center text-lg font-black text-white"
                 >
