@@ -33,19 +33,10 @@ type WorkspaceLoginRow = {
   subscription_cancelled_at?: string | null;
 };
 
-const ACTIVE_STATUSES = new Set([
-  "trial",
-  "trialing",
-  "active",
-  "paid",
-  "past_due",
-]);
-
 const BLOCKED_STATUSES = new Set([
   "cancelled",
   "canceled",
   "inactive",
-  "incomplete",
   "incomplete_expired",
   "expired",
 ]);
@@ -207,23 +198,19 @@ function hasActiveTrialOrPlan(workspace: WorkspaceLoginRow | null) {
     return false;
   }
 
-  if (ACTIVE_STATUSES.has(planStatus) || ACTIVE_STATUSES.has(billingStatus)) {
-    return true;
-  }
+  const hasRealStripeSubscription = Boolean(
+    workspace.stripe_subscription_id && !workspace.subscription_cancelled_at
+  );
 
-  if (workspace.stripe_subscription_id && !workspace.subscription_cancelled_at) {
-    return true;
-  }
+  const hasActivatedTrial = Boolean(
+    workspace.trial_activated_at && !workspace.subscription_cancelled_at
+  );
 
-  if (workspace.trial_activated_at && !workspace.subscription_cancelled_at) {
-    return true;
-  }
+  const hasStartedBilling = Boolean(
+    workspace.billing_started_at && !workspace.subscription_cancelled_at
+  );
 
-  if (workspace.billing_started_at && !workspace.subscription_cancelled_at) {
-    return true;
-  }
-
-  return false;
+  return hasRealStripeSubscription || hasActivatedTrial || hasStartedBilling;
 }
 
 function isSafeNextPath(path: string) {
@@ -315,10 +302,11 @@ function LoginContent() {
     try {
       const supabase = createClient();
 
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
 
       if (signInError) {
         setError(signInError.message);
