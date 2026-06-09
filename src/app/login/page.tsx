@@ -19,6 +19,37 @@ import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { ensureKolkapWorkspace } from "@/lib/kolkapWorkspace";
 
+type SupabaseClientType = ReturnType<typeof createClient>;
+
+type WorkspaceLoginRow = {
+  id?: string | null;
+  plan_key?: string | null;
+  plan_status?: string | null;
+  billing_status?: string | null;
+  stripe_subscription_id?: string | null;
+  trial_activated_at?: string | null;
+  billing_started_at?: string | null;
+  subscription_cancel_at?: string | null;
+  subscription_cancelled_at?: string | null;
+};
+
+const ACTIVE_STATUSES = new Set([
+  "trial",
+  "trialing",
+  "active",
+  "paid",
+  "past_due",
+]);
+
+const BLOCKED_STATUSES = new Set([
+  "cancelled",
+  "canceled",
+  "inactive",
+  "incomplete",
+  "incomplete_expired",
+  "expired",
+]);
+
 const translations = {
   en: {
     badge: "Welcome Back",
@@ -31,6 +62,7 @@ const translations = {
     passwordPlaceholder: "Enter your password",
     login: "Log In",
     loggingIn: "Logging in...",
+    checkingPlan: "Checking your trial...",
     forgotPassword: "Forgot password?",
     noAccount: "Don’t have an account?",
     signUp: "Start Free Trial",
@@ -61,6 +93,7 @@ const translations = {
     passwordPlaceholder: "Masukkan password Anda",
     login: "Login",
     loggingIn: "Sedang login...",
+    checkingPlan: "Memeriksa trial Anda...",
     forgotPassword: "Lupa password?",
     noAccount: "Belum punya akun?",
     signUp: "Mulai Free Trial",
@@ -91,6 +124,7 @@ const translations = {
     passwordPlaceholder: "请输入您的密码",
     login: "登录",
     loggingIn: "正在登录...",
+    checkingPlan: "正在检查您的试用...",
     forgotPassword: "忘记密码？",
     noAccount: "还没有账户？",
     signUp: "开始免费试用",
@@ -121,6 +155,7 @@ const translations = {
     passwordPlaceholder: "Masukkan kata laluan anda",
     login: "Login",
     loggingIn: "Sedang login...",
+    checkingPlan: "Memeriksa trial anda...",
     forgotPassword: "Lupa kata laluan?",
     noAccount: "Belum ada akaun?",
     signUp: "Mulakan Free Trial",
@@ -141,6 +176,110 @@ const translations = {
   },
 };
 
+function normalizeStatus(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizePlanKey(value: unknown) {
+  const plan = String(value || "starter").toLowerCase();
+
+  if (
+    plan === "starter" ||
+    plan === "growth" ||
+    plan === "professional" ||
+    plan === "business"
+  ) {
+    return plan;
+  }
+
+  return "starter";
+}
+
+function hasActiveTrialOrPlan(workspace: WorkspaceLoginRow | null) {
+  if (!workspace) return false;
+
+  const planStatus = normalizeStatus(workspace.plan_status);
+  const billingStatus = normalizeStatus(workspace.billing_status);
+
+  if (BLOCKED_STATUSES.has(planStatus) || BLOCKED_STATUSES.has(billingStatus)) {
+    return false;
+  }
+
+  if (ACTIVE_STATUSES.has(planStatus) || ACTIVE_STATUSES.has(billingStatus)) {
+    return true;
+  }
+
+  if (workspace.stripe_subscription_id && !workspace.subscription_cancelled_at) {
+    return true;
+  }
+
+  if (workspace.trial_activated_at && !workspace.subscription_cancelled_at) {
+    return true;
+  }
+
+  if (workspace.billing_started_at && !workspace.subscription_cancelled_at) {
+    return true;
+  }
+
+  return false;
+}
+
+function isSafeNextPath(path: string) {
+  return path.startsWith("/") && !path.startsWith("//");
+}
+
+async function findWorkspaceAfterLogin({
+  supabase,
+  userId,
+  userEmail,
+}: {
+  supabase: SupabaseClientType;
+  userId: string;
+  userEmail?: string | null;
+}) {
+  const selectFields =
+    "id, plan_key, plan_status, billing_status, stripe_subscription_id, trial_activated_at, billing_started_at, subscription_cancel_at, subscription_cancelled_at";
+
+  const { data: ownedWorkspace } = await supabase
+    .from("business_workspaces")
+    .select(selectFields)
+    .eq("owner_user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (ownedWorkspace?.id) {
+    return ownedWorkspace as WorkspaceLoginRow;
+  }
+
+  if (!userEmail) {
+    return null;
+  }
+
+  const { data: teamMember } = await supabase
+    .from("workspace_team_members")
+    .select("workspace_id")
+    .eq("email", userEmail.toLowerCase())
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!teamMember?.workspace_id) {
+    return null;
+  }
+
+  const { data: teamWorkspace } = await supabase
+    .from("business_workspaces")
+    .select(selectFields)
+    .eq("id", teamMember.workspace_id)
+    .maybeSingle();
+
+  return (teamWorkspace ?? null) as WorkspaceLoginRow | null;
+}
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -149,15 +288,13 @@ function LoginContent() {
     translations[language as keyof typeof translations] || translations.en;
 
   const rawNextPath = searchParams.get("next") || "/dashboard";
-  const nextPath =
-    rawNextPath.startsWith("/") && !rawNextPath.startsWith("//")
-      ? rawNextPath
-      : "/dashboard";
+  const nextPath = isSafeNextPath(rawNextPath) ? rawNextPath : "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingPlan, setIsCheckingPlan] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -173,11 +310,12 @@ function LoginContent() {
     }
 
     setIsSubmitting(true);
+    setIsCheckingPlan(false);
 
     try {
       const supabase = createClient();
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
       });
@@ -188,10 +326,33 @@ function LoginContent() {
         return;
       }
 
+      const user = data.user;
+
+      if (!user?.id) {
+        setError("Login session could not be created. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      setIsCheckingPlan(true);
+
       await ensureKolkapWorkspace(supabase);
 
+      const workspace = await findWorkspaceAfterLogin({
+        supabase,
+        userId: user.id,
+        userEmail: user.email,
+      });
+
+      const planKey = normalizePlanKey(workspace?.plan_key);
+      const hasAccess = hasActiveTrialOrPlan(workspace);
+
+      const redirectPath = hasAccess
+        ? nextPath
+        : `/dashboard/activate-trial?plan=${planKey}`;
+
       setMessage(t.success);
-      router.replace(nextPath);
+      router.replace(redirectPath);
       router.refresh();
     } catch (loginError) {
       setError(
@@ -200,8 +361,15 @@ function LoginContent() {
           : "Something went wrong. Please try again."
       );
       setIsSubmitting(false);
+      setIsCheckingPlan(false);
     }
   }
+
+  const buttonText = isCheckingPlan
+    ? t.checkingPlan
+    : isSubmitting
+      ? t.loggingIn
+      : t.login;
 
   return (
     <main className="bg-[#F7F9FA] text-[#07111F]">
@@ -345,7 +513,7 @@ function LoginContent() {
               disabled={isSubmitting}
               className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? t.loggingIn : t.login}
+              {buttonText}
               <ArrowRight className="h-6 w-6" />
             </button>
 
@@ -356,10 +524,7 @@ function LoginContent() {
 
               <p>
                 {t.noAccount}{" "}
-                <Link
-                  href={`/signup?next=${encodeURIComponent(nextPath)}`}
-                  className="text-blue-600"
-                >
+                <Link href="/signup?plan=starter" className="text-blue-600">
                   {t.signUp}
                 </Link>
               </p>
