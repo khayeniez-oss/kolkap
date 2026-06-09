@@ -90,7 +90,7 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     activatingButton: "Opening secure trial setup...",
     secureSetup: "Secure trial setup",
     secureSetupText:
-      "Kolkap will open the secure payment-method step. After Stripe confirms it, your trial and credits will be activated automatically.",
+      "Kolkap will open a secure payment-method step. Once your payment method is confirmed, your trial and credits will be activated automatically.",
     flowSteps: [
       "Select your trial plan",
       "Add payment method",
@@ -125,14 +125,14 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     noChargeToday: "Tidak dikenakan biaya hari ini",
     paymentNeeded: "Metode pembayaran diperlukan",
     cancelBeforeTrial: "Batalkan sebelum trial selesai",
-    creditsIncluded: "Kredit termasuk",
+    creditsIncluded: "Credits termasuk",
     aiStaffIncluded: "AI staff termasuk",
     teamIncluded: "Akses team termasuk",
     activateButton: "Aktifkan Free Trial — Tidak Ditagih Hari Ini",
     activatingButton: "Membuka setup trial aman...",
     secureSetup: "Setup trial aman",
     secureSetupText:
-      "Kolkap akan membuka langkah metode pembayaran yang aman. Setelah Stripe mengonfirmasi, trial dan kredit Anda akan aktif otomatis.",
+      "Kolkap akan membuka langkah metode pembayaran yang aman. Setelah metode pembayaran dikonfirmasi, trial dan credits Anda akan aktif otomatis.",
     flowSteps: [
       "Pilih trial plan",
       "Tambahkan metode pembayaran",
@@ -166,14 +166,14 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     noChargeToday: "今天不会收费",
     paymentNeeded: "需要付款方式",
     cancelBeforeTrial: "试用结束前可取消",
-    creditsIncluded: "包含积分",
+    creditsIncluded: "包含 credits",
     aiStaffIncluded: "包含 AI 员工",
     teamIncluded: "包含团队权限",
     activateButton: "激活免费试用 — 今天不收费",
     activatingButton: "正在打开安全试用设置...",
     secureSetup: "安全试用设置",
     secureSetupText:
-      "Kolkap 将打开安全的付款方式步骤。Stripe 确认后，您的试用和积分会自动激活。",
+      "Kolkap 将打开安全的付款方式步骤。付款方式确认后，您的试用和 credits 会自动激活。",
     flowSteps: [
       "选择试用方案",
       "添加付款方式",
@@ -206,14 +206,14 @@ const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
     noChargeToday: "Tiada caj hari ini",
     paymentNeeded: "Kaedah pembayaran diperlukan",
     cancelBeforeTrial: "Batal sebelum trial tamat",
-    creditsIncluded: "Kredit termasuk",
+    creditsIncluded: "Credits termasuk",
     aiStaffIncluded: "AI staff termasuk",
     teamIncluded: "Akses team termasuk",
     activateButton: "Aktifkan Free Trial — Tiada Caj Hari Ini",
     activatingButton: "Membuka setup trial selamat...",
     secureSetup: "Setup trial selamat",
     secureSetupText:
-      "Kolkap akan membuka langkah kaedah pembayaran yang selamat. Selepas Stripe mengesahkan, trial dan kredit anda akan aktif secara automatik.",
+      "Kolkap akan membuka langkah kaedah pembayaran yang selamat. Selepas kaedah pembayaran disahkan, trial dan credits anda akan aktif secara automatik.",
     flowSteps: [
       "Pilih trial plan",
       "Tambah kaedah pembayaran",
@@ -244,9 +244,9 @@ function isValidPlanKey(value: string | null): value is KolkapPlanKey {
 function localizePlanLabel(label: string, language: SupportedLanguage) {
   if (language === "zh") {
     return label
-      .replace("Custom credits", "定制积分")
-      .replace("trial credits", "试用积分")
-      .replace("credits/month", "积分/月")
+      .replace("Custom credits", "定制 credits")
+      .replace("trial credits", "试用 credits")
+      .replace("credits/month", "credits/月")
       .replace("AI staff", "AI 员工")
       .replace("Custom team members", "定制团队成员")
       .replace("team members", "团队成员")
@@ -256,22 +256,22 @@ function localizePlanLabel(label: string, language: SupportedLanguage) {
 
   if (language === "id") {
     return label
-      .replace("Custom credits", "Kredit custom")
-      .replace("trial credits", "kredit trial")
-      .replace("credits/month", "kredit/bulan")
-      .replace("Custom AI staff", "AI staff custom")
-      .replace("Custom team members", "Team member custom")
+      .replace("Custom credits", "Custom credits")
+      .replace("trial credits", "trial credits")
+      .replace("credits/month", "credits/bulan")
+      .replace("Custom AI staff", "Custom AI staff")
+      .replace("Custom team members", "Custom team members")
       .replace("team members", "team member")
       .replace("team member", "team member");
   }
 
   if (language === "ms") {
     return label
-      .replace("Custom credits", "Kredit custom")
-      .replace("trial credits", "kredit trial")
-      .replace("credits/month", "kredit/bulan")
-      .replace("Custom AI staff", "AI staff custom")
-      .replace("Custom team members", "Team member custom")
+      .replace("Custom credits", "Custom credits")
+      .replace("trial credits", "trial credits")
+      .replace("credits/month", "credits/bulan")
+      .replace("Custom AI staff", "Custom AI staff")
+      .replace("Custom team members", "Custom team members")
       .replace("team members", "team member")
       .replace("team member", "team member");
   }
@@ -294,7 +294,7 @@ function ActivateTrialContent() {
   const [selectedPlanKey, setSelectedPlanKey] =
     useState<KolkapPlanKey>(initialPlanKey);
   const [isStartingTrial, setIsStartingTrial] = useState(false);
-  const [checkoutError, setCheckoutError] = useState("");
+  const [setupError, setSetupError] = useState("");
 
   const selectedPlan = useMemo(
     () => getKolkapPlan(selectedPlanKey),
@@ -304,7 +304,7 @@ function ActivateTrialContent() {
   const isEnterprise = selectedPlan.key === "enterprise";
 
   async function handleStartTrial() {
-    setCheckoutError("");
+    setSetupError("");
 
     if (isEnterprise) {
       router.push("/contact");
@@ -335,7 +335,7 @@ function ActivateTrialContent() {
 
       window.location.href = result.url;
     } catch (error) {
-      setCheckoutError(error instanceof Error ? error.message : t.errorText);
+      setSetupError(error instanceof Error ? error.message : t.errorText);
       setIsStartingTrial(false);
     }
   }
@@ -401,7 +401,7 @@ function ActivateTrialContent() {
                     type="button"
                     onClick={() => {
                       setSelectedPlanKey(plan.key);
-                      setCheckoutError("");
+                      setSetupError("");
                     }}
                     className={`rounded-[2rem] border p-6 text-left transition hover:-translate-y-1 ${
                       selected
@@ -525,11 +525,11 @@ function ActivateTrialContent() {
                 </p>
               ) : null}
 
-              {checkoutError ? (
+              {setupError ? (
                 <div className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5 text-red-900">
                   <p className="text-base font-black">{t.errorTitle}</p>
                   <p className="mt-2 text-sm font-bold leading-6">
-                    {checkoutError}
+                    {setupError}
                   </p>
                 </div>
               ) : null}

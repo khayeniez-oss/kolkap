@@ -52,7 +52,7 @@ const translations = {
     errorTitle: "Signup failed",
     emptyError: "Please complete all required fields.",
     passwordError: "Password must be at least 6 characters.",
-    checkoutError: "Unable to open Stripe checkout. Please try again.",
+    checkoutError: "Unable to open secure checkout. Please try again.",
     success: "Account created. Opening secure checkout...",
     confirmEmail:
       "Account created. Please check your email to confirm your account before logging in.",
@@ -113,13 +113,13 @@ const translations = {
     errorTitle: "Signup gagal",
     emptyError: "Mohon lengkapi semua field yang dibutuhkan.",
     passwordError: "Password minimal 6 karakter.",
-    checkoutError: "Tidak dapat membuka Stripe checkout. Silakan coba lagi.",
+    checkoutError: "Tidak dapat membuka secure checkout. Silakan coba lagi.",
     success: "Akun berhasil dibuat. Membuka secure checkout...",
     confirmEmail:
       "Akun berhasil dibuat. Silakan cek email Anda untuk konfirmasi sebelum login.",
     noteTitle: "What happens after signup?",
     noteText:
-       "Setelah signup, Anda akan mengaktifkan 7-day trial, membuat AI staff, mengetes balasan, lalu go live saat sudah siap. Kolkap membantu bisnis Anda membalas customer 24/7, menangkap leads, dan mendukung percakapan harian.",
+      "Setelah signup, Anda akan mengaktifkan 7-day trial, membuat AI staff, mengetes balasan, lalu go live saat sudah siap. Kolkap membantu bisnis Anda membalas customer 24/7, menangkap leads, dan mendukung percakapan harian.",
     loading: "Loading signup...",
     businessTypes: [
       "Real Estate",
@@ -173,7 +173,7 @@ const translations = {
     errorTitle: "注册失败",
     emptyError: "请填写所有必填字段。",
     passwordError: "密码至少需要 6 个字符。",
-    checkoutError: "无法打开 Stripe checkout。请重试。",
+    checkoutError: "无法打开安全结账页面。请重试。",
     success: "账户创建成功。正在打开安全结账页面...",
     confirmEmail: "账户已创建。请检查邮箱并确认账户，然后再登录。",
     noteTitle: "注册后会发生什么？",
@@ -233,13 +233,14 @@ const translations = {
     errorTitle: "Signup gagal",
     emptyError: "Sila lengkapkan semua field yang diperlukan.",
     passwordError: "Password mesti sekurang-kurangnya 6 karakter.",
-    checkoutError: "Tidak dapat membuka Stripe checkout. Sila cuba lagi.",
+    checkoutError: "Tidak dapat membuka secure checkout. Sila cuba lagi.",
     success: "Akaun berjaya dicipta. Membuka secure checkout...",
     confirmEmail:
       "Akaun berjaya dicipta. Sila semak email anda untuk pengesahan sebelum login.",
     noteTitle: "What happens after signup?",
     noteText:
-       "Selepas signup, anda akan mengaktifkan 7-day trial, mencipta AI staff, menguji balasan, dan go live apabila sudah bersedia. Kolkap membantu bisnes anda membalas pelanggan 24/7, menangkap leads, dan menyokong perbualan harian.",
+      "Selepas signup, anda akan mengaktifkan 7-day trial, mencipta AI staff, menguji balasan, dan go live apabila sudah bersedia. Kolkap membantu bisnes anda membalas pelanggan 24/7, menangkap leads, dan menyokong perbualan harian.",
+    loading: "Loading signup...",
     businessTypes: [
       "Real Estate",
       "Hotel / Villa / Penginapan",
@@ -299,7 +300,7 @@ function SignupContent() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function openStripeCheckout(selectedPlanKey: BillablePlanKey) {
+  async function openSecureCheckout(selectedPlanKey: BillablePlanKey) {
     const response = await fetch("/api/billing/start-trial", {
       method: "POST",
       headers: {
@@ -373,7 +374,7 @@ function SignupContent() {
       setMessage(t.success);
       setIsOpeningCheckout(true);
 
-      await openStripeCheckout(planKey);
+      await openSecureCheckout(planKey);
     } catch (signupError) {
       setError(
         signupError instanceof Error
@@ -505,6 +506,7 @@ function SignupContent() {
             <label className="grid gap-2">
               <span className="flex items-center gap-2 text-base font-black text-slate-700">
                 <BriefcaseBusiness className="h-5 w-5 text-slate-400" />
+                {t.businessType}
               </span>
 
               <select
