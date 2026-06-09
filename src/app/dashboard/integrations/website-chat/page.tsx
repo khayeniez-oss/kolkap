@@ -10,7 +10,6 @@ import {
   Copy,
   Globe2,
   Inbox,
-  MessageCircle,
   Rocket,
   ShieldCheck,
   Sparkles,
@@ -47,13 +46,6 @@ type Translation = {
   testText: string;
   openTestAI: string;
   openInbox: string;
-  messageFlow: string;
-  messageFlowTitle: string;
-  messageFlowText: string;
-  flowItems: {
-    title: string;
-    text: string;
-  }[];
   goLiveTitle: string;
   goLiveText: string;
   continueGoLive: string;
@@ -65,31 +57,30 @@ const translations: Record<SupportedLanguage, Translation> = {
     failed: "Website Chat page could not load.",
     back: "Back to Customer Channels",
     badge: "Website Chat",
-    title: "Connect website chat to your Kolkap AI staff.",
+    title: "Add Kolkap website chat to your website.",
     subtitle:
-      "Let website visitors message your business, receive AI-assisted replies, and have every conversation saved inside your Kolkap Inbox and Leads.",
+      "Let website visitors message your business, receive AI-assisted replies, and have conversations saved inside Kolkap Inbox and Leads.",
     workspace: "Workspace",
     workspaceFallback: "Your business",
     statusTitle: "Connection Status",
     statusReady: "Website chat backend is ready",
     statusText:
-      "Kolkap can now receive website chat messages, match them to this workspace, generate AI replies, save conversations, and record credit usage.",
+      "Kolkap can receive website chat messages, match them to this workspace, generate AI replies, save conversations, and record credit usage.",
     copySetup: "Widget Setup",
-    copySetupTitle: "Add Kolkap chat to your website.",
+    copySetupTitle: "Copy your website chat code.",
     copySetupText:
-      "Copy this code and paste it before the closing body tag on your website. The public widget script is the next step before this can be used live on external websites.",
+      "Paste this code into your website before the closing body tag. Once the public widget script is live, this will show the Kolkap chat bubble on your website.",
     widgetCode: "Widget Code",
     copyCode: "Copy Code",
     copied: "Copied",
     nextStepNotice:
       "Next development step: publish the public widget script so this code can show the chat bubble on any website.",
-    installTitle: "Simple Installation",
-    installText:
-      "The business owner should not manage technical setup. This page gives a simple copy-and-paste setup for the website.",
+    installTitle: "Simple Setup",
+    installText: "Add Kolkap chat to your website in five simple steps.",
     installSteps: [
       "Copy the website chat code.",
-      "Paste it before the closing body tag on the business website.",
-      "Open the website and check the chat bubble.",
+      "Paste it before the closing body tag on your website.",
+      "Open your website and check the chat bubble.",
       "Send a test message.",
       "Review the conversation in Kolkap Inbox.",
     ],
@@ -98,28 +89,6 @@ const translations: Record<SupportedLanguage, Translation> = {
       "Before showing the widget to real visitors, test your AI staff and make sure your business knowledge gives the right answers.",
     openTestAI: "Open Test AI",
     openInbox: "Open Inbox",
-    messageFlow: "Message Flow",
-    messageFlowTitle: "Website visitor → Kolkap → AI staff → Inbox.",
-    messageFlowText:
-      "When a visitor sends a message, Kolkap identifies this workspace, uses the assigned AI staff and Knowledge Base, replies, and saves the full message history.",
-    flowItems: [
-      {
-        title: "Visitor sends message",
-        text: "A visitor writes a question from the chat bubble on your website.",
-      },
-      {
-        title: "Kolkap identifies the business",
-        text: "The widget code tells Kolkap which workspace should answer.",
-      },
-      {
-        title: "AI staff replies",
-        text: "The answer is generated using your AI staff and business knowledge.",
-      },
-      {
-        title: "Inbox and credits update",
-        text: "The conversation is saved and successful AI replies use credits.",
-      },
-    ],
     goLiveTitle: "Ready to activate?",
     goLiveText:
       "Make sure your AI staff, Knowledge Base, active trial or plan, and credits are ready before using website chat with real visitors.",
@@ -131,30 +100,29 @@ const translations: Record<SupportedLanguage, Translation> = {
     failed: "Halaman Website Chat tidak dapat dimuat.",
     back: "Kembali ke Customer Channels",
     badge: "Website Chat",
-    title: "Hubungkan website chat ke AI staff Kolkap Anda.",
+    title: "Tambahkan Kolkap website chat ke website Anda.",
     subtitle:
-      "Biarkan visitor website mengirim pesan ke bisnis Anda, menerima balasan dengan bantuan AI, dan semua percakapan tersimpan di Kolkap Inbox dan Leads.",
+      "Biarkan visitor website mengirim pesan ke bisnis Anda, menerima balasan dengan bantuan AI, dan percakapan tersimpan di Kolkap Inbox dan Leads.",
     workspace: "Workspace",
     workspaceFallback: "Bisnis Anda",
     statusTitle: "Status Koneksi",
     statusReady: "Backend website chat sudah siap",
     statusText:
-      "Kolkap sudah bisa menerima pesan website chat, mencocokkannya ke workspace ini, membuat balasan AI, menyimpan percakapan, dan mencatat penggunaan credits.",
+      "Kolkap dapat menerima pesan website chat, mencocokkannya ke workspace ini, membuat balasan AI, menyimpan percakapan, dan mencatat penggunaan credits.",
     copySetup: "Setup Widget",
-    copySetupTitle: "Tambahkan Kolkap chat ke website Anda.",
+    copySetupTitle: "Copy kode website chat Anda.",
     copySetupText:
-      "Copy kode ini dan paste sebelum closing body tag di website Anda. Public widget script adalah langkah development berikutnya sebelum kode ini bisa digunakan live di website external.",
+      "Paste kode ini ke website Anda sebelum closing body tag. Setelah public widget script live, kode ini akan menampilkan Kolkap chat bubble di website Anda.",
     widgetCode: "Kode Widget",
     copyCode: "Copy Kode",
     copied: "Copied",
     nextStepNotice:
       "Langkah development berikutnya: publish public widget script agar kode ini bisa menampilkan chat bubble di website mana pun.",
-    installTitle: "Instalasi Sederhana",
-    installText:
-      "Business owner tidak perlu mengurus setup teknis. Halaman ini memberikan setup copy-and-paste yang mudah untuk website.",
+    installTitle: "Setup Sederhana",
+    installText: "Tambahkan Kolkap chat ke website Anda dalam lima langkah mudah.",
     installSteps: [
       "Copy kode website chat.",
-      "Paste sebelum closing body tag di website bisnis.",
+      "Paste sebelum closing body tag di website Anda.",
       "Buka website dan cek chat bubble.",
       "Kirim pesan test.",
       "Review percakapan di Kolkap Inbox.",
@@ -164,28 +132,6 @@ const translations: Record<SupportedLanguage, Translation> = {
       "Sebelum widget ditampilkan ke visitor asli, test AI staff Anda dan pastikan business knowledge memberi jawaban yang benar.",
     openTestAI: "Buka Test AI",
     openInbox: "Buka Inbox",
-    messageFlow: "Alur Pesan",
-    messageFlowTitle: "Website visitor → Kolkap → AI staff → Inbox.",
-    messageFlowText:
-      "Saat visitor mengirim pesan, Kolkap mengenali workspace ini, memakai AI staff dan Knowledge Base yang ditugaskan, membalas, dan menyimpan full message history.",
-    flowItems: [
-      {
-        title: "Visitor mengirim pesan",
-        text: "Visitor menulis pertanyaan dari chat bubble di website Anda.",
-      },
-      {
-        title: "Kolkap mengenali bisnis",
-        text: "Kode widget memberi tahu Kolkap workspace mana yang harus menjawab.",
-      },
-      {
-        title: "AI staff membalas",
-        text: "Jawaban dibuat memakai AI staff dan business knowledge Anda.",
-      },
-      {
-        title: "Inbox dan credits update",
-        text: "Percakapan disimpan dan balasan AI yang berhasil menggunakan credits.",
-      },
-    ],
     goLiveTitle: "Siap diaktifkan?",
     goLiveText:
       "Pastikan AI staff, Knowledge Base, trial atau plan aktif, dan credits sudah siap sebelum website chat digunakan dengan visitor asli.",
@@ -197,30 +143,29 @@ const translations: Record<SupportedLanguage, Translation> = {
     failed: "Website Chat 页面无法加载。",
     back: "返回 Customer Channels",
     badge: "Website Chat",
-    title: "将 website chat 连接到您的 Kolkap AI 员工。",
+    title: "将 Kolkap website chat 添加到您的网站。",
     subtitle:
-      "让 website 访客向您的企业发送消息、收到 AI-assisted replies，并将所有对话保存到 Kolkap Inbox 和 Leads。",
+      "让 website 访客向您的企业发送消息、收到 AI-assisted replies，并将对话保存到 Kolkap Inbox 和 Leads。",
     workspace: "Workspace",
     workspaceFallback: "您的业务",
     statusTitle: "连接状态",
     statusReady: "Website chat backend 已准备好",
     statusText:
-      "Kolkap 现在可以接收 website chat 消息、匹配到此 workspace、生成 AI 回复、保存对话并记录 credits 使用。",
+      "Kolkap 可以接收 website chat 消息、匹配到此 workspace、生成 AI 回复、保存对话并记录 credits 使用。",
     copySetup: "Widget 设置",
-    copySetupTitle: "将 Kolkap chat 添加到您的 website。",
+    copySetupTitle: "复制您的 website chat code。",
     copySetupText:
-      "复制此代码并粘贴到 website 的 closing body tag 前。Public widget script 是下一步开发，完成后此代码才能在外部 website 正式使用。",
+      "将此代码粘贴到 website 的 closing body tag 前。Public widget script 上线后，此代码会在您的 website 显示 Kolkap chat bubble。",
     widgetCode: "Widget Code",
     copyCode: "复制代码",
     copied: "已复制",
     nextStepNotice:
       "下一步开发：发布 public widget script，让此代码可以在任何 website 显示 chat bubble。",
-    installTitle: "简单安装",
-    installText:
-      "Business owner 不需要处理技术设置。此页面提供简单的 copy-and-paste website 设置。",
+    installTitle: "简单设置",
+    installText: "用五个简单步骤将 Kolkap chat 添加到您的 website。",
     installSteps: [
       "复制 website chat code。",
-      "粘贴到 business website 的 closing body tag 前。",
+      "粘贴到 website 的 closing body tag 前。",
       "打开 website 并检查 chat bubble。",
       "发送测试消息。",
       "在 Kolkap Inbox 查看对话。",
@@ -230,28 +175,6 @@ const translations: Record<SupportedLanguage, Translation> = {
       "在向真实访客显示 widget 前，请测试您的 AI staff，并确认 business knowledge 能给出正确答案。",
     openTestAI: "打开 Test AI",
     openInbox: "打开 Inbox",
-    messageFlow: "消息流程",
-    messageFlowTitle: "Website visitor → Kolkap → AI staff → Inbox.",
-    messageFlowText:
-      "访客发送消息后，Kolkap 会识别此 workspace，使用指定 AI staff 和 Knowledge Base 回复，并保存完整消息记录。",
-    flowItems: [
-      {
-        title: "访客发送消息",
-        text: "访客从 website chat bubble 输入问题。",
-      },
-      {
-        title: "Kolkap 识别业务",
-        text: "Widget code 会告诉 Kolkap 哪个 workspace 需要回复。",
-      },
-      {
-        title: "AI staff 回复",
-        text: "回复会根据您的 AI staff 和 business knowledge 生成。",
-      },
-      {
-        title: "Inbox 和 credits 更新",
-        text: "对话会被保存，成功的 AI replies 会使用 credits。",
-      },
-    ],
     goLiveTitle: "准备启用了吗？",
     goLiveText:
       "使用 website chat 面向真实访客前，请确认 AI staff、Knowledge Base、有效 trial 或 plan，以及 credits 都已准备好。",
@@ -263,30 +186,29 @@ const translations: Record<SupportedLanguage, Translation> = {
     failed: "Halaman Website Chat tidak dapat dimuatkan.",
     back: "Kembali ke Customer Channels",
     badge: "Website Chat",
-    title: "Sambungkan website chat kepada AI staff Kolkap anda.",
+    title: "Tambah Kolkap website chat ke website anda.",
     subtitle:
-      "Biarkan visitor website mesej bisnes anda, menerima AI-assisted replies, dan semua perbualan disimpan dalam Kolkap Inbox dan Leads.",
+      "Biarkan visitor website mesej bisnes anda, menerima AI-assisted replies, dan perbualan disimpan dalam Kolkap Inbox dan Leads.",
     workspace: "Workspace",
     workspaceFallback: "Bisnes anda",
     statusTitle: "Status Sambungan",
     statusReady: "Backend website chat sudah siap",
     statusText:
-      "Kolkap sudah boleh menerima mesej website chat, padankan dengan workspace ini, jana balasan AI, simpan perbualan, dan rekod penggunaan credits.",
+      "Kolkap boleh menerima mesej website chat, padankan dengan workspace ini, jana balasan AI, simpan perbualan, dan rekod penggunaan credits.",
     copySetup: "Setup Widget",
-    copySetupTitle: "Tambah Kolkap chat ke website anda.",
+    copySetupTitle: "Copy kod website chat anda.",
     copySetupText:
-      "Copy kod ini dan paste sebelum closing body tag di website anda. Public widget script ialah langkah development seterusnya sebelum kod ini boleh digunakan live di website external.",
+      "Paste kod ini ke website anda sebelum closing body tag. Selepas public widget script live, kod ini akan memaparkan Kolkap chat bubble di website anda.",
     widgetCode: "Kod Widget",
     copyCode: "Copy Kod",
     copied: "Copied",
     nextStepNotice:
       "Langkah development seterusnya: publish public widget script supaya kod ini boleh memaparkan chat bubble di mana-mana website.",
-    installTitle: "Instalasi Mudah",
-    installText:
-      "Business owner tidak perlu mengurus setup teknikal. Halaman ini memberi setup copy-and-paste yang mudah untuk website.",
+    installTitle: "Setup Mudah",
+    installText: "Tambah Kolkap chat ke website anda dalam lima langkah mudah.",
     installSteps: [
       "Copy kod website chat.",
-      "Paste sebelum closing body tag di website bisnes.",
+      "Paste sebelum closing body tag di website anda.",
       "Buka website dan semak chat bubble.",
       "Hantar mesej test.",
       "Review perbualan di Kolkap Inbox.",
@@ -296,28 +218,6 @@ const translations: Record<SupportedLanguage, Translation> = {
       "Sebelum widget ditunjukkan kepada visitor sebenar, test AI staff anda dan pastikan business knowledge memberi jawapan yang betul.",
     openTestAI: "Buka Test AI",
     openInbox: "Buka Inbox",
-    messageFlow: "Alur Mesej",
-    messageFlowTitle: "Website visitor → Kolkap → AI staff → Inbox.",
-    messageFlowText:
-      "Apabila visitor menghantar mesej, Kolkap mengenali workspace ini, menggunakan AI staff dan Knowledge Base yang ditugaskan, membalas, dan menyimpan full message history.",
-    flowItems: [
-      {
-        title: "Visitor hantar mesej",
-        text: "Visitor menulis soalan dari chat bubble di website anda.",
-      },
-      {
-        title: "Kolkap mengenali bisnes",
-        text: "Kod widget memberitahu Kolkap workspace mana yang perlu menjawab.",
-      },
-      {
-        title: "AI staff membalas",
-        text: "Jawapan dijana menggunakan AI staff dan business knowledge anda.",
-      },
-      {
-        title: "Inbox dan credits update",
-        text: "Perbualan disimpan dan balasan AI yang berjaya menggunakan credits.",
-      },
-    ],
     goLiveTitle: "Sedia untuk aktifkan?",
     goLiveText:
       "Pastikan AI staff, Knowledge Base, trial atau plan aktif, dan credits sudah siap sebelum website chat digunakan dengan visitor sebenar.",
@@ -530,7 +430,7 @@ export default function WebsiteChatIntegrationPage() {
             </h2>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-5">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
             {t.installSteps.map((step, index) => (
               <div
                 key={step}
@@ -541,47 +441,6 @@ export default function WebsiteChatIntegrationPage() {
                 </div>
 
                 <p className="text-lg font-black leading-7">{step}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
-              <MessageCircle className="h-8 w-8" />
-            </div>
-
-            <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-              {t.messageFlow}
-            </p>
-
-            <h2 className="mt-3 text-4xl font-black leading-tight tracking-[-0.05em]">
-              {t.messageFlowTitle}
-            </h2>
-
-            <p className="mt-5 text-xl font-semibold leading-9 text-slate-300">
-              {t.messageFlowText}
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {t.flowItems.map((item, index) => (
-              <div
-                key={item.title}
-                className="rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5"
-              >
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#07111F] text-lg font-black text-[#7CFF3D]">
-                  {index + 1}
-                </div>
-
-                <h3 className="text-xl font-black tracking-[-0.03em]">
-                  {item.title}
-                </h3>
-
-                <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
-                  {item.text}
-                </p>
               </div>
             ))}
           </div>
