@@ -59,11 +59,12 @@ export async function POST(request: Request) {
       userId: user.id,
       userEmail: user.email,
       task: "test_ai",
+      channel: "test_ai",
       customerMessage,
-      language: body.language,
-      tone: body.tone,
+      language: body.language || "auto",
+      tone: body.tone || "professional",
       extraInstructions: body.extra_instructions,
-      uiLanguage: body.ui_language,
+      uiLanguage: body.ui_language || "en",
     });
 
     await logWorkspaceUsage({
@@ -76,6 +77,9 @@ export async function POST(request: Request) {
       metadata: {
         model: result.model,
         knowledge_count: result.knowledgeCount,
+        fallback: result.fallback,
+        ai_staff_id: result.aiStaffId || null,
+        brain_channel: result.channel,
         customer_message: customerMessage,
         credit_rule: "ai_generation_minimum",
       },
@@ -88,6 +92,7 @@ export async function POST(request: Request) {
       knowledge_count: result.knowledgeCount,
       model: result.model,
       fallback: result.fallback,
+      ai_staff_id: result.aiStaffId || null,
       credits_used: KOLKAP_AI_GENERATION_MIN_CREDITS,
     });
   } catch (error) {

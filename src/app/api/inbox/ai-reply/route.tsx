@@ -62,6 +62,8 @@ export async function POST(request: Request) {
       userId: user.id,
       userEmail: user.email,
       task: "inbox_reply",
+      channel: "inbox",
+      conversationId: conversationId || null,
       customerMessage,
       language: body.language || "auto",
       tone: body.tone || "professional",
@@ -82,6 +84,9 @@ export async function POST(request: Request) {
         conversation_id: conversationId || null,
         model: result.model,
         knowledge_count: result.knowledgeCount,
+        fallback: result.fallback,
+        ai_staff_id: result.aiStaffId || null,
+        brain_channel: result.channel,
         credit_rule: "inbox_ai_reply_minimum",
       },
     });
@@ -94,6 +99,7 @@ export async function POST(request: Request) {
       knowledge_count: result.knowledgeCount,
       model: result.model,
       fallback: result.fallback,
+      ai_staff_id: result.aiStaffId || null,
       credits_used: INBOX_AI_REPLY_CREDIT_COST,
     });
   } catch (error) {
