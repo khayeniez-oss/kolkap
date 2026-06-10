@@ -4,21 +4,17 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowRight,
-  Bot,
-  Brain,
   Building2,
   CheckCircle2,
   Globe2,
   HeartHandshake,
-  Inbox,
   Languages,
+  Lightbulb,
   MessageCircle,
   ShieldCheck,
   Sparkles,
   Target,
   UsersRound,
-  WalletCards,
-  Zap,
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 
@@ -49,25 +45,15 @@ type AboutTranslation = {
   visionTitle: string;
   visionText: string;
 
-  beliefsBadge: string;
-  beliefsTitle: string;
-  beliefsText: string;
-  beliefs: Card[];
-
-  whatBadge: string;
-  whatTitle: string;
-  whatText: string;
-  whatCards: Card[];
+  valuesBadge: string;
+  valuesTitle: string;
+  valuesText: string;
+  values: Card[];
 
   serveBadge: string;
   serveTitle: string;
   serveText: string;
   serveList: string[];
-
-  directionBadge: string;
-  directionTitle: string;
-  directionText: string;
-  directionSteps: string[];
 
   languageBadge: string;
   languageTitle: string;
@@ -86,7 +72,7 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
     badge: "About Us",
     title: "We are building AI staff for modern businesses.",
     subtitle:
-      "Kolkap exists to make AI practical for real businesses — not as another generic AI tool, but as AI staff that can understand business knowledge, support customer conversations, manage leads, and help teams work faster.",
+      "Kolkap exists to make AI practical for real businesses. Our focus is simple: help businesses serve customers faster, stay organized, and use AI in a way that feels clear, useful, and business-ready.",
     primaryCta: "Start Free Trial",
     secondaryCta: "View Pricing",
     trustPills: [
@@ -97,79 +83,59 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
     ],
 
     storyBadge: "Our Story",
-    storyTitle: "Kolkap was created for businesses that need help every day.",
+    storyTitle: "Kolkap was created for businesses that need daily support.",
     storyText: [
-      "Many businesses receive the same questions again and again. Customers ask about pricing, availability, services, bookings, products, policies, and next steps. Business owners and teams often spend hours repeating the same replies.",
-      "Generic AI tools can be powerful, but they are not always easy for normal business users. They often require prompts, technical setup, or manual copy-paste work.",
-      "Kolkap was created to solve that gap. We believe businesses need AI staff — not just AI tools. AI staff should understand the business, reply clearly, support the inbox, help capture leads, and work inside one simple workspace.",
+      "Many businesses receive the same questions every day. Customers ask about pricing, availability, services, bookings, products, policies, and next steps. Business owners and teams often lose hours repeating the same replies.",
+      "Kolkap was created because we believe businesses need AI that feels like helpful staff, not another complicated tool. AI should understand the business, support customer conversations, and make daily work easier.",
+      "Our goal is to give businesses a simple way to use AI with confidence, while keeping humans in control of the customer experience.",
     ],
 
     missionBadge: "Our Mission",
-    missionTitle: "Make AI staff simple, useful, and accessible for real businesses.",
+    missionTitle:
+      "Make AI staff simple, useful, and accessible for real businesses.",
     missionText:
-      "Our mission is to help businesses use AI in a practical way: faster replies, better customer support, clearer lead handling, and less repetitive admin work.",
+      "Our mission is to help businesses save time, reply faster, support customers better, and reduce repetitive work with AI staff that is easy to set up and easy to use.",
 
     visionBadge: "Our Vision",
-    visionTitle: "A trusted AI staff platform for businesses across multilingual markets.",
+    visionTitle:
+      "A trusted AI staff platform for businesses across multilingual markets.",
     visionText:
-      "Our vision is for Kolkap to become a trusted AI staff platform for businesses, starting from Australia and expanding across markets where businesses need multilingual support, messaging automation, and simple AI-powered operations.",
+      "Our vision is for Kolkap to become a trusted AI staff platform for businesses, starting from Australia and growing into markets where businesses need multilingual customer support, messaging support, and practical AI-powered operations.",
 
-    beliefsBadge: "What We Believe",
-    beliefsTitle: "AI should support business, not make it complicated.",
-    beliefsText:
-      "Kolkap is built around simple principles that guide the product, the customer experience, and the way AI should work for businesses.",
-    beliefs: [
+    valuesBadge: "What We Believe",
+    valuesTitle: "AI should support business, not make it complicated.",
+    valuesText:
+      "Kolkap is built around simple values that guide our product, customer experience, and long-term direction.",
+    values: [
       {
-        title: "AI should be simple",
-        text: "Business users should not need to understand webhooks, API keys, workspace routing, or technical setup.",
+        title: "Simple for business users",
+        text: "AI should feel easy for owners and teams to use, even if they are not technical.",
       },
       {
         title: "Business knowledge matters",
-        text: "AI staff should answer based on the business’s own knowledge, tone, services, FAQs, and instructions.",
+        text: "Good AI staff should understand the business, its tone, its services, and its customer needs.",
       },
       {
         title: "Humans stay in control",
-        text: "AI should support teams, not replace responsible human judgment or customer care.",
+        text: "AI should support teams and improve speed, while businesses remain responsible for their customer experience.",
       },
       {
-        title: "Messaging should be easier",
-        text: "WhatsApp, website chat, inbox, leads, and handover should feel organized in one workspace.",
+        title: "Customer trust comes first",
+        text: "Clear communication, responsible AI use, privacy, and honest billing matter.",
       },
       {
-        title: "Usage should be clear",
-        text: "Businesses should understand when credits are used and what each AI action costs.",
+        title: "Messaging should be organized",
+        text: "Customer conversations should be easier to manage across WhatsApp, inbox, and supported channels.",
       },
       {
-        title: "Trust comes first",
-        text: "Privacy, account deletion, billing clarity, and honest AI limitations should be clear to users.",
-      },
-    ],
-
-    whatBadge: "What Kolkap Does",
-    whatTitle: "Kolkap turns business knowledge into AI staff.",
-    whatText:
-      "Kolkap helps businesses create AI staff that can support real customer conversations and daily business tasks.",
-    whatCards: [
-      {
-        title: "AI replies",
-        text: "Generate replies for inbox, WhatsApp, website chat, and customer support conversations.",
-      },
-      {
-        title: "Knowledge base",
-        text: "Add business information, services, pricing, FAQs, instructions, and tone for your AI staff.",
-      },
-      {
-        title: "Inbox and leads",
-        text: "Manage conversations, handover, customer status, leads, and follow-up in one place.",
-      },
-      {
-        title: "Usage and billing",
-        text: "Track credits, usage, plan status, trial, billing, and top-up needs clearly.",
+        title: "Growth should feel manageable",
+        text: "As a business grows, AI should help the team handle more conversations without losing quality.",
       },
     ],
 
     serveBadge: "Who We Serve",
-    serveTitle: "Built for service businesses, local businesses, teams, and growing companies.",
+    serveTitle:
+      "Built for service businesses, local businesses, teams, and growing companies.",
     serveText:
       "Kolkap is useful for businesses that receive customer questions, leads, bookings, inquiries, support requests, or repetitive messages.",
     serveList: [
@@ -183,19 +149,6 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
       "Local businesses using WhatsApp for leads",
     ],
 
-    directionBadge: "Our Direction",
-    directionTitle: "One simple workspace for AI staff and business conversations.",
-    directionText:
-      "Kolkap is moving toward a complete AI staff workspace where businesses can create staff, add knowledge, test replies, connect channels, manage conversations, track leads, and control usage.",
-    directionSteps: [
-      "Create AI staff",
-      "Add business knowledge",
-      "Test replies",
-      "Connect WhatsApp and website chat",
-      "Manage inbox, leads, and handover",
-      "Track usage, credits, billing, and top-ups",
-    ],
-
     languageBadge: "Languages",
     languageTitle: "Built for multilingual business support.",
     languageText:
@@ -204,7 +157,7 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
 
     finalTitle: "Kolkap is building the future of AI staff for business.",
     finalText:
-      "Create AI staff, add business knowledge, connect customer channels, and help your team reply faster with a simple business-ready AI workspace.",
+      "Create AI staff, support customer conversations, and help your team work faster with a simple business-ready AI workspace.",
     finalCta: "Start Free Trial",
   },
 
@@ -212,7 +165,7 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
     badge: "Tentang Kami",
     title: "Kami membangun AI staff untuk bisnis modern.",
     subtitle:
-      "Kolkap hadir untuk membuat AI praktis bagi bisnis nyata — bukan sebagai generic AI tool, tetapi sebagai AI staff yang memahami business knowledge, membantu customer conversations, mengelola leads, dan membantu team bekerja lebih cepat.",
+      "Kolkap hadir untuk membuat AI praktis bagi bisnis nyata. Fokus kami sederhana: membantu bisnis melayani customer lebih cepat, tetap teratur, dan menggunakan AI dengan cara yang jelas, berguna, dan siap untuk bisnis.",
     primaryCta: "Mulai Free Trial",
     secondaryCta: "Lihat Pricing",
     trustPills: [
@@ -225,77 +178,57 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
     storyBadge: "Cerita Kami",
     storyTitle: "Kolkap dibuat untuk bisnis yang butuh bantuan setiap hari.",
     storyText: [
-      "Banyak bisnis menerima pertanyaan yang sama berulang kali. Customer bertanya tentang harga, availability, layanan, booking, produk, policy, dan langkah berikutnya. Business owner dan team sering menghabiskan waktu untuk membalas hal yang sama.",
-      "Generic AI tools memang kuat, tetapi tidak selalu mudah untuk pengguna bisnis biasa. Sering kali butuh prompt, technical setup, atau copy-paste manual.",
-      "Kolkap dibuat untuk menyelesaikan gap itu. Kami percaya bisnis membutuhkan AI staff — bukan hanya AI tools. AI staff harus memahami bisnis, membalas dengan jelas, mendukung inbox, membantu menangkap leads, dan bekerja dalam satu workspace yang simple.",
+      "Banyak bisnis menerima pertanyaan yang sama setiap hari. Customer bertanya tentang harga, availability, layanan, booking, produk, policy, dan langkah berikutnya. Business owner dan team sering kehilangan banyak waktu untuk membalas hal yang sama.",
+      "Kolkap dibuat karena kami percaya bisnis membutuhkan AI yang terasa seperti staff yang membantu, bukan tool rumit lainnya. AI harus memahami bisnis, mendukung customer conversations, dan membuat pekerjaan harian lebih mudah.",
+      "Tujuan kami adalah memberi bisnis cara yang simple untuk menggunakan AI dengan percaya diri, sambil tetap membuat manusia memegang kontrol atas customer experience.",
     ],
 
     missionBadge: "Misi Kami",
-    missionTitle: "Membuat AI staff simple, berguna, dan mudah digunakan untuk bisnis nyata.",
+    missionTitle:
+      "Membuat AI staff simple, berguna, dan mudah digunakan untuk bisnis nyata.",
     missionText:
-      "Misi kami adalah membantu bisnis menggunakan AI secara praktis: balasan lebih cepat, customer support lebih baik, lead handling lebih jelas, dan pekerjaan admin berulang yang lebih sedikit.",
+      "Misi kami adalah membantu bisnis menghemat waktu, membalas lebih cepat, mendukung customer dengan lebih baik, dan mengurangi pekerjaan berulang dengan AI staff yang mudah disiapkan dan mudah digunakan.",
 
     visionBadge: "Visi Kami",
-    visionTitle: "Menjadi platform AI staff terpercaya untuk bisnis di multilingual markets.",
+    visionTitle:
+      "Menjadi platform AI staff terpercaya untuk bisnis di multilingual markets.",
     visionText:
-      "Visi kami adalah menjadikan Kolkap platform AI staff terpercaya untuk bisnis, dimulai dari Australia dan berkembang ke market yang membutuhkan multilingual support, messaging automation, dan operasional bisnis berbasis AI yang simple.",
+      "Visi kami adalah menjadikan Kolkap platform AI staff terpercaya untuk bisnis, dimulai dari Australia dan berkembang ke market yang membutuhkan multilingual customer support, messaging support, dan operasional bisnis berbasis AI yang praktis.",
 
-    beliefsBadge: "Yang Kami Percaya",
-    beliefsTitle: "AI harus mendukung bisnis, bukan membuatnya rumit.",
-    beliefsText:
-      "Kolkap dibangun berdasarkan prinsip sederhana yang memandu product, customer experience, dan cara AI seharusnya bekerja untuk bisnis.",
-    beliefs: [
+    valuesBadge: "Yang Kami Percaya",
+    valuesTitle: "AI harus mendukung bisnis, bukan membuatnya rumit.",
+    valuesText:
+      "Kolkap dibangun berdasarkan nilai sederhana yang memandu product, customer experience, dan arah jangka panjang kami.",
+    values: [
       {
-        title: "AI harus simple",
-        text: "Pengguna bisnis tidak perlu memahami webhooks, API keys, workspace routing, atau technical setup.",
+        title: "Simple untuk pengguna bisnis",
+        text: "AI harus terasa mudah digunakan oleh owner dan team, walaupun mereka tidak technical.",
       },
       {
         title: "Business knowledge penting",
-        text: "AI staff harus menjawab berdasarkan knowledge, tone, services, FAQ, dan instruksi dari bisnis itu sendiri.",
+        text: "AI staff yang baik harus memahami bisnis, tone, layanan, dan kebutuhan customer.",
       },
       {
         title: "Manusia tetap memegang kontrol",
-        text: "AI harus mendukung team, bukan menggantikan judgment manusia atau customer care yang bertanggung jawab.",
+        text: "AI harus mendukung team dan meningkatkan kecepatan, sementara bisnis tetap bertanggung jawab atas customer experience.",
       },
       {
-        title: "Messaging harus lebih mudah",
-        text: "WhatsApp, website chat, inbox, leads, dan handover harus terasa rapi dalam satu workspace.",
+        title: "Kepercayaan customer adalah prioritas",
+        text: "Komunikasi jelas, penggunaan AI yang bertanggung jawab, privacy, dan billing yang jujur itu penting.",
       },
       {
-        title: "Usage harus jelas",
-        text: "Bisnis harus memahami kapan credits digunakan dan berapa biaya setiap AI action.",
+        title: "Messaging harus teratur",
+        text: "Customer conversations harus lebih mudah dikelola melalui WhatsApp, inbox, dan channel yang didukung.",
       },
       {
-        title: "Trust adalah prioritas",
-        text: "Privacy, account deletion, billing clarity, dan batasan AI harus jelas untuk user.",
-      },
-    ],
-
-    whatBadge: "Apa yang Kolkap Lakukan",
-    whatTitle: "Kolkap mengubah business knowledge menjadi AI staff.",
-    whatText:
-      "Kolkap membantu bisnis membuat AI staff yang dapat mendukung customer conversations dan pekerjaan harian bisnis.",
-    whatCards: [
-      {
-        title: "AI replies",
-        text: "Generate replies untuk inbox, WhatsApp, website chat, dan customer support conversations.",
-      },
-      {
-        title: "Knowledge base",
-        text: "Tambahkan informasi bisnis, services, pricing, FAQ, instructions, dan tone untuk AI staff Anda.",
-      },
-      {
-        title: "Inbox dan leads",
-        text: "Kelola conversations, handover, customer status, leads, dan follow-up dalam satu tempat.",
-      },
-      {
-        title: "Usage dan billing",
-        text: "Lacak credits, usage, plan status, trial, billing, dan kebutuhan top-up dengan jelas.",
+        title: "Growth harus terasa manageable",
+        text: "Saat bisnis berkembang, AI harus membantu team menangani lebih banyak conversations tanpa kehilangan kualitas.",
       },
     ],
 
     serveBadge: "Siapa yang Kami Layani",
-    serveTitle: "Dibangun untuk service businesses, local businesses, teams, dan growing companies.",
+    serveTitle:
+      "Dibangun untuk service businesses, local businesses, teams, dan growing companies.",
     serveText:
       "Kolkap berguna untuk bisnis yang menerima customer questions, leads, bookings, inquiries, support requests, atau pesan berulang.",
     serveList: [
@@ -309,19 +242,6 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
       "Local businesses yang menggunakan WhatsApp untuk leads",
     ],
 
-    directionBadge: "Arah Kami",
-    directionTitle: "Satu workspace simple untuk AI staff dan business conversations.",
-    directionText:
-      "Kolkap bergerak menuju workspace AI staff yang lengkap, tempat bisnis dapat membuat staff, menambah knowledge, test replies, connect channels, mengelola conversations, track leads, dan mengontrol usage.",
-    directionSteps: [
-      "Buat AI staff",
-      "Tambahkan business knowledge",
-      "Test replies",
-      "Connect WhatsApp dan website chat",
-      "Kelola inbox, leads, dan handover",
-      "Track usage, credits, billing, dan top-ups",
-    ],
-
     languageBadge: "Bahasa",
     languageTitle: "Dibangun untuk multilingual business support.",
     languageText:
@@ -330,7 +250,7 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
 
     finalTitle: "Kolkap sedang membangun masa depan AI staff untuk bisnis.",
     finalText:
-      "Buat AI staff, tambahkan business knowledge, connect customer channels, dan bantu team Anda membalas lebih cepat dengan AI workspace yang siap untuk bisnis.",
+      "Buat AI staff, dukung customer conversations, dan bantu team Anda bekerja lebih cepat dengan AI workspace yang simple dan siap untuk bisnis.",
     finalCta: "Mulai Free Trial",
   },
 
@@ -338,7 +258,7 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
     badge: "关于我们",
     title: "我们正在为现代企业打造 AI 员工。",
     subtitle:
-      "Kolkap 的存在，是为了让 AI 真正服务现实中的企业 — 不是又一个普通 AI 工具，而是能理解 business knowledge、支持 customer conversations、管理 leads、并帮助团队更快工作的 AI staff。",
+      "Kolkap 的存在，是为了让 AI 真正服务现实中的企业。我们的重点很简单：帮助企业更快服务客户、保持有序，并以清晰、实用、适合企业的方式使用 AI。",
     primaryCta: "开始免费试用",
     secondaryCta: "查看价格",
     trustPills: [
@@ -349,79 +269,57 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
     ],
 
     storyBadge: "我们的故事",
-    storyTitle: "Kolkap 为每天需要帮助的企业而创建。",
+    storyTitle: "Kolkap 为每天需要支持的企业而创建。",
     storyText: [
       "许多企业每天都会收到重复的问题。客户会询问价格、availability、服务、booking、产品、policy 和下一步。Business owners 和 teams 经常花大量时间重复回复同样的问题。",
-      "Generic AI tools 很强大，但对普通企业用户来说不一定简单。它们经常需要 prompts、technical setup 或手动 copy-paste。",
-      "Kolkap 正是为了解决这个 gap 而创建。我们相信企业需要 AI staff，而不只是 AI tools。AI staff 应该理解企业、清晰回复、支持 inbox、帮助捕捉 leads，并在一个简单 workspace 中工作。",
+      "Kolkap 的创建，是因为我们相信企业需要像员工一样有帮助的 AI，而不是另一个复杂工具。AI 应该理解企业、支持 customer conversations，并让日常工作更简单。",
+      "我们的目标是让企业能够以简单的方式放心使用 AI，同时让人类继续掌控 customer experience。",
     ],
 
     missionBadge: "我们的使命",
     missionTitle: "让 AI staff 对真实企业变得简单、有用、容易使用。",
     missionText:
-      "我们的使命是帮助企业以实际方式使用 AI：更快回复、更好的客户支持、更清晰的 lead handling，以及更少重复 admin work。",
+      "我们的使命是帮助企业节省时间、更快回复、更好支持客户，并通过容易设置、容易使用的 AI staff 减少重复工作。",
 
     visionBadge: "我们的愿景",
     visionTitle: "成为跨多语言市场的可信企业 AI staff 平台。",
     visionText:
-      "我们的愿景是让 Kolkap 成为企业信任的 AI staff 平台，从澳大利亚开始，并扩展到需要 multilingual support、messaging automation 和简单 AI-powered operations 的市场。",
+      "我们的愿景是让 Kolkap 成为企业信任的 AI staff 平台，从澳大利亚开始，并扩展到需要 multilingual customer support、messaging support 和 practical AI-powered operations 的市场。",
 
-    beliefsBadge: "我们的信念",
-    beliefsTitle: "AI 应该支持企业，而不是让企业更复杂。",
-    beliefsText:
-      "Kolkap 围绕简单原则构建，这些原则指导我们的 product、customer experience，以及 AI 应该如何服务企业。",
-    beliefs: [
+    valuesBadge: "我们的信念",
+    valuesTitle: "AI 应该支持企业，而不是让企业更复杂。",
+    valuesText:
+      "Kolkap 围绕简单价值构建，这些价值指导我们的 product、customer experience 和长期方向。",
+    values: [
       {
-        title: "AI 应该简单",
-        text: "企业用户不应该需要理解 webhooks、API keys、workspace routing 或 technical setup。",
+        title: "对企业用户简单",
+        text: "AI 应该让 owners 和 teams 容易使用，即使他们不是 technical users。",
       },
       {
         title: "Business knowledge 很重要",
-        text: "AI staff 应根据企业自己的 knowledge、tone、services、FAQs 和 instructions 作答。",
+        text: "好的 AI staff 应该理解企业、tone、services 和客户需求。",
       },
       {
         title: "人类保持控制",
-        text: "AI 应该支持 teams，而不是取代负责任的人类判断或 customer care。",
+        text: "AI 应该支持 teams 并提高速度，而企业仍然负责 customer experience。",
       },
       {
-        title: "Messaging 应该更容易",
-        text: "WhatsApp、website chat、inbox、leads 和 handover 应在一个 workspace 中保持有序。",
+        title: "客户信任优先",
+        text: "清晰沟通、负责任使用 AI、privacy 和诚实 billing 都很重要。",
       },
       {
-        title: "Usage 应该清楚",
-        text: "企业应该了解 credits 何时被使用，以及每个 AI action 的成本。",
+        title: "Messaging 应该有序",
+        text: "Customer conversations 应该更容易通过 WhatsApp、inbox 和 supported channels 管理。",
       },
       {
-        title: "信任优先",
-        text: "Privacy、account deletion、billing clarity 和 AI limitations 都应清楚告知 users。",
-      },
-    ],
-
-    whatBadge: "Kolkap 做什么",
-    whatTitle: "Kolkap 将 business knowledge 转化为 AI staff。",
-    whatText:
-      "Kolkap 帮助企业创建 AI staff，用于支持真实 customer conversations 和日常业务任务。",
-    whatCards: [
-      {
-        title: "AI replies",
-        text: "为 inbox、WhatsApp、website chat 和 customer support conversations 生成 replies。",
-      },
-      {
-        title: "Knowledge base",
-        text: "添加 business information、services、pricing、FAQs、instructions 和 tone 给您的 AI staff。",
-      },
-      {
-        title: "Inbox 和 leads",
-        text: "在一个地方管理 conversations、handover、customer status、leads 和 follow-up。",
-      },
-      {
-        title: "Usage 和 billing",
-        text: "清楚追踪 credits、usage、plan status、trial、billing 和 top-up needs。",
+        title: "增长应该可管理",
+        text: "当企业成长时，AI 应帮助 teams 处理更多 conversations，同时保持质量。",
       },
     ],
 
     serveBadge: "我们服务谁",
-    serveTitle: "为 service businesses、local businesses、teams 和 growing companies 而建。",
+    serveTitle:
+      "为 service businesses、local businesses、teams 和 growing companies 而建。",
     serveText:
       "Kolkap 适合经常收到 customer questions、leads、bookings、inquiries、support requests 或重复消息的企业。",
     serveList: [
@@ -435,19 +333,6 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
       "使用 WhatsApp 获取 leads 的 local businesses",
     ],
 
-    directionBadge: "我们的方向",
-    directionTitle: "一个简单 workspace，管理 AI staff 和 business conversations。",
-    directionText:
-      "Kolkap 正朝着完整 AI staff workspace 发展，让企业能够创建 staff、添加 knowledge、test replies、connect channels、管理 conversations、track leads，并控制 usage。",
-    directionSteps: [
-      "创建 AI staff",
-      "添加 business knowledge",
-      "测试 replies",
-      "连接 WhatsApp 和 website chat",
-      "管理 inbox、leads 和 handover",
-      "追踪 usage、credits、billing 和 top-ups",
-    ],
-
     languageBadge: "语言",
     languageTitle: "为 multilingual business support 而设计。",
     languageText:
@@ -456,7 +341,7 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
 
     finalTitle: "Kolkap 正在构建企业 AI staff 的未来。",
     finalText:
-      "创建 AI staff、添加 business knowledge、connect customer channels，并用 business-ready AI workspace 帮助您的团队更快回复。",
+      "创建 AI staff、支持 customer conversations，并用简单、business-ready 的 AI workspace 帮助您的团队更快工作。",
     finalCta: "开始免费试用",
   },
 
@@ -464,7 +349,7 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
     badge: "Tentang Kami",
     title: "Kami membina AI staff untuk bisnes moden.",
     subtitle:
-      "Kolkap wujud untuk menjadikan AI praktikal untuk bisnes sebenar — bukan sebagai generic AI tool, tetapi sebagai AI staff yang memahami business knowledge, menyokong customer conversations, mengurus leads, dan membantu teams bekerja lebih cepat.",
+      "Kolkap wujud untuk menjadikan AI praktikal untuk bisnes sebenar. Fokus kami simple: membantu bisnes melayani customers lebih cepat, kekal teratur, dan menggunakan AI dengan cara yang jelas, berguna, dan business-ready.",
     primaryCta: "Mulakan Free Trial",
     secondaryCta: "Lihat Pricing",
     trustPills: [
@@ -475,79 +360,59 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
     ],
 
     storyBadge: "Cerita Kami",
-    storyTitle: "Kolkap dicipta untuk bisnes yang perlukan bantuan setiap hari.",
+    storyTitle: "Kolkap dicipta untuk bisnes yang perlukan sokongan harian.",
     storyText: [
-      "Banyak bisnes menerima soalan yang sama berulang kali. Customers bertanya tentang pricing, availability, services, bookings, products, policies, dan next steps. Business owners dan teams sering menghabiskan masa membalas perkara yang sama.",
-      "Generic AI tools boleh jadi powerful, tetapi tidak selalu mudah untuk pengguna bisnes biasa. Ia sering memerlukan prompts, technical setup, atau manual copy-paste work.",
-      "Kolkap dicipta untuk menyelesaikan gap itu. Kami percaya bisnes memerlukan AI staff — bukan sekadar AI tools. AI staff perlu memahami bisnes, membalas dengan jelas, menyokong inbox, membantu capture leads, dan bekerja dalam satu workspace yang simple.",
+      "Banyak bisnes menerima soalan yang sama setiap hari. Customers bertanya tentang pricing, availability, services, bookings, products, policies, dan next steps. Business owners dan teams sering kehilangan banyak masa membalas perkara yang sama.",
+      "Kolkap dicipta kerana kami percaya bisnes memerlukan AI yang terasa seperti staff yang membantu, bukan tool rumit yang lain. AI patut memahami bisnes, menyokong customer conversations, dan memudahkan kerja harian.",
+      "Matlamat kami ialah memberi bisnes cara yang simple untuk menggunakan AI dengan yakin, sambil memastikan manusia kekal mengawal customer experience.",
     ],
 
     missionBadge: "Misi Kami",
-    missionTitle: "Menjadikan AI staff simple, berguna, dan mudah digunakan untuk bisnes sebenar.",
+    missionTitle:
+      "Menjadikan AI staff simple, berguna, dan mudah digunakan untuk bisnes sebenar.",
     missionText:
-      "Misi kami adalah membantu bisnes menggunakan AI secara praktikal: replies lebih cepat, customer support lebih baik, lead handling lebih jelas, dan kurang repetitive admin work.",
+      "Misi kami adalah membantu bisnes menjimatkan masa, membalas lebih cepat, menyokong customers dengan lebih baik, dan mengurangkan repetitive work dengan AI staff yang mudah disediakan dan mudah digunakan.",
 
     visionBadge: "Visi Kami",
-    visionTitle: "Menjadi platform AI staff yang dipercayai untuk bisnes dalam multilingual markets.",
+    visionTitle:
+      "Menjadi platform AI staff yang dipercayai untuk bisnes dalam multilingual markets.",
     visionText:
-      "Visi kami adalah menjadikan Kolkap platform AI staff yang dipercayai untuk bisnes, bermula dari Australia dan berkembang ke markets yang memerlukan multilingual support, messaging automation, dan AI-powered operations yang simple.",
+      "Visi kami adalah menjadikan Kolkap platform AI staff yang dipercayai untuk bisnes, bermula dari Australia dan berkembang ke markets yang memerlukan multilingual customer support, messaging support, dan practical AI-powered operations.",
 
-    beliefsBadge: "Apa Kami Percaya",
-    beliefsTitle: "AI patut menyokong bisnes, bukan menyusahkan.",
-    beliefsText:
-      "Kolkap dibina berdasarkan prinsip simple yang memandu product, customer experience, dan cara AI patut bekerja untuk bisnes.",
-    beliefs: [
+    valuesBadge: "Apa Kami Percaya",
+    valuesTitle: "AI patut menyokong bisnes, bukan menyusahkan.",
+    valuesText:
+      "Kolkap dibina berdasarkan nilai simple yang memandu product, customer experience, dan arah jangka panjang kami.",
+    values: [
       {
-        title: "AI perlu simple",
-        text: "Pengguna bisnes tidak perlu memahami webhooks, API keys, workspace routing, atau technical setup.",
+        title: "Simple untuk pengguna bisnes",
+        text: "AI patut mudah digunakan oleh owners dan teams, walaupun mereka bukan technical users.",
       },
       {
         title: "Business knowledge penting",
-        text: "AI staff patut menjawab berdasarkan knowledge, tone, services, FAQs, dan instructions bisnes sendiri.",
+        text: "AI staff yang baik patut memahami bisnes, tone, services, dan customer needs.",
       },
       {
         title: "Manusia kekal mengawal",
-        text: "AI patut menyokong teams, bukan menggantikan human judgment atau customer care yang bertanggungjawab.",
+        text: "AI patut menyokong teams dan meningkatkan speed, sementara bisnes kekal bertanggungjawab atas customer experience.",
       },
       {
-        title: "Messaging perlu lebih mudah",
-        text: "WhatsApp, website chat, inbox, leads, dan handover patut tersusun dalam satu workspace.",
+        title: "Customer trust didahulukan",
+        text: "Clear communication, responsible AI use, privacy, dan honest billing adalah penting.",
       },
       {
-        title: "Usage perlu jelas",
-        text: "Bisnes perlu faham bila credits digunakan dan kos setiap AI action.",
+        title: "Messaging patut teratur",
+        text: "Customer conversations patut lebih mudah diurus melalui WhatsApp, inbox, dan supported channels.",
       },
       {
-        title: "Trust didahulukan",
-        text: "Privacy, account deletion, billing clarity, dan AI limitations perlu jelas kepada users.",
-      },
-    ],
-
-    whatBadge: "Apa Kolkap Buat",
-    whatTitle: "Kolkap menukar business knowledge menjadi AI staff.",
-    whatText:
-      "Kolkap membantu bisnes mencipta AI staff yang boleh menyokong customer conversations sebenar dan tugas harian bisnes.",
-    whatCards: [
-      {
-        title: "AI replies",
-        text: "Generate replies untuk inbox, WhatsApp, website chat, dan customer support conversations.",
-      },
-      {
-        title: "Knowledge base",
-        text: "Tambah business information, services, pricing, FAQs, instructions, dan tone untuk AI staff anda.",
-      },
-      {
-        title: "Inbox dan leads",
-        text: "Urus conversations, handover, customer status, leads, dan follow-up dalam satu tempat.",
-      },
-      {
-        title: "Usage dan billing",
-        text: "Track credits, usage, plan status, trial, billing, dan top-up needs dengan jelas.",
+        title: "Growth patut manageable",
+        text: "Apabila bisnes berkembang, AI patut membantu team mengurus lebih banyak conversations tanpa kehilangan quality.",
       },
     ],
 
     serveBadge: "Siapa Kami Serve",
-    serveTitle: "Dibina untuk service businesses, local businesses, teams, dan growing companies.",
+    serveTitle:
+      "Dibina untuk service businesses, local businesses, teams, dan growing companies.",
     serveText:
       "Kolkap berguna untuk bisnes yang menerima customer questions, leads, bookings, inquiries, support requests, atau mesej berulang.",
     serveList: [
@@ -561,19 +426,6 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
       "Local businesses menggunakan WhatsApp untuk leads",
     ],
 
-    directionBadge: "Arah Kami",
-    directionTitle: "Satu workspace simple untuk AI staff dan business conversations.",
-    directionText:
-      "Kolkap bergerak ke arah complete AI staff workspace di mana bisnes boleh create staff, add knowledge, test replies, connect channels, manage conversations, track leads, dan control usage.",
-    directionSteps: [
-      "Cipta AI staff",
-      "Tambah business knowledge",
-      "Test replies",
-      "Connect WhatsApp dan website chat",
-      "Urus inbox, leads, dan handover",
-      "Track usage, credits, billing, dan top-ups",
-    ],
-
     languageBadge: "Bahasa",
     languageTitle: "Dibina untuk multilingual business support.",
     languageText:
@@ -582,7 +434,7 @@ const translations: Record<SupportedLanguage, AboutTranslation> = {
 
     finalTitle: "Kolkap sedang membina masa depan AI staff untuk bisnes.",
     finalText:
-      "Cipta AI staff, tambah business knowledge, connect customer channels, dan bantu team anda membalas lebih cepat dengan business-ready AI workspace.",
+      "Cipta AI staff, sokong customer conversations, dan bantu team anda bekerja lebih cepat dengan AI workspace yang simple dan business-ready.",
     finalCta: "Mulakan Free Trial",
   },
 };
@@ -593,16 +445,14 @@ function getSupportedLanguage(language: string): SupportedLanguage {
     : "en";
 }
 
-const beliefIcons: LucideIcon[] = [
-  Zap,
-  Brain,
+const valueIcons: LucideIcon[] = [
+  Lightbulb,
+  Building2,
   HeartHandshake,
-  MessageCircle,
-  WalletCards,
   ShieldCheck,
+  MessageCircle,
+  UsersRound,
 ];
-
-const whatIcons: LucideIcon[] = [Bot, Brain, Inbox, WalletCards];
 
 export default function AboutPage() {
   const { language } = useKolkapLanguage();
@@ -724,24 +574,24 @@ export default function AboutPage() {
       <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8">
         <div className="rounded-[2.2rem] border border-slate-200 bg-white p-7 shadow-sm shadow-slate-900/5 sm:p-9">
           <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-            {t.beliefsBadge}
+            {t.valuesBadge}
           </p>
 
           <h2 className="mt-3 max-w-4xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl">
-            {t.beliefsTitle}
+            {t.valuesTitle}
           </h2>
 
           <p className="mt-5 max-w-4xl text-lg font-semibold leading-8 text-slate-600">
-            {t.beliefsText}
+            {t.valuesText}
           </p>
 
           <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {t.beliefs.map((belief, index) => {
-              const Icon = beliefIcons[index] || CheckCircle2;
+            {t.values.map((value, index) => {
+              const Icon = valueIcons[index] || CheckCircle2;
 
               return (
                 <div
-                  key={belief.title}
+                  key={value.title}
                   className="rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-6"
                 >
                   <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
@@ -749,58 +599,11 @@ export default function AboutPage() {
                   </div>
 
                   <h3 className="text-2xl font-black tracking-[-0.04em]">
-                    {belief.title}
+                    {value.title}
                   </h3>
 
                   <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
-                    {belief.text}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
-          <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-              <Bot className="h-8 w-8" />
-            </div>
-
-            <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              {t.whatBadge}
-            </p>
-
-            <h2 className="mt-3 text-4xl font-black leading-tight tracking-[-0.05em]">
-              {t.whatTitle}
-            </h2>
-
-            <p className="mt-5 text-lg font-semibold leading-8 text-slate-600">
-              {t.whatText}
-            </p>
-          </div>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            {t.whatCards.map((card, index) => {
-              const Icon = whatIcons[index] || Bot;
-
-              return (
-                <div
-                  key={card.title}
-                  className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5"
-                >
-                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-                    <Icon className="h-7 w-7" />
-                  </div>
-
-                  <h3 className="text-2xl font-black tracking-[-0.04em]">
-                    {card.title}
-                  </h3>
-
-                  <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
-                    {card.text}
+                    {value.text}
                   </p>
                 </div>
               );
@@ -863,37 +666,6 @@ export default function AboutPage() {
                 className="rounded-3xl border border-white/10 bg-white/5 p-4 text-base font-black text-white"
               >
                 {item}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8">
-        <div className="rounded-[2.2rem] border border-slate-200 bg-white p-7 shadow-sm shadow-slate-900/5 sm:p-9">
-          <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-            {t.directionBadge}
-          </p>
-
-          <h2 className="mt-3 max-w-4xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl">
-            {t.directionTitle}
-          </h2>
-
-          <p className="mt-5 max-w-4xl text-lg font-semibold leading-8 text-slate-600">
-            {t.directionText}
-          </p>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {t.directionSteps.map((step, index) => (
-              <div
-                key={step}
-                className="rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-6"
-              >
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#07111F] text-lg font-black text-[#7CFF3D]">
-                  {index + 1}
-                </span>
-
-                <p className="mt-5 text-xl font-black leading-8">{step}</p>
               </div>
             ))}
           </div>
