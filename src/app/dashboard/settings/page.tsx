@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import {
+  AlertTriangle,
   ArrowLeft,
   Bell,
   Bot,
@@ -19,12 +20,13 @@ import {
   Save,
   ShieldCheck,
   Sparkles,
+  Trash2,
   UserRound,
   WalletCards,
 } from "lucide-react";
 import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
-import { getKolkapPlan, getPlanAIStaffLabel, getPlanCreditLabel } from "@/lib/kolkapPlan";
+import { getKolkapPlan, getPlanAIStaffLabel } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 const translations = {
@@ -76,6 +78,10 @@ const translations = {
     notifyHandover: "Notify me when handover is needed",
     notifyLowCredits: "Notify me when credits are low",
     notifyDailySummary: "Send daily inbox summary",
+    deleteAccount: "Delete Account",
+    deleteAccountText:
+      "Need to leave Kolkap? You can permanently delete your account and workspace data.",
+    deleteAccountButton: "Delete account",
     statuses: {
       not_connected: "Not connected",
       connected: "Connected",
@@ -175,6 +181,10 @@ const translations = {
     notifyHandover: "Notifikasi saat handover dibutuhkan",
     notifyLowCredits: "Notifikasi saat credits rendah",
     notifyDailySummary: "Kirim ringkasan inbox harian",
+    deleteAccount: "Hapus Akun",
+    deleteAccountText:
+      "Ingin keluar dari Kolkap? Anda dapat menghapus akun dan workspace data secara permanen.",
+    deleteAccountButton: "Hapus akun",
     statuses: {
       not_connected: "Belum terhubung",
       connected: "Terhubung",
@@ -273,6 +283,10 @@ const translations = {
     notifyHandover: "需要人工接手时通知",
     notifyLowCredits: "credits 较低时通知",
     notifyDailySummary: "发送每日收件箱摘要",
+    deleteAccount: "删除账户",
+    deleteAccountText:
+      "如果您需要离开 Kolkap，可以永久删除您的账户和 workspace 数据。",
+    deleteAccountButton: "删除账户",
     statuses: {
       not_connected: "未连接",
       connected: "已连接",
@@ -304,7 +318,16 @@ const translations = {
       "专业服务",
       "其他",
     ],
-    tones: ["友好专业", "温暖亲切", "正式", "直接", "销售型", "高端奢华", "支持型", "轻松自然"],
+    tones: [
+      "友好专业",
+      "温暖亲切",
+      "正式",
+      "直接",
+      "销售型",
+      "高端奢华",
+      "支持型",
+      "轻松自然",
+    ],
     handoverRules: [
       "当客户要求人工支持",
       "当 AI 不确定时",
@@ -363,6 +386,10 @@ const translations = {
     notifyHandover: "Notifikasi apabila handover diperlukan",
     notifyLowCredits: "Notifikasi apabila credits rendah",
     notifyDailySummary: "Hantar ringkasan inbox harian",
+    deleteAccount: "Padam Akaun",
+    deleteAccountText:
+      "Mahu keluar dari Kolkap? Anda boleh memadam akaun dan workspace data secara kekal.",
+    deleteAccountButton: "Padam akaun",
     statuses: {
       not_connected: "Belum bersambung",
       connected: "Bersambung",
@@ -415,14 +442,24 @@ const translations = {
   },
 };
 
+type LanguageKey = keyof typeof translations;
+
+function getTranslation(language: string) {
+  if (language === "id" || language === "zh" || language === "ms") {
+    return translations[language as LanguageKey];
+  }
+
+  return translations.en;
+}
+
 export default function SettingsPage() {
   const { language } = useKolkapLanguage();
-  const t = translations[language as keyof typeof translations] || translations.en;
+  const t = getTranslation(language);
   const workspaceState = useKolkapWorkspace();
   const currentPlan = getKolkapPlan(workspaceState.planKey);
 
   const [businessName, setBusinessName] = useState("");
-  const [businessType, setBusinessType] = useState(t.businessTypes[0]);
+  const [businessType, setBusinessType] = useState("");
   const [businessEmail, setBusinessEmail] = useState("");
   const [businessPhone, setBusinessPhone] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
@@ -432,7 +469,7 @@ export default function SettingsPage() {
 
   const [aiReplyLanguage, setAiReplyLanguage] = useState("Auto-detect");
   const [aiReplyTone, setAiReplyTone] = useState("Friendly Professional");
-  const [handoverRule, setHandoverRule] = useState(t.handoverRules[0]);
+  const [handoverRule, setHandoverRule] = useState("");
   const [aiInstruction, setAiInstruction] = useState("");
 
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(true);
@@ -454,8 +491,13 @@ export default function SettingsPage() {
       return;
     }
 
+    const translated = getTranslation(language);
+    const defaultBusinessType = translated.businessTypes[0] || "Other";
+    const defaultHandoverRule =
+      translated.handoverRules[0] || "When customer asks for a human";
+
     setBusinessName(workspace.business_name ?? "");
-    setBusinessType(workspace.business_type ?? t.businessTypes[0]);
+    setBusinessType(workspace.business_type ?? defaultBusinessType);
     setBusinessEmail(workspace.business_email ?? "");
     setBusinessPhone(workspace.business_phone ?? "");
     setWhatsappNumber(workspace.whatsapp_number ?? "");
@@ -465,7 +507,7 @@ export default function SettingsPage() {
 
     setAiReplyLanguage(workspace.ai_reply_language ?? "Auto-detect");
     setAiReplyTone(workspace.ai_reply_tone ?? "Friendly Professional");
-    setHandoverRule(workspace.handover_rule ?? t.handoverRules[0]);
+    setHandoverRule(workspace.handover_rule ?? defaultHandoverRule);
     setAiInstruction(workspace.ai_instruction ?? "");
 
     setAutoReplyEnabled(workspace.auto_reply_enabled ?? true);
@@ -503,7 +545,7 @@ export default function SettingsPage() {
         timezone: timezone || "Asia/Makassar",
         ai_reply_language: aiReplyLanguage || "Auto-detect",
         ai_reply_tone: aiReplyTone || "Friendly Professional",
-        handover_rule: handoverRule || t.handoverRules[0],
+        handover_rule: handoverRule || "When customer asks for a human",
         ai_instruction: aiInstruction.trim() || null,
         auto_reply_enabled: autoReplyEnabled,
         human_handover_enabled: humanHandoverEnabled,
@@ -941,6 +983,32 @@ export default function SettingsPage() {
                   <Save className="h-6 w-6" />
                   {isSaving ? t.saving : t.saveChanges}
                 </button>
+              </div>
+            </section>
+
+            <section className="rounded-[2.2rem] border border-red-200 bg-red-50 p-6 shadow-sm shadow-red-900/5 sm:p-8">
+              <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
+                <div>
+                  <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-600 text-white">
+                    <AlertTriangle className="h-8 w-8" />
+                  </div>
+
+                  <p className="text-lg font-black uppercase tracking-[0.18em] text-red-700">
+                    {t.deleteAccount}
+                  </p>
+
+                  <h2 className="mt-3 max-w-3xl text-3xl font-black leading-tight tracking-[-0.04em] text-red-950">
+                    {t.deleteAccountText}
+                  </h2>
+                </div>
+
+                <Link
+                  href="/dashboard/settings/delete-account"
+                  className="inline-flex items-center justify-center gap-3 rounded-full bg-red-600 px-8 py-5 text-xl font-black text-white shadow-xl shadow-red-900/10 transition hover:-translate-y-0.5"
+                >
+                  <Trash2 className="h-6 w-6" />
+                  {t.deleteAccountButton}
+                </Link>
               </div>
             </section>
           </div>
