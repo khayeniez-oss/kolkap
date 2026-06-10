@@ -52,6 +52,7 @@ const translations = {
     logout: "Logout",
     language: "Language",
     notifications: "Notifications",
+    logoSubtitle: "24/7 AI Staff Responses",
   },
   id: {
     login: "Login",
@@ -60,6 +61,7 @@ const translations = {
     logout: "Logout",
     language: "Language",
     notifications: "Notifications",
+    logoSubtitle: "24/7 AI Staff Responses",
   },
   zh: {
     login: "登录",
@@ -68,6 +70,7 @@ const translations = {
     logout: "Logout",
     language: "语言",
     notifications: "通知",
+    logoSubtitle: "24/7 AI Staff Responses",
   },
   ms: {
     login: "Login",
@@ -76,6 +79,7 @@ const translations = {
     logout: "Logout",
     language: "Language",
     notifications: "Notifications",
+    logoSubtitle: "24/7 AI Staff Responses",
   },
 };
 
@@ -128,8 +132,17 @@ export default function KolkapUserHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="shrink-0">
-          <KolkapLogo size="sm" />
+        <Link href="/" className="flex shrink-0 items-center gap-4">
+          <KolkapLogo size="sm" showText={false} />
+
+          <div className="min-w-0">
+            <p className="text-2xl font-black leading-none tracking-[-0.055em] text-[#07111F]">
+              kolkap
+            </p>
+            <p className="mt-2 text-[0.68rem] font-black uppercase tracking-[0.14em] text-slate-600">
+              {t.logoSubtitle}
+            </p>
+          </div>
         </Link>
 
         <nav className="hidden items-center gap-3 lg:flex">

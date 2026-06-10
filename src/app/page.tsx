@@ -21,17 +21,19 @@ import KolkapLogo from "@/components/brand/KolkapLogo";
 
 const STARTER_SIGNUP_URL = "/signup?plan=starter";
 
+type SupportedLanguage = "en" | "id" | "zh" | "ms";
+
 const translations = {
   en: {
     badge: "AI staff for replies, leads, support, and content",
-    heroTitle: "Your AI business team, always on.",
+    heroTitle: "AI staff that helps your business reply faster.",
     heroText:
-      "Kolkap helps businesses create AI staff to reply to customers, capture leads, support daily operations, and generate content across WhatsApp, website chat, and more.",
-    start: "Start with Kolkap",
+      "Kolkap helps businesses create AI staff for customer replies, WhatsApp conversations, website chat, lead capture, support, and content — all in one simple workspace.",
+    start: "Start Free Trial",
     login: "Log in",
-    heroCustomer: "Hi, can your AI reply to my customers on WhatsApp?",
+    heroCustomer: "Hi, can your AI help reply to my customers on WhatsApp?",
     heroAI:
-      "Yes. Create your AI, add your business knowledge, connect WhatsApp, test it, then go live.",
+      "Yes. Create your AI staff, add your business knowledge, test the replies, and go live when you are ready.",
     setup: "Setup",
     simple: "Simple",
     channel: "Channel",
@@ -39,47 +41,47 @@ const translations = {
     ready: "Ready",
     whatLabel: "What is Kolkap?",
     whatTitle:
-      "Kolkap is an AI staff platform for customer replies, leads, and business support.",
+      "Kolkap is an AI staff platform for businesses that receive customer messages.",
     whatText:
-      "Kolkap is built for business owners who want AI help without technical confusion. You create the AI, teach it your business knowledge, test it, and activate it when ready.",
+      "Kolkap is built for business owners and teams who want AI support without confusion. Your AI staff can learn your business knowledge, help reply to customers, support your inbox, capture leads, and assist your daily work.",
     whatCards: [
       {
         title: "Reply faster",
-        text: "Let AI answer common customer questions instantly.",
+        text: "Answer common customer questions faster across WhatsApp, website chat, and inbox conversations.",
       },
       {
-        title: "Capture leads",
-        text: "Collect names, contact details, needs, budget, and timeline.",
+        title: "Capture better leads",
+        text: "Collect important customer details like name, contact, needs, budget, timeline, and next steps.",
       },
       {
         title: "Support your team",
-        text: "Let humans take over when the customer needs real help.",
+        text: "Let AI handle repetitive questions while your team takes over when a human is needed.",
       },
     ],
     setupLabel: "Simple setup",
-    setupTitle: "Create AI → Add knowledge → Test → Go live.",
+    setupTitle: "Create your AI staff, teach it your business, then go live.",
     setupText:
-      "No webhook. No API token. No confusing provider setup. Kolkap keeps the customer flow simple and handles the technical side behind the scenes.",
+      "Kolkap keeps the setup simple for business users. You create your AI staff, add your business information, test the replies, connect your customer channels, and activate it when ready.",
     steps: [
       {
-        title: "Create your AI",
-        text: "Choose what your AI should do for your business.",
+        title: "Create your AI staff",
+        text: "Choose the role your AI staff should play in your business.",
       },
       {
-        title: "Add knowledge",
-        text: "Teach Kolkap your FAQs, services, pricing, policies, and approved answers.",
+        title: "Add business knowledge",
+        text: "Add your FAQs, services, pricing, policies, tone, and approved answers.",
       },
       {
         title: "Connect WhatsApp",
-        text: "Connect your business WhatsApp using a simple guided flow.",
+        text: "Connect your business WhatsApp through a guided customer-friendly flow.",
       },
       {
-        title: "Test AI",
-        text: "Send sample questions and review the replies before customers see it.",
+        title: "Test replies",
+        text: "Ask sample questions and review the answers before customers see them.",
       },
       {
         title: "Go live",
-        text: "Activate AI when your setup is ready.",
+        text: "Activate your AI staff when your business is ready.",
       },
     ],
     rolesLabel: "AI staff roles",
@@ -91,135 +93,43 @@ const translations = {
       },
       {
         title: "AI WhatsApp Responder",
-        text: "Replies to WhatsApp inquiries and qualifies leads.",
+        text: "Replies to WhatsApp inquiries and helps qualify customer leads.",
       },
       {
         title: "AI Customer Support",
-        text: "Answers FAQs, pricing, services, policies, and support questions.",
+        text: "Answers common questions about services, pricing, policies, and support.",
       },
       {
         title: "AI Copywriter",
         text: "Creates captions, scripts, ad copy, and customer messages.",
       },
     ],
-    privateLabel: "Private workspace",
-    privateTitle: "One Kolkap platform. Private AI for every business.",
+    privateLabel: "Private business workspace",
+    privateTitle: "Your AI staff works with your own business information.",
     privateText:
-      "Each business has its own AI staff, knowledge base, inbox, leads, settings, and rules. Kolkap replies using the correct business context only.",
+      "Each business has its own workspace, AI staff, business knowledge, inbox, leads, settings, and team access. Kolkap keeps every business experience separate and organized.",
     privateRules: [
-      "Each business keeps its own private knowledge.",
-      "Customer messages go to the correct inbox.",
-      "Leads are saved under the correct business.",
-      "Human handover happens when needed.",
+      "Your business knowledge stays inside your own workspace.",
+      "Customer conversations are organized under the correct business.",
+      "Leads are saved clearly for follow-up.",
+      "Human handover is available when your team needs to step in.",
     ],
-    finalTitle: "Create your AI business team without the technical headache.",
+    finalTitle: "Give your business AI staff without making things complicated.",
     finalText:
-      "Start simple: create your AI, add knowledge, test replies, and go live when ready.",
-    finalButton: "Create AI",
+      "Start with a simple trial. Create your AI staff, add your business knowledge, test replies, and go live when you are ready.",
+    finalButton: "Start Free Trial",
   },
-  zh: {
-    badge: "用于回复、线索、客服和内容的 AI 员工",
-    heroTitle: "您的 AI 商业团队，随时在线。",
-    heroText:
-      "Kolkap 帮助企业创建 AI 员工，用于回复客户、捕获线索、支持日常运营，并在 WhatsApp、网站聊天等渠道生成内容。",
-    start: "开始使用 Kolkap",
-    login: "登录",
-    heroCustomer: "你好，你们的 AI 可以在 WhatsApp 回复我的客户吗？",
-    heroAI:
-      "可以。创建 AI，添加企业知识，连接 WhatsApp，测试后即可上线。",
-    setup: "设置",
-    simple: "简单",
-    channel: "渠道",
-    handover: "人工接手",
-    ready: "已准备",
-    whatLabel: "什么是 Kolkap？",
-    whatTitle: "Kolkap 是用于客户回复、线索和商业支持的 AI 员工平台。",
-    whatText:
-      "Kolkap 专为不想处理技术复杂度的企业主打造。您只需创建 AI、教它企业知识、测试回复，并在准备好后上线。",
-    whatCards: [
-      {
-        title: "更快回复",
-        text: "让 AI 立即回答常见客户问题。",
-      },
-      {
-        title: "捕获线索",
-        text: "收集姓名、联系方式、需求、预算和时间线。",
-      },
-      {
-        title: "支持团队",
-        text: "当客户需要真人帮助时，让团队接手。",
-      },
-    ],
-    setupLabel: "简单设置",
-    setupTitle: "创建 AI → 添加知识 → 测试 → 上线。",
-    setupText:
-      "无需 webhook。无需 API token。无需复杂的供应商设置。Kolkap 让用户流程保持简单，并在后台处理技术部分。",
-    steps: [
-      {
-        title: "创建 AI",
-        text: "选择 AI 应该为您的业务做什么。",
-      },
-      {
-        title: "添加知识",
-        text: "教 Kolkap 您的 FAQ、服务、价格、政策和批准答案。",
-      },
-      {
-        title: "连接 WhatsApp",
-        text: "通过简单的引导流程连接您的企业 WhatsApp。",
-      },
-      {
-        title: "测试 AI",
-        text: "发送示例问题，并在客户看到前检查回复。",
-      },
-      {
-        title: "上线",
-        text: "当设置完成后启用 AI。",
-      },
-    ],
-    rolesLabel: "AI 员工角色",
-    rolesTitle: "选择您的业务需要的 AI 角色。",
-    roles: [
-      {
-        title: "AI 接待员",
-        text: "欢迎客户，询问需求，并收集基本信息。",
-      },
-      {
-        title: "AI WhatsApp 回复员",
-        text: "回复 WhatsApp 咨询并筛选线索。",
-      },
-      {
-        title: "AI 客户支持",
-        text: "回答 FAQ、价格、服务、政策和支持问题。",
-      },
-      {
-        title: "AI 文案助手",
-        text: "创建标题、脚本、广告文案和客户消息。",
-      },
-    ],
-    privateLabel: "私有工作区",
-    privateTitle: "一个 Kolkap 平台。每个企业都有私有 AI。",
-    privateText:
-      "每个企业都有自己的 AI 员工、知识库、收件箱、线索、设置和规则。Kolkap 只使用正确的企业上下文回复。",
-    privateRules: [
-      "每个企业保留自己的私有知识。",
-      "客户消息进入正确的收件箱。",
-      "线索保存在正确的企业下。",
-      "需要时可由人工接手。",
-    ],
-    finalTitle: "无需技术压力，创建您的 AI 商业团队。",
-    finalText: "从简单开始：创建 AI、添加知识、测试回复，并在准备好后上线。",
-    finalButton: "创建 AI",
-  },
+
   id: {
     badge: "AI staff untuk balasan, leads, support, dan konten",
-    heroTitle: "Tim bisnis AI Anda, selalu aktif.",
+    heroTitle: "AI staff yang membantu bisnis Anda membalas lebih cepat.",
     heroText:
-      "Kolkap membantu bisnis membuat AI staff untuk membalas pelanggan, menangkap leads, mendukung operasional harian, dan membuat konten melalui WhatsApp, website chat, dan lainnya.",
-    start: "Mulai dengan Kolkap",
+      "Kolkap membantu bisnis membuat AI staff untuk customer replies, WhatsApp conversations, website chat, lead capture, support, dan content — semua dalam satu workspace yang simple.",
+    start: "Mulai Free Trial",
     login: "Masuk",
-    heroCustomer: "Hai, apakah AI Anda bisa membalas pelanggan saya di WhatsApp?",
+    heroCustomer: "Hai, apakah AI bisa membantu membalas customer saya di WhatsApp?",
     heroAI:
-      "Bisa. Buat AI Anda, tambahkan pengetahuan bisnis, hubungkan WhatsApp, tes, lalu aktifkan.",
+      "Bisa. Buat AI staff Anda, tambahkan business knowledge, test balasannya, lalu aktifkan saat sudah siap.",
     setup: "Setup",
     simple: "Mudah",
     channel: "Channel",
@@ -227,47 +137,47 @@ const translations = {
     ready: "Siap",
     whatLabel: "Apa itu Kolkap?",
     whatTitle:
-      "Kolkap adalah platform AI staff untuk balasan pelanggan, leads, dan dukungan bisnis.",
+      "Kolkap adalah platform AI staff untuk bisnis yang menerima pesan dari customer.",
     whatText:
-      "Kolkap dibuat untuk pemilik bisnis yang ingin bantuan AI tanpa kebingungan teknis. Anda membuat AI, mengajarkan pengetahuan bisnis, mengetesnya, lalu mengaktifkannya saat siap.",
+      "Kolkap dibuat untuk business owners dan team yang ingin bantuan AI tanpa kebingungan. AI staff Anda dapat belajar dari business knowledge, membantu membalas customer, mendukung inbox, menangkap leads, dan membantu pekerjaan harian.",
     whatCards: [
       {
         title: "Balas lebih cepat",
-        text: "Biarkan AI menjawab pertanyaan umum pelanggan secara instan.",
+        text: "Jawab pertanyaan umum customer lebih cepat melalui WhatsApp, website chat, dan inbox conversations.",
       },
       {
-        title: "Tangkap leads",
-        text: "Kumpulkan nama, kontak, kebutuhan, budget, dan timeline.",
+        title: "Tangkap leads lebih baik",
+        text: "Kumpulkan detail penting customer seperti nama, kontak, kebutuhan, budget, timeline, dan next step.",
       },
       {
-        title: "Dukung tim",
-        text: "Biarkan manusia mengambil alih saat pelanggan perlu bantuan nyata.",
+        title: "Dukung team Anda",
+        text: "Biarkan AI menangani pertanyaan berulang, sementara team Anda mengambil alih saat manusia dibutuhkan.",
       },
     ],
     setupLabel: "Setup mudah",
-    setupTitle: "Buat AI → Tambah pengetahuan → Tes → Aktifkan.",
+    setupTitle: "Buat AI staff, ajarkan bisnis Anda, lalu aktifkan.",
     setupText:
-      "Tidak perlu webhook. Tidak perlu API token. Tidak perlu setup provider yang membingungkan. Kolkap menjaga alur pengguna tetap mudah dan menangani teknis di belakang layar.",
+      "Kolkap menjaga proses setup tetap simple untuk pengguna bisnis. Anda membuat AI staff, menambahkan informasi bisnis, mengetes balasan, menghubungkan customer channels, lalu mengaktifkannya saat siap.",
     steps: [
       {
-        title: "Buat AI Anda",
-        text: "Pilih apa yang AI harus lakukan untuk bisnis Anda.",
+        title: "Buat AI staff Anda",
+        text: "Pilih peran yang harus dilakukan AI staff untuk bisnis Anda.",
       },
       {
-        title: "Tambah pengetahuan",
-        text: "Ajarkan FAQ, layanan, harga, kebijakan, dan jawaban yang sudah disetujui.",
+        title: "Tambahkan business knowledge",
+        text: "Tambahkan FAQ, layanan, harga, policy, tone, dan jawaban yang sudah disetujui.",
       },
       {
         title: "Hubungkan WhatsApp",
-        text: "Hubungkan WhatsApp bisnis Anda dengan alur yang mudah.",
+        text: "Hubungkan WhatsApp bisnis Anda melalui alur yang mudah dipandu.",
       },
       {
-        title: "Tes AI",
-        text: "Kirim pertanyaan contoh dan cek balasan sebelum pelanggan melihatnya.",
+        title: "Test balasan",
+        text: "Kirim pertanyaan contoh dan review jawaban sebelum customer melihatnya.",
       },
       {
         title: "Aktifkan",
-        text: "Aktifkan AI saat setup sudah siap.",
+        text: "Aktifkan AI staff saat bisnis Anda sudah siap.",
       },
     ],
     rolesLabel: "Peran AI staff",
@@ -275,94 +185,191 @@ const translations = {
     roles: [
       {
         title: "AI Receptionist",
-        text: "Menyambut pelanggan, menanyakan kebutuhan, dan mengumpulkan detail dasar.",
+        text: "Menyambut customer, menanyakan kebutuhan, dan mengumpulkan detail dasar.",
       },
       {
         title: "AI WhatsApp Responder",
-        text: "Membalas pertanyaan WhatsApp dan menyaring leads.",
+        text: "Membalas pertanyaan WhatsApp dan membantu menyaring customer leads.",
       },
       {
         title: "AI Customer Support",
-        text: "Menjawab FAQ, harga, layanan, kebijakan, dan pertanyaan support.",
+        text: "Menjawab pertanyaan umum tentang layanan, harga, policy, dan support.",
       },
       {
         title: "AI Copywriter",
-        text: "Membuat caption, script, iklan, dan pesan pelanggan.",
+        text: "Membuat caption, script, ad copy, dan pesan customer.",
       },
     ],
-    privateLabel: "Workspace pribadi",
-    privateTitle: "Satu platform Kolkap. AI pribadi untuk setiap bisnis.",
+    privateLabel: "Private business workspace",
+    privateTitle: "AI staff Anda bekerja dengan informasi bisnis Anda sendiri.",
     privateText:
-      "Setiap bisnis punya AI staff, knowledge base, inbox, leads, settings, dan rules sendiri. Kolkap hanya membalas memakai konteks bisnis yang benar.",
+      "Setiap bisnis memiliki workspace, AI staff, business knowledge, inbox, leads, settings, dan team access sendiri. Kolkap menjaga setiap pengalaman bisnis tetap terpisah dan teratur.",
     privateRules: [
-      "Setiap bisnis menyimpan pengetahuan pribadinya sendiri.",
-      "Pesan pelanggan masuk ke inbox yang benar.",
-      "Leads disimpan di bisnis yang benar.",
-      "Human handover aktif saat dibutuhkan.",
+      "Business knowledge Anda tetap berada dalam workspace Anda sendiri.",
+      "Customer conversations tertata di bisnis yang benar.",
+      "Leads tersimpan jelas untuk follow-up.",
+      "Human handover tersedia saat team perlu mengambil alih.",
     ],
-    finalTitle: "Buat tim bisnis AI tanpa pusing teknis.",
+    finalTitle: "Berikan bisnis Anda AI staff tanpa membuat semuanya rumit.",
     finalText:
-      "Mulai sederhana: buat AI, tambah pengetahuan, tes balasan, lalu aktifkan saat siap.",
-    finalButton: "Buat AI",
+      "Mulai dengan trial yang simple. Buat AI staff, tambahkan business knowledge, test balasan, lalu aktifkan saat siap.",
+    finalButton: "Mulai Free Trial",
   },
+
+  zh: {
+    badge: "用于回复、线索、客服和内容的 AI 员工",
+    heroTitle: "帮助企业更快回复客户的 AI 员工。",
+    heroText:
+      "Kolkap 帮助企业创建 AI 员工，用于 customer replies、WhatsApp conversations、website chat、lead capture、support 和 content，并集中在一个简单 workspace 中。",
+    start: "开始免费试用",
+    login: "登录",
+    heroCustomer: "你好，AI 可以帮我在 WhatsApp 回复客户吗？",
+    heroAI:
+      "可以。创建您的 AI 员工，添加 business knowledge，测试回复，然后在准备好后上线。",
+    setup: "设置",
+    simple: "简单",
+    channel: "渠道",
+    handover: "人工接手",
+    ready: "已准备",
+    whatLabel: "什么是 Kolkap？",
+    whatTitle:
+      "Kolkap 是为经常收到客户消息的企业打造的 AI 员工平台。",
+    whatText:
+      "Kolkap 专为希望使用 AI 支持、但不想面对复杂流程的 business owners 和 teams 打造。您的 AI staff 可以学习 business knowledge、帮助回复客户、支持 inbox、捕捉 leads，并协助日常工作。",
+    whatCards: [
+      {
+        title: "更快回复",
+        text: "通过 WhatsApp、website chat 和 inbox conversations 更快回答常见客户问题。",
+      },
+      {
+        title: "捕捉更好的 leads",
+        text: "收集客户姓名、联系方式、需求、预算、时间线和下一步。",
+      },
+      {
+        title: "支持团队",
+        text: "让 AI 处理重复问题，当需要真人帮助时由团队接手。",
+      },
+    ],
+    setupLabel: "简单设置",
+    setupTitle: "创建 AI 员工，教它了解企业，然后上线。",
+    setupText:
+      "Kolkap 让企业用户的设置过程保持简单。您创建 AI staff、添加企业信息、测试回复、连接客户渠道，并在准备好后启用。",
+    steps: [
+      {
+        title: "创建 AI 员工",
+        text: "选择 AI staff 在您的企业中需要承担的角色。",
+      },
+      {
+        title: "添加 business knowledge",
+        text: "添加 FAQ、服务、价格、政策、tone 和已批准的答案。",
+      },
+      {
+        title: "连接 WhatsApp",
+        text: "通过简单的引导流程连接您的企业 WhatsApp。",
+      },
+      {
+        title: "测试回复",
+        text: "发送示例问题，并在客户看到前检查答案。",
+      },
+      {
+        title: "上线",
+        text: "当您的企业准备好后启用 AI staff。",
+      },
+    ],
+    rolesLabel: "AI 员工角色",
+    rolesTitle: "选择您的业务需要的 AI 角色。",
+    roles: [
+      {
+        title: "AI Receptionist",
+        text: "欢迎客户，询问需求，并收集基本信息。",
+      },
+      {
+        title: "AI WhatsApp Responder",
+        text: "回复 WhatsApp 咨询，并帮助筛选客户 leads。",
+      },
+      {
+        title: "AI Customer Support",
+        text: "回答有关服务、价格、政策和 support 的常见问题。",
+      },
+      {
+        title: "AI Copywriter",
+        text: "创建 captions、scripts、ad copy 和客户消息。",
+      },
+    ],
+    privateLabel: "私有 business workspace",
+    privateTitle: "您的 AI staff 使用您自己的企业信息工作。",
+    privateText:
+      "每个企业都有自己的 workspace、AI staff、business knowledge、inbox、leads、settings 和 team access。Kolkap 让每个企业体验保持独立、有序。",
+    privateRules: [
+      "您的 business knowledge 保留在您自己的 workspace 中。",
+      "Customer conversations 会整理到正确的企业下。",
+      "Leads 会清楚保存，方便 follow-up。",
+      "当团队需要接手时，可以使用 human handover。",
+    ],
+    finalTitle: "为您的企业增加 AI staff，而不让事情变复杂。",
+    finalText:
+      "从简单 trial 开始。创建 AI staff、添加 business knowledge、测试回复，并在准备好后上线。",
+    finalButton: "开始免费试用",
+  },
+
   ms: {
     badge: "AI staff untuk balasan, prospek, sokongan, dan kandungan",
-    heroTitle: "Pasukan bisnes AI anda, sentiasa aktif.",
+    heroTitle: "AI staff yang membantu bisnes anda membalas lebih cepat.",
     heroText:
-      "Kolkap membantu bisnes mencipta AI staff untuk membalas pelanggan, menangkap prospek, menyokong operasi harian, dan menjana kandungan melalui WhatsApp, website chat, dan banyak lagi.",
-    start: "Mula dengan Kolkap",
+      "Kolkap membantu bisnes mencipta AI staff untuk customer replies, WhatsApp conversations, website chat, lead capture, support, dan content — semuanya dalam satu workspace yang simple.",
+    start: "Mulakan Free Trial",
     login: "Log masuk",
-    heroCustomer: "Hai, bolehkah AI anda membalas pelanggan saya di WhatsApp?",
+    heroCustomer: "Hai, bolehkah AI membantu membalas customer saya di WhatsApp?",
     heroAI:
-      "Boleh. Cipta AI anda, tambah pengetahuan bisnes, sambungkan WhatsApp, uji, kemudian aktifkan.",
+      "Boleh. Cipta AI staff anda, tambah business knowledge, test replies, kemudian aktifkan apabila sudah sedia.",
     setup: "Setup",
     simple: "Mudah",
-    channel: "Saluran",
-    handover: "Serahan manusia",
+    channel: "Channel",
+    handover: "Handover",
     ready: "Sedia",
     whatLabel: "Apa itu Kolkap?",
     whatTitle:
-      "Kolkap ialah platform AI staff untuk balasan pelanggan, prospek, dan sokongan bisnes.",
+      "Kolkap ialah platform AI staff untuk bisnes yang menerima mesej customer.",
     whatText:
-      "Kolkap dibina untuk pemilik bisnes yang mahukan bantuan AI tanpa kekeliruan teknikal. Anda cipta AI, ajar pengetahuan bisnes, uji, dan aktifkan apabila sedia.",
+      "Kolkap dibina untuk business owners dan teams yang mahukan sokongan AI tanpa kekeliruan. AI staff anda boleh belajar business knowledge, membantu membalas customer, menyokong inbox, menangkap leads, dan membantu kerja harian.",
     whatCards: [
       {
         title: "Balas lebih cepat",
-        text: "Biarkan AI menjawab soalan biasa pelanggan dengan segera.",
+        text: "Jawab soalan biasa customer lebih cepat melalui WhatsApp, website chat, dan inbox conversations.",
       },
       {
-        title: "Tangkap prospek",
-        text: "Kumpulkan nama, butiran kontak, keperluan, bajet, dan tempoh masa.",
+        title: "Tangkap leads lebih baik",
+        text: "Kumpulkan detail penting customer seperti nama, contact, needs, budget, timeline, dan next step.",
       },
       {
-        title: "Sokong pasukan",
-        text: "Benarkan manusia mengambil alih apabila pelanggan perlukan bantuan sebenar.",
+        title: "Sokong team anda",
+        text: "Biarkan AI mengurus soalan berulang, sementara team anda mengambil alih apabila manusia diperlukan.",
       },
     ],
     setupLabel: "Setup mudah",
-    setupTitle: "Cipta AI → Tambah pengetahuan → Uji → Aktifkan.",
+    setupTitle: "Cipta AI staff, ajar tentang bisnes anda, kemudian aktifkan.",
     setupText:
-      "Tiada webhook. Tiada API token. Tiada setup provider yang mengelirukan. Kolkap mengekalkan aliran pengguna mudah dan mengurus teknikal di belakang tabir.",
+      "Kolkap memastikan setup kekal simple untuk pengguna bisnes. Anda mencipta AI staff, menambah business information, test replies, connect customer channels, dan aktifkan apabila sedia.",
     steps: [
       {
-        title: "Cipta AI anda",
-        text: "Pilih apa yang AI perlu lakukan untuk bisnes anda.",
+        title: "Cipta AI staff anda",
+        text: "Pilih role yang AI staff perlu lakukan untuk bisnes anda.",
       },
       {
-        title: "Tambah pengetahuan",
-        text: "Ajar Kolkap FAQ, servis, harga, polisi, dan jawapan yang diluluskan.",
+        title: "Tambah business knowledge",
+        text: "Tambah FAQ, services, pricing, policies, tone, dan approved answers.",
       },
       {
-        title: "Sambungkan WhatsApp",
-        text: "Sambungkan WhatsApp bisnes anda melalui aliran mudah.",
+        title: "Connect WhatsApp",
+        text: "Connect WhatsApp bisnes anda melalui guided flow yang mudah.",
       },
       {
-        title: "Uji AI",
-        text: "Hantar soalan contoh dan semak balasan sebelum pelanggan melihatnya.",
+        title: "Test replies",
+        text: "Hantar sample questions dan review answers sebelum customer melihatnya.",
       },
       {
         title: "Aktifkan",
-        text: "Aktifkan AI apabila setup sudah sedia.",
+        text: "Aktifkan AI staff apabila bisnes anda sudah sedia.",
       },
     ],
     rolesLabel: "Peranan AI staff",
@@ -370,35 +377,35 @@ const translations = {
     roles: [
       {
         title: "AI Receptionist",
-        text: "Menyambut pelanggan, bertanya keperluan, dan mengumpul butiran asas.",
+        text: "Menyambut customer, bertanya keperluan, dan mengumpul basic details.",
       },
       {
         title: "AI WhatsApp Responder",
-        text: "Membalas pertanyaan WhatsApp dan menapis prospek.",
+        text: "Membalas WhatsApp inquiries dan membantu qualify customer leads.",
       },
       {
         title: "AI Customer Support",
-        text: "Menjawab FAQ, harga, servis, polisi, dan soalan sokongan.",
+        text: "Menjawab soalan biasa tentang services, pricing, policies, dan support.",
       },
       {
         title: "AI Copywriter",
-        text: "Mencipta caption, skrip, iklan, dan mesej pelanggan.",
+        text: "Mencipta captions, scripts, ad copy, dan customer messages.",
       },
     ],
-    privateLabel: "Workspace peribadi",
-    privateTitle: "Satu platform Kolkap. AI peribadi untuk setiap bisnes.",
+    privateLabel: "Private business workspace",
+    privateTitle: "AI staff anda bekerja dengan business information anda sendiri.",
     privateText:
-      "Setiap bisnes mempunyai AI staff, knowledge base, inbox, leads, settings, dan rules sendiri. Kolkap hanya membalas menggunakan konteks bisnes yang betul.",
+      "Setiap bisnes mempunyai workspace, AI staff, business knowledge, inbox, leads, settings, dan team access sendiri. Kolkap memastikan setiap business experience kekal terpisah dan teratur.",
     privateRules: [
-      "Setiap bisnes menyimpan pengetahuan peribadi sendiri.",
-      "Mesej pelanggan masuk ke inbox yang betul.",
-      "Prospek disimpan di bisnes yang betul.",
-      "Human handover berlaku apabila diperlukan.",
+      "Business knowledge anda kekal dalam workspace anda sendiri.",
+      "Customer conversations disusun di bawah bisnes yang betul.",
+      "Leads disimpan dengan jelas untuk follow-up.",
+      "Human handover tersedia apabila team perlu mengambil alih.",
     ],
-    finalTitle: "Cipta pasukan bisnes AI tanpa pening teknikal.",
+    finalTitle: "Berikan bisnes anda AI staff tanpa menjadikannya rumit.",
     finalText:
-      "Mula mudah: cipta AI, tambah pengetahuan, uji balasan, dan aktifkan apabila sedia.",
-    finalButton: "Cipta AI",
+      "Mulakan dengan trial yang simple. Cipta AI staff, tambah business knowledge, test replies, dan aktifkan apabila sedia.",
+    finalButton: "Mulakan Free Trial",
   },
 };
 
@@ -406,9 +413,18 @@ const roleIcons = [Bot, MessageCircle, Headphones, PenLine];
 const featureIcons = [MessageCircle, Users, Headphones];
 const stepIcons = [Bot, BookOpen, MessageCircle, WandSparkles, Rocket];
 
+function getSupportedLanguage(language: string): SupportedLanguage {
+  if (language === "id" || language === "zh" || language === "ms") {
+    return language;
+  }
+
+  return "en";
+}
+
 export default function Home() {
   const { language } = useKolkapLanguage();
-  const t = translations[language] || translations.en;
+  const lang = getSupportedLanguage(language);
+  const t = translations[lang];
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#F7F9FA] text-[#07111F]">
@@ -514,9 +530,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* The rest of the page stays exactly the same, except final CTA links below. */}
-
-      <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:py-20">
+            <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 lg:py-20">
         <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
             <p className="text-lg font-black uppercase tracking-[0.22em] text-blue-600">

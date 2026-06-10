@@ -10,8 +10,8 @@ export default function KolkapLogo({
   lightText = false,
 }: KolkapLogoProps) {
   const iconSize = {
-    sm: "h-12 w-12",
-    md: "h-16 w-16",
+    sm: "h-11 w-11",
+    md: "h-14 w-14",
     lg: "h-20 w-20",
   };
 
@@ -30,18 +30,14 @@ export default function KolkapLogo({
   return (
     <div className="flex min-w-0 items-center gap-4">
       <div
-        className={`relative flex shrink-0 items-center justify-center rounded-[1.2rem] bg-[#05070A] shadow-[0_0_22px_rgba(37,99,255,0.45)] ring-1 ring-blue-400/50 ${iconSize[size]}`}
+        className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-[1.35rem] bg-[#05070A] shadow-sm ring-1 ring-white/10 ${iconSize[size]}`}
         aria-label="Kolkap logo"
       >
-        <div className="absolute inset-1.5 rounded-[0.9rem] border border-blue-300/80" />
-
-        <div className="absolute bottom-1.5 left-3.5 h-3.5 w-3.5 rotate-45 rounded-[2px] border-b border-l border-blue-300/80 bg-[#05070A]" />
-
-        <span className="relative z-10 -mt-1 text-[2rem] font-black leading-none tracking-[-0.08em] text-white">
-          K
-        </span>
-
-        <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#7CFF3D] shadow-[0_0_10px_rgba(124,255,61,0.75)]" />
+        <img
+          src="/kolkap-logo.png"
+          alt="Kolkap"
+          className="h-full w-full object-cover"
+        />
       </div>
 
       {showText ? (
@@ -53,12 +49,13 @@ export default function KolkapLogo({
           >
             kolkap
           </p>
+
           <p
             className={`mt-2 font-black uppercase tracking-[0.16em] ${
               lightText ? "text-slate-300" : "text-slate-600"
             } ${subtitleSize[size]}`}
           >
-            AI-Powered Responses
+            AI Staff Platform
           </p>
         </div>
       ) : null}
