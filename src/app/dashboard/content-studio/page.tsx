@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -21,7 +21,6 @@ import {
   WalletCards,
   Zap,
 } from "lucide-react";
-import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { getKolkapPlan } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
@@ -31,7 +30,10 @@ const MAX_DETAILS_LENGTH = 420;
 const MAX_PROMPT_LENGTH = 2000;
 const CONTENT_GENERATION_CREDIT_COST = 5;
 
-type SupportedLanguage = "en" | "id" | "zh" | "ms";
+type WorkspaceRow = {
+  id: string;
+  owner_user_id: string;
+};
 
 type ContentRow = {
   id: string;
@@ -72,808 +74,88 @@ type Option = {
   label: string;
 };
 
-type ContentStudioTranslation = {
-  badge: string;
-  title: string;
-  subtitle: string;
-  loading: string;
-  failed: string;
-  back: string;
-  refresh: string;
-  currentPlan: string;
-  creditsLeft: string;
-  creditsUsed: string;
-  creditCost: string;
-  creditUnit: string;
-  noCreditBalance: string;
-  oneCreditNote: string;
-  includedPlanCredits: string;
-  topUpCredits: string;
-  refreshCredits: string;
-  totalSaved: string;
-  contentTypes: string;
-  createTitle: string;
-  editGeneratedTitle: string;
-  createText: string;
-  titleLabel: string;
-  titlePlaceholder: string;
-  contentType: string;
-  purpose: string;
-  platform: string;
-  language: string;
-  tone: string;
-  details: string;
-  detailsPlaceholder: string;
-  prompt: string;
-  promptPlaceholder: string;
-  generatedContent: string;
-  generatedPlaceholder: string;
-  generate: string;
-  generateForCredit: string;
-  regenererateForCredit: string;
-  generating: string;
-  copyGenerated: string;
-  saveContent: string;
-  updateContent: string;
-  saving: string;
-  cancelEdit: string;
-  generated: string;
-  generatedForBusiness: string;
-  knowledgeItemsUsed: string;
-  reviewBeforeSaving: string;
-  copied: string;
-  saved: string;
-  updated: string;
-  deleted: string;
-  archived: string;
-  saveFailed: string;
-  updateFailed: string;
-  generateFailed: string;
-  deleteConfirm: string;
-  archiveConfirm: string;
-  requiredFields: string;
-  detailsRequired: string;
-  contentTooLong: string;
-  detailsTooLong: string;
-  promptTooLong: string;
-  characters: string;
-  savedTitle: string;
-  savedText: string;
-  search: string;
-  searchPlaceholder: string;
-  filterType: string;
-  allTypes: string;
-  noSaved: string;
-  noSavedText: string;
-  edit: string;
-  copy: string;
-  archive: string;
-  delete: string;
-  noteTitle: string;
-  noteText: string;
-  shown: string;
-  differentFormats: string;
-  updatedLabel: string;
-  planNames: Record<string, string>;
-  contentTypeLabels: Record<string, string>;
-  purposeLabels: Record<string, string>;
-  platformLabels: Record<string, string>;
-  languageLabels: Record<string, string>;
-  toneLabels: Record<string, string>;
-};
-
-const contentTypeValues = [
-  "social_caption",
-  "instagram_caption",
-  "facebook_post",
-  "whatsapp_broadcast",
-  "promo_announcement",
-  "product_description",
-  "service_description",
-  "customer_reply",
-  "faq_answer",
-  "ad_copy",
-  "blog_idea",
-  "reel_script",
-  "video_script",
-  "custom",
+const contentTypeOptions: Option[] = [
+  { value: "social_caption", label: "Social Media Caption" },
+  { value: "instagram_caption", label: "Instagram Caption" },
+  { value: "facebook_post", label: "Facebook Post" },
+  { value: "whatsapp_broadcast", label: "WhatsApp Broadcast" },
+  { value: "promo_announcement", label: "Promo Announcement" },
+  { value: "product_description", label: "Product Description" },
+  { value: "service_description", label: "Service Description" },
+  { value: "customer_reply", label: "Customer Reply" },
+  { value: "faq_answer", label: "FAQ Answer" },
+  { value: "ad_copy", label: "Ad Copy" },
+  { value: "blog_idea", label: "Blog Idea" },
+  { value: "reel_script", label: "Reel Script" },
+  { value: "video_script", label: "Video Script" },
+  { value: "custom", label: "Custom Content" },
 ];
 
-const purposeValues = [
-  "promotion",
-  "introduction",
-  "sales",
-  "announcement",
-  "education",
-  "follow_up",
-  "reminder",
-  "launch",
-  "event",
-  "custom",
+const purposeOptions: Option[] = [
+  { value: "promotion", label: "Promotion" },
+  { value: "introduction", label: "Introduction" },
+  { value: "sales", label: "Sales" },
+  { value: "announcement", label: "Announcement" },
+  { value: "education", label: "Education" },
+  { value: "follow_up", label: "Follow-up" },
+  { value: "reminder", label: "Reminder" },
+  { value: "launch", label: "Launch" },
+  { value: "event", label: "Event" },
+  { value: "custom", label: "Custom" },
 ];
 
-const platformValues = [
-  "general",
-  "instagram",
-  "facebook",
-  "whatsapp",
-  "tiktok",
-  "linkedin",
-  "website",
-  "blog",
-  "ads",
+const platformOptions: Option[] = [
+  { value: "general", label: "General" },
+  { value: "instagram", label: "Instagram" },
+  { value: "facebook", label: "Facebook" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "linkedin", label: "LinkedIn" },
+  { value: "website", label: "Website" },
+  { value: "blog", label: "Blog" },
+  { value: "ads", label: "Ads" },
 ];
 
-const languageValues = ["auto", "en", "id", "ms", "zh"];
-
-const toneValues = [
-  "professional",
-  "friendly",
-  "sales",
-  "simple",
-  "luxury",
-  "casual",
-  "formal",
-  "urgent",
-  "educational",
+const languageOptions: Option[] = [
+  { value: "auto", label: "Auto Detect" },
+  { value: "en", label: "English" },
+  { value: "id", label: "Indonesian" },
+  { value: "ms", label: "Malay" },
+  { value: "zh", label: "Chinese" },
 ];
 
-const translations: Record<SupportedLanguage, ContentStudioTranslation> = {
-  en: {
-    badge: "Content Studio",
-    title: "Generate ready-to-use content for your business.",
-    subtitle:
-      "Create captions, WhatsApp messages, announcements, customer replies, product descriptions, ad copy, and short scripts using your business profile and Knowledge Base.",
-    loading: "Loading your content studio...",
-    failed: "Content Studio could not load.",
-    back: "Back to Dashboard",
-    refresh: "Refresh",
-    currentPlan: "Current Plan",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
-    creditCost: "Credit Cost",
-    creditUnit: "Credits",
-    noCreditBalance: "Credit balance not found yet.",
-    oneCreditNote: "Every successful content generation uses 5 credits.",
-    includedPlanCredits: "Included plan credits",
-    topUpCredits: "Top-Up credits",
-    refreshCredits: "Refresh credits",
-    totalSaved: "Saved Content",
-    contentTypes: "Content Types",
-    createTitle: "Content Generator",
-    editGeneratedTitle: "Edit Generated Content",
-    createText:
-      "Choose the format, purpose, and details. Kolkap will generate content based on your logged-in business and Knowledge Base.",
-    titleLabel: "Content Title",
-    titlePlaceholder: "Example: June Promotion WhatsApp Message",
-    contentType: "Content Format",
-    purpose: "Content Purpose",
-    platform: "Where will you use it?",
-    language: "Language",
-    tone: "Tone",
-    details: "Main Details",
-    detailsPlaceholder:
-      "Write what this content should include. Example: promotion details, product benefits, business introduction, sales offer, announcement, event details, reminder, or customer follow-up.",
-    prompt: "Extra Instructions",
-    promptPlaceholder:
-      "Optional: Add target audience, price, location, deadline, CTA, must-include words, or any special instruction.",
-    generatedContent: "Generated Content",
-    generatedPlaceholder:
-      "Click Generate Content. The result will appear here. You can edit it before saving.",
-    generate: "Generate Content",
-    generateForCredit: "Generate Content for 5 Credits",
-    regenererateForCredit: "Regenerate Content for 5 Credits",
-    generating: "Generating...",
-    copyGenerated: "Copy Generated",
-    saveContent: "Save Content",
-    updateContent: "Update Content",
-    saving: "Saving...",
-    cancelEdit: "Cancel Edit",
-    generated:
-      "Content generated using your business context. 5 credits have been used. Please review and edit before saving.",
-    generatedForBusiness: "Content generated for",
-    knowledgeItemsUsed: "knowledge item(s) used.",
-    reviewBeforeSaving:
-      "5 credits have been used. Please review and edit before saving.",
-    copied: "Copied",
-    saved: "Content saved successfully.",
-    updated: "Content updated successfully.",
-    deleted: "Content deleted.",
-    archived: "Content archived.",
-    saveFailed: "Content could not be saved.",
-    updateFailed: "Content could not be updated.",
-    generateFailed: "Content could not be generated.",
-    deleteConfirm: "Delete this content?",
-    archiveConfirm: "Archive this content?",
-    requiredFields: "Please add a title, main details, and generated content.",
-    detailsRequired: "Please write the main details first.",
-    contentTooLong: "Generated content must be 8,000 characters or less.",
-    detailsTooLong: "Main details must be 420 characters or less.",
-    promptTooLong: "Extra instructions must be 2,000 characters or less.",
-    characters: "characters",
-    savedTitle: "Saved Content",
-    savedText: "Manage content your team can copy, edit, reuse, or archive.",
-    search: "Search",
-    searchPlaceholder: "Search saved content...",
-    filterType: "Filter Content Type",
-    allTypes: "All Content Types",
-    noSaved: "No saved content yet.",
-    noSavedText: "Generate your first content, review it, then save it here.",
-    edit: "Edit",
-    copy: "Copy",
-    archive: "Archive",
-    delete: "Delete",
-    noteTitle: "How this works",
-    noteText:
-      "Content Studio uses your logged-in business profile, saved Knowledge Base, and your instructions to create business-specific content. Each successful generation uses 5 credits.",
-    shown: "shown",
-    differentFormats: "Different formats",
-    updatedLabel: "Updated",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    contentTypeLabels: {
-      social_caption: "Social Media Caption",
-      instagram_caption: "Instagram Caption",
-      facebook_post: "Facebook Post",
-      whatsapp_broadcast: "WhatsApp Broadcast",
-      promo_announcement: "Promo Announcement",
-      product_description: "Product Description",
-      service_description: "Service Description",
-      customer_reply: "Customer Reply",
-      faq_answer: "FAQ Answer",
-      ad_copy: "Ad Copy",
-      blog_idea: "Blog Idea",
-      reel_script: "Reel Script",
-      video_script: "Video Script",
-      custom: "Custom Content",
-    },
-    purposeLabels: {
-      promotion: "Promotion",
-      introduction: "Introduction",
-      sales: "Sales",
-      announcement: "Announcement",
-      education: "Education",
-      follow_up: "Follow-up",
-      reminder: "Reminder",
-      launch: "Launch",
-      event: "Event",
-      custom: "Custom",
-    },
-    platformLabels: {
-      general: "General",
-      instagram: "Instagram",
-      facebook: "Facebook",
-      whatsapp: "WhatsApp",
-      tiktok: "TikTok",
-      linkedin: "LinkedIn",
-      website: "Website",
-      blog: "Blog",
-      ads: "Ads",
-    },
-    languageLabels: {
-      auto: "Auto Detect",
-      en: "English",
-      id: "Indonesian",
-      ms: "Malay",
-      zh: "Chinese",
-    },
-    toneLabels: {
-      professional: "Professional",
-      friendly: "Friendly",
-      sales: "Sales",
-      simple: "Simple",
-      luxury: "Luxury",
-      casual: "Casual",
-      formal: "Formal",
-      urgent: "Urgent",
-      educational: "Educational",
-    },
-  },
+const toneOptions: Option[] = [
+  { value: "professional", label: "Professional" },
+  { value: "friendly", label: "Friendly" },
+  { value: "sales", label: "Sales" },
+  { value: "simple", label: "Simple" },
+  { value: "luxury", label: "Luxury" },
+  { value: "casual", label: "Casual" },
+  { value: "formal", label: "Formal" },
+  { value: "urgent", label: "Urgent" },
+  { value: "educational", label: "Educational" },
+];
 
-  id: {
-    badge: "Content Studio",
-    title: "Buat konten siap pakai untuk bisnis Anda.",
-    subtitle:
-      "Buat caption, pesan WhatsApp, announcement, balasan pelanggan, deskripsi produk, ad copy, dan script singkat menggunakan business profile dan Knowledge Base Anda.",
-    loading: "Memuat Content Studio Anda...",
-    failed: "Content Studio tidak dapat dimuat.",
-    back: "Kembali ke Dashboard",
-    refresh: "Muat Ulang",
-    currentPlan: "Paket Saat Ini",
-    creditsLeft: "Sisa Kredit",
-    creditsUsed: "Kredit Terpakai",
-    creditCost: "Biaya Kredit",
-    creditUnit: "Kredit",
-    noCreditBalance: "Saldo kredit belum ditemukan.",
-    oneCreditNote: "Setiap konten yang berhasil dibuat menggunakan 5 kredit.",
-    includedPlanCredits: "Kredit termasuk paket",
-    topUpCredits: "Kredit Top-Up",
-    refreshCredits: "Muat ulang kredit",
-    totalSaved: "Konten Tersimpan",
-    contentTypes: "Jenis Konten",
-    createTitle: "Generator Konten",
-    editGeneratedTitle: "Edit Konten",
-    createText:
-      "Pilih format, tujuan, dan detail utama. Kolkap akan membuat konten berdasarkan bisnis yang sedang login dan Knowledge Base Anda.",
-    titleLabel: "Judul Konten",
-    titlePlaceholder: "Contoh: Pesan WhatsApp Promo Juni",
-    contentType: "Format Konten",
-    purpose: "Tujuan Konten",
-    platform: "Dipakai di mana?",
-    language: "Bahasa",
-    tone: "Tone",
-    details: "Detail Utama",
-    detailsPlaceholder:
-      "Tulis hal yang harus dimasukkan ke konten. Contoh: detail promo, manfaat produk, perkenalan bisnis, penawaran, announcement, detail event, reminder, atau follow-up pelanggan.",
-    prompt: "Instruksi Tambahan",
-    promptPlaceholder:
-      "Opsional: Tambahkan target audience, harga, lokasi, deadline, CTA, kata wajib, atau instruksi khusus.",
-    generatedContent: "Konten yang Dibuat",
-    generatedPlaceholder:
-      "Klik Buat Konten. Hasilnya akan muncul di sini. Anda bisa edit sebelum disimpan.",
-    generate: "Buat Konten",
-    generateForCredit: "Buat Konten untuk 5 Kredit",
-    regenererateForCredit: "Buat Ulang Konten untuk 5 Kredit",
-    generating: "Membuat...",
-    copyGenerated: "Copy Konten",
-    saveContent: "Simpan Konten",
-    updateContent: "Update Konten",
-    saving: "Menyimpan...",
-    cancelEdit: "Batalkan Edit",
-    generated:
-      "Konten berhasil dibuat menggunakan konteks bisnis Anda. 5 kredit sudah digunakan. Silakan review dan edit sebelum disimpan.",
-    generatedForBusiness: "Konten dibuat untuk",
-    knowledgeItemsUsed: "knowledge item digunakan.",
-    reviewBeforeSaving:
-      "5 kredit sudah digunakan. Silakan review dan edit sebelum disimpan.",
-    copied: "Copied",
-    saved: "Konten berhasil disimpan.",
-    updated: "Konten berhasil diperbarui.",
-    deleted: "Konten berhasil dihapus.",
-    archived: "Konten berhasil diarsipkan.",
-    saveFailed: "Konten tidak dapat disimpan.",
-    updateFailed: "Konten tidak dapat diperbarui.",
-    generateFailed: "Konten tidak dapat dibuat.",
-    deleteConfirm: "Hapus konten ini?",
-    archiveConfirm: "Arsipkan konten ini?",
-    requiredFields: "Mohon isi judul, detail utama, dan konten yang dibuat.",
-    detailsRequired: "Mohon tulis detail utama terlebih dahulu.",
-    contentTooLong: "Konten maksimal 8.000 karakter.",
-    detailsTooLong: "Detail utama maksimal 420 karakter.",
-    promptTooLong: "Instruksi tambahan maksimal 2.000 karakter.",
-    characters: "karakter",
-    savedTitle: "Konten Tersimpan",
-    savedText:
-      "Kelola konten yang bisa di-copy, diedit, digunakan ulang, atau diarsipkan oleh tim Anda.",
-    search: "Cari",
-    searchPlaceholder: "Cari konten tersimpan...",
-    filterType: "Filter Jenis Konten",
-    allTypes: "Semua Jenis Konten",
-    noSaved: "Belum ada konten tersimpan.",
-    noSavedText: "Buat konten pertama Anda, review, lalu simpan di sini.",
-    edit: "Edit",
-    copy: "Copy",
-    archive: "Arsipkan",
-    delete: "Hapus",
-    noteTitle: "Cara kerja halaman ini",
-    noteText:
-      "Content Studio menggunakan business profile yang sedang login, Knowledge Base yang tersimpan, dan instruksi Anda untuk membuat konten yang spesifik untuk bisnis. Setiap hasil yang berhasil dibuat menggunakan 5 kredit.",
-    shown: "ditampilkan",
-    differentFormats: "Format berbeda",
-    updatedLabel: "Diupdate",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    contentTypeLabels: {
-      social_caption: "Caption Social Media",
-      instagram_caption: "Caption Instagram",
-      facebook_post: "Post Facebook",
-      whatsapp_broadcast: "Broadcast WhatsApp",
-      promo_announcement: "Announcement Promo",
-      product_description: "Deskripsi Produk",
-      service_description: "Deskripsi Service",
-      customer_reply: "Balasan Pelanggan",
-      faq_answer: "Jawaban FAQ",
-      ad_copy: "Ad Copy",
-      blog_idea: "Ide Blog",
-      reel_script: "Script Reel",
-      video_script: "Script Video",
-      custom: "Konten Custom",
-    },
-    purposeLabels: {
-      promotion: "Promosi",
-      introduction: "Perkenalan",
-      sales: "Sales",
-      announcement: "Announcement",
-      education: "Edukasi",
-      follow_up: "Follow-up",
-      reminder: "Reminder",
-      launch: "Launch",
-      event: "Event",
-      custom: "Custom",
-    },
-    platformLabels: {
-      general: "General",
-      instagram: "Instagram",
-      facebook: "Facebook",
-      whatsapp: "WhatsApp",
-      tiktok: "TikTok",
-      linkedin: "LinkedIn",
-      website: "Website",
-      blog: "Blog",
-      ads: "Ads",
-    },
-    languageLabels: {
-      auto: "Auto Detect",
-      en: "English",
-      id: "Indonesian",
-      ms: "Malay",
-      zh: "Chinese",
-    },
-    toneLabels: {
-      professional: "Professional",
-      friendly: "Friendly",
-      sales: "Sales",
-      simple: "Simple",
-      luxury: "Luxury",
-      casual: "Casual",
-      formal: "Formal",
-      urgent: "Urgent",
-      educational: "Educational",
-    },
-  },
-
-  zh: {
-    badge: "Content Studio",
-    title: "为您的业务生成可直接使用的内容。",
-    subtitle:
-      "使用您的 business profile 和 Knowledge Base，生成 caption、WhatsApp 消息、公告、客户回复、产品描述、广告文案和短视频脚本。",
-    loading: "正在加载 Content Studio...",
-    failed: "Content Studio 无法加载。",
-    back: "返回 Dashboard",
-    refresh: "刷新",
-    currentPlan: "当前套餐",
-    creditsLeft: "剩余积分",
-    creditsUsed: "已用积分",
-    creditCost: "积分费用",
-    creditUnit: "积分",
-    noCreditBalance: "尚未找到积分余额。",
-    oneCreditNote: "每次成功生成内容会使用 5 积分。",
-    includedPlanCredits: "套餐包含积分",
-    topUpCredits: "充值积分",
-    refreshCredits: "刷新积分",
-    totalSaved: "已保存内容",
-    contentTypes: "内容类型",
-    createTitle: "内容生成器",
-    editGeneratedTitle: "编辑已生成内容",
-    createText:
-      "选择格式、目的和主要细节。Kolkap 会根据已登录的业务资料和 Knowledge Base 生成内容。",
-    titleLabel: "内容标题",
-    titlePlaceholder: "例：六月促销 WhatsApp 消息",
-    contentType: "内容格式",
-    purpose: "内容目的",
-    platform: "使用平台",
-    language: "语言",
-    tone: "语气",
-    details: "主要细节",
-    detailsPlaceholder:
-      "写下内容必须包含的信息。例如：促销详情、产品优势、业务介绍、销售优惠、公告、活动细节、提醒或客户跟进。",
-    prompt: "额外指令",
-    promptPlaceholder:
-      "可选：添加目标受众、价格、地点、截止日期、CTA、必须包含的词语或特别指令。",
-    generatedContent: "生成内容",
-    generatedPlaceholder:
-      "点击生成内容。结果会显示在这里，您可以在保存前编辑。",
-    generate: "生成内容",
-    generateForCredit: "用 5 积分生成内容",
-    regenererateForCredit: "用 5 积分重新生成内容",
-    generating: "正在生成...",
-    copyGenerated: "复制生成内容",
-    saveContent: "保存内容",
-    updateContent: "更新内容",
-    saving: "正在保存...",
-    cancelEdit: "取消编辑",
-    generated:
-      "内容已根据您的业务资料生成。已使用 5 积分。保存前请先检查和编辑。",
-    generatedForBusiness: "内容已生成给",
-    knowledgeItemsUsed: "个 knowledge item 已使用。",
-    reviewBeforeSaving: "已使用 5 积分。保存前请先检查和编辑。",
-    copied: "已复制",
-    saved: "内容已成功保存。",
-    updated: "内容已成功更新。",
-    deleted: "内容已删除。",
-    archived: "内容已归档。",
-    saveFailed: "内容无法保存。",
-    updateFailed: "内容无法更新。",
-    generateFailed: "内容无法生成。",
-    deleteConfirm: "删除此内容？",
-    archiveConfirm: "归档此内容？",
-    requiredFields: "请添加标题、主要细节和生成内容。",
-    detailsRequired: "请先填写主要细节。",
-    contentTooLong: "生成内容不能超过 8,000 字符。",
-    detailsTooLong: "主要细节不能超过 420 字符。",
-    promptTooLong: "额外指令不能超过 2,000 字符。",
-    characters: "字符",
-    savedTitle: "已保存内容",
-    savedText: "管理团队可以复制、编辑、重复使用或归档的内容。",
-    search: "搜索",
-    searchPlaceholder: "搜索已保存内容...",
-    filterType: "筛选内容类型",
-    allTypes: "所有内容类型",
-    noSaved: "尚未保存内容。",
-    noSavedText: "先生成第一条内容，检查后保存到这里。",
-    edit: "编辑",
-    copy: "复制",
-    archive: "归档",
-    delete: "删除",
-    noteTitle: "页面如何运作",
-    noteText:
-      "Content Studio 会使用已登录的 business profile、已保存的 Knowledge Base 和您的指令，生成适合业务的内容。每次成功生成会使用 5 积分。",
-    shown: "已显示",
-    differentFormats: "不同格式",
-    updatedLabel: "已更新",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    contentTypeLabels: {
-      social_caption: "社交媒体 Caption",
-      instagram_caption: "Instagram Caption",
-      facebook_post: "Facebook Post",
-      whatsapp_broadcast: "WhatsApp Broadcast",
-      promo_announcement: "促销公告",
-      product_description: "产品描述",
-      service_description: "服务描述",
-      customer_reply: "客户回复",
-      faq_answer: "FAQ 回答",
-      ad_copy: "广告文案",
-      blog_idea: "博客想法",
-      reel_script: "Reel 脚本",
-      video_script: "视频脚本",
-      custom: "自定义内容",
-    },
-    purposeLabels: {
-      promotion: "促销",
-      introduction: "介绍",
-      sales: "销售",
-      announcement: "公告",
-      education: "教育",
-      follow_up: "跟进",
-      reminder: "提醒",
-      launch: "发布",
-      event: "活动",
-      custom: "自定义",
-    },
-    platformLabels: {
-      general: "通用",
-      instagram: "Instagram",
-      facebook: "Facebook",
-      whatsapp: "WhatsApp",
-      tiktok: "TikTok",
-      linkedin: "LinkedIn",
-      website: "Website",
-      blog: "Blog",
-      ads: "Ads",
-    },
-    languageLabels: {
-      auto: "自动识别",
-      en: "英语",
-      id: "印尼语",
-      ms: "马来语",
-      zh: "中文",
-    },
-    toneLabels: {
-      professional: "专业",
-      friendly: "友好",
-      sales: "销售",
-      simple: "简单",
-      luxury: "高级",
-      casual: "轻松",
-      formal: "正式",
-      urgent: "紧急",
-      educational: "教育",
-    },
-  },
-
-  ms: {
-    badge: "Content Studio",
-    title: "Jana kandungan siap guna untuk bisnes anda.",
-    subtitle:
-      "Cipta caption, mesej WhatsApp, announcement, balasan pelanggan, penerangan produk, ad copy, dan short script menggunakan business profile dan Knowledge Base anda.",
-    loading: "Memuatkan Content Studio anda...",
-    failed: "Content Studio tidak dapat dimuatkan.",
-    back: "Kembali ke Dashboard",
-    refresh: "Segar Semula",
-    currentPlan: "Pelan Semasa",
-    creditsLeft: "Baki Kredit",
-    creditsUsed: "Kredit Digunakan",
-    creditCost: "Kos Kredit",
-    creditUnit: "Kredit",
-    noCreditBalance: "Baki kredit belum dijumpai.",
-    oneCreditNote: "Setiap kandungan yang berjaya dijana menggunakan 5 kredit.",
-    includedPlanCredits: "Kredit termasuk pelan",
-    topUpCredits: "Kredit Top-Up",
-    refreshCredits: "Segar semula kredit",
-    totalSaved: "Kandungan Disimpan",
-    contentTypes: "Jenis Kandungan",
-    createTitle: "Generator Kandungan",
-    editGeneratedTitle: "Edit Kandungan Dijana",
-    createText:
-      "Pilih format, tujuan, dan detail utama. Kolkap akan jana kandungan berdasarkan bisnes yang sedang login dan Knowledge Base anda.",
-    titleLabel: "Tajuk Kandungan",
-    titlePlaceholder: "Contoh: Mesej WhatsApp Promosi Jun",
-    contentType: "Format Kandungan",
-    purpose: "Tujuan Kandungan",
-    platform: "Di mana akan digunakan?",
-    language: "Bahasa",
-    tone: "Tone",
-    details: "Detail Utama",
-    detailsPlaceholder:
-      "Tulis perkara yang perlu dimasukkan dalam kandungan. Contoh: detail promo, manfaat produk, pengenalan bisnes, tawaran jualan, announcement, detail event, reminder, atau follow-up pelanggan.",
-    prompt: "Arahan Tambahan",
-    promptPlaceholder:
-      "Opsional: Tambah target audience, harga, lokasi, deadline, CTA, perkataan wajib, atau arahan khas.",
-    generatedContent: "Kandungan Dijana",
-    generatedPlaceholder:
-      "Klik Jana Kandungan. Hasilnya akan muncul di sini. Anda boleh edit sebelum disimpan.",
-    generate: "Jana Kandungan",
-    generateForCredit: "Jana Kandungan untuk 5 Kredit",
-    regenererateForCredit: "Jana Semula Kandungan untuk 5 Kredit",
-    generating: "Menjana...",
-    copyGenerated: "Copy Kandungan",
-    saveContent: "Simpan Kandungan",
-    updateContent: "Update Kandungan",
-    saving: "Menyimpan...",
-    cancelEdit: "Batal Edit",
-    generated:
-      "Kandungan berjaya dijana menggunakan konteks bisnes anda. 5 kredit sudah digunakan. Sila review dan edit sebelum disimpan.",
-    generatedForBusiness: "Kandungan dijana untuk",
-    knowledgeItemsUsed: "knowledge item digunakan.",
-    reviewBeforeSaving:
-      "5 kredit sudah digunakan. Sila review dan edit sebelum disimpan.",
-    copied: "Copied",
-    saved: "Kandungan berjaya disimpan.",
-    updated: "Kandungan berjaya dikemaskini.",
-    deleted: "Kandungan dipadam.",
-    archived: "Kandungan diarkibkan.",
-    saveFailed: "Kandungan tidak dapat disimpan.",
-    updateFailed: "Kandungan tidak dapat dikemaskini.",
-    generateFailed: "Kandungan tidak dapat dijana.",
-    deleteConfirm: "Padam kandungan ini?",
-    archiveConfirm: "Arkibkan kandungan ini?",
-    requiredFields: "Sila isi tajuk, detail utama, dan kandungan yang dijana.",
-    detailsRequired: "Sila tulis detail utama dahulu.",
-    contentTooLong: "Kandungan yang dijana mesti 8,000 aksara atau kurang.",
-    detailsTooLong: "Detail utama mesti 420 aksara atau kurang.",
-    promptTooLong: "Arahan tambahan mesti 2,000 aksara atau kurang.",
-    characters: "aksara",
-    savedTitle: "Kandungan Disimpan",
-    savedText:
-      "Urus kandungan yang boleh di-copy, diedit, digunakan semula, atau diarkibkan oleh team anda.",
-    search: "Cari",
-    searchPlaceholder: "Cari kandungan disimpan...",
-    filterType: "Filter Jenis Kandungan",
-    allTypes: "Semua Jenis Kandungan",
-    noSaved: "Belum ada kandungan disimpan.",
-    noSavedText: "Jana kandungan pertama anda, review, lalu simpan di sini.",
-    edit: "Edit",
-    copy: "Copy",
-    archive: "Arkib",
-    delete: "Padam",
-    noteTitle: "Cara halaman ini berfungsi",
-    noteText:
-      "Content Studio menggunakan business profile yang sedang login, Knowledge Base yang disimpan, dan arahan anda untuk mencipta kandungan khusus untuk bisnes. Setiap hasil yang berjaya dijana menggunakan 5 kredit.",
-    shown: "dipaparkan",
-    differentFormats: "Format berbeza",
-    updatedLabel: "Dikemaskini",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    contentTypeLabels: {
-      social_caption: "Caption Social Media",
-      instagram_caption: "Caption Instagram",
-      facebook_post: "Post Facebook",
-      whatsapp_broadcast: "Broadcast WhatsApp",
-      promo_announcement: "Announcement Promo",
-      product_description: "Penerangan Produk",
-      service_description: "Penerangan Service",
-      customer_reply: "Balasan Pelanggan",
-      faq_answer: "Jawapan FAQ",
-      ad_copy: "Ad Copy",
-      blog_idea: "Idea Blog",
-      reel_script: "Script Reel",
-      video_script: "Script Video",
-      custom: "Kandungan Custom",
-    },
-    purposeLabels: {
-      promotion: "Promosi",
-      introduction: "Pengenalan",
-      sales: "Jualan",
-      announcement: "Announcement",
-      education: "Edukasi",
-      follow_up: "Follow-up",
-      reminder: "Reminder",
-      launch: "Launch",
-      event: "Event",
-      custom: "Custom",
-    },
-    platformLabels: {
-      general: "General",
-      instagram: "Instagram",
-      facebook: "Facebook",
-      whatsapp: "WhatsApp",
-      tiktok: "TikTok",
-      linkedin: "LinkedIn",
-      website: "Website",
-      blog: "Blog",
-      ads: "Ads",
-    },
-    languageLabels: {
-      auto: "Auto Detect",
-      en: "English",
-      id: "Indonesian",
-      ms: "Malay",
-      zh: "Chinese",
-    },
-    toneLabels: {
-      professional: "Professional",
-      friendly: "Friendly",
-      sales: "Sales",
-      simple: "Simple",
-      luxury: "Luxury",
-      casual: "Casual",
-      formal: "Formal",
-      urgent: "Urgent",
-      educational: "Educational",
-    },
-  },
-};
-
-function getSupportedLanguage(language: string): SupportedLanguage {
-  if (language === "id" || language === "zh" || language === "ms") {
-    return language;
-  }
-
-  return "en";
-}
-
-function getOptions(values: string[], labels: Record<string, string>): Option[] {
-  return values.map((value) => ({
-    value,
-    label: labels[value] || formatValue(value),
-  }));
-}
-
-function getOptionLabel(labels: Record<string, string>, value: string) {
-  return labels[value] || formatValue(value);
-}
-
-function formatValue(value: unknown) {
-  return String(value || "")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+function getOptionLabel(options: Option[], value: string) {
+  return (
+    options.find((option) => option.value === value)?.label ||
+    String(value || "")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  );
 }
 
 function formatDate(value: string) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "";
+    return "Not available";
   }
 
-  return date.toLocaleString();
+  return new Intl.DateTimeFormat("en-AU", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }
 
 function makeSavedTopic(contentPurpose: string, details: string) {
@@ -881,25 +163,18 @@ function makeSavedTopic(contentPurpose: string, details: string) {
 }
 
 function extractPurposeAndDetails(savedTopic: string) {
-  const matchedValue = purposeValues.find((purpose) =>
-    savedTopic.startsWith(`${purpose}:`)
+  const matchedValue = purposeOptions.find((purpose) =>
+    savedTopic.startsWith(`${purpose.value}:`)
   );
 
   if (matchedValue) {
     return {
-      purpose: matchedValue,
-      details: savedTopic.replace(`${matchedValue}:`, "").trim(),
+      purpose: matchedValue.value,
+      details: savedTopic.replace(`${matchedValue.value}:`, "").trim(),
     };
   }
 
-  const allPurposeLabels = Object.values(translations).flatMap((translation) =>
-    Object.entries(translation.purposeLabels).map(([value, label]) => ({
-      value,
-      label,
-    }))
-  );
-
-  const matchedLabel = allPurposeLabels.find((purpose) =>
+  const matchedLabel = purposeOptions.find((purpose) =>
     savedTopic.startsWith(`${purpose.label}:`)
   );
 
@@ -916,9 +191,10 @@ function extractPurposeAndDetails(savedTopic: string) {
   };
 }
 
-function formatSavedTopic(savedTopic: string, t: ContentStudioTranslation) {
+function formatSavedTopic(savedTopic: string) {
   const extracted = extractPurposeAndDetails(savedTopic);
-  return `${getOptionLabel(t.purposeLabels, extracted.purpose)}: ${
+
+  return `${getOptionLabel(purposeOptions, extracted.purpose)}: ${
     extracted.details
   }`;
 }
@@ -934,53 +210,10 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
   );
 }
 
-function localizePlanName(
-  planKey: string | null | undefined,
-  fallback: string,
-  t: ContentStudioTranslation
-) {
-  if (!planKey) return fallback;
-  return t.planNames[planKey] || fallback;
-}
-
 export default function ContentStudioPage() {
-  const { language } = useKolkapLanguage();
-  const activeLanguage = getSupportedLanguage(language);
-  const t = translations[activeLanguage];
-
   const workspaceState = useKolkapWorkspace();
-  const workspace = workspaceState.workspace;
+  const workspace = workspaceState.workspace as WorkspaceRow | null;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
-  const currentPlanName = localizePlanName(
-    workspaceState.planKey,
-    currentPlan.name,
-    t
-  );
-
-  const contentTypeOptions = useMemo(
-    () => getOptions(contentTypeValues, t.contentTypeLabels),
-    [t.contentTypeLabels]
-  );
-
-  const purposeOptions = useMemo(
-    () => getOptions(purposeValues, t.purposeLabels),
-    [t.purposeLabels]
-  );
-
-  const platformOptions = useMemo(
-    () => getOptions(platformValues, t.platformLabels),
-    [t.platformLabels]
-  );
-
-  const languageOptions = useMemo(
-    () => getOptions(languageValues, t.languageLabels),
-    [t.languageLabels]
-  );
-
-  const toneOptions = useMemo(
-    () => getOptions(toneValues, t.toneLabels),
-    [t.toneLabels]
-  );
 
   const [contentItems, setContentItems] = useState<ContentRow[]>([]);
   const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
@@ -1048,7 +281,7 @@ export default function ContentStudioPage() {
     let isMounted = true;
 
     async function loadContent() {
-      if (!workspace) return;
+      if (!workspace?.id) return;
 
       setIsLoading(true);
       setPageError("");
@@ -1079,7 +312,7 @@ export default function ContentStudioPage() {
     return () => {
       isMounted = false;
     };
-  }, [workspace, reloadKey]);
+  }, [workspace?.id, reloadKey]);
 
   useEffect(() => {
     loadCreditBalance();
@@ -1091,11 +324,11 @@ export default function ContentStudioPage() {
 
     return contentItems.filter((item) => {
       const contentTypeLabel = getOptionLabel(
-        t.contentTypeLabels,
+        contentTypeOptions,
         item.content_type
       ).toLowerCase();
 
-      const topicLabel = formatSavedTopic(item.topic, t).toLowerCase();
+      const topicLabel = formatSavedTopic(item.topic).toLowerCase();
 
       const matchesSearch =
         !search ||
@@ -1110,45 +343,43 @@ export default function ContentStudioPage() {
 
       return matchesSearch && matchesType;
     });
-  }, [contentItems, searchTerm, filterType, t]);
+  }, [contentItems, searchTerm, filterType]);
 
-  const uniqueTypes = new Set(
-    contentItems.map((item) => item.content_type)
-  ).size;
+  const uniqueTypes = new Set(contentItems.map((item) => item.content_type)).size;
 
   const summaryCards = [
     {
-      label: t.currentPlan,
-      value: currentPlanName,
+      label: "Current Plan",
+      value: currentPlan.name,
       note: currentPlan.priceLabel,
-      icon: WalletCards,
+      icon: <WalletCards className="h-7 w-7" />,
     },
     {
-      label: t.creditsLeft,
+      label: "Credits Left",
       value: creditsLeft === null ? "—" : creditsLeft.toLocaleString(),
       note: creditBalance
-        ? `${t.creditsUsed}: ${usedCredits.toLocaleString()}`
-        : t.noCreditBalance,
-      icon: CreditCard,
+        ? `Credits used: ${usedCredits.toLocaleString()}`
+        : "Credit balance not found yet.",
+      icon: <CreditCard className="h-7 w-7" />,
       dark: true,
     },
     {
-      label: t.creditCost,
-      value: `${CONTENT_GENERATION_CREDIT_COST} ${t.creditUnit}`,
-      note: t.oneCreditNote,
-      icon: Zap,
+      label: "Credit Cost",
+      value: `${CONTENT_GENERATION_CREDIT_COST} Credits`,
+      note: "Every successful content generation uses 5 credits.",
+      icon: <Zap className="h-7 w-7" />,
     },
     {
-      label: t.totalSaved,
+      label: "Saved Content",
       value: `${contentItems.length}`,
-      note: `${filteredContent.length} ${t.shown}`,
-      icon: FileText,
+      note: `${filteredContent.length} shown`,
+      icon: <FileText className="h-7 w-7" />,
     },
     {
-      label: t.contentTypes,
+      label: "Content Types",
       value: `${uniqueTypes}`,
-      note: t.differentFormats,
-      icon: Megaphone,
+      note: "Different formats",
+      icon: <Megaphone className="h-7 w-7" />,
     },
   ];
 
@@ -1193,17 +424,24 @@ export default function ContentStudioPage() {
     setActionError("");
 
     if (!details.trim()) {
-      setActionError(t.detailsRequired);
+      setActionError("Please write the main details first.");
       return;
     }
 
     if (details.length > MAX_DETAILS_LENGTH) {
-      setActionError(t.detailsTooLong);
+      setActionError("Main details must be 420 characters or less.");
       return;
     }
 
     if (prompt.length > MAX_PROMPT_LENGTH) {
-      setActionError(t.promptTooLong);
+      setActionError("Extra instructions must be 2,000 characters or less.");
+      return;
+    }
+
+    if (creditsLeft !== null && creditsLeft < CONTENT_GENERATION_CREDIT_COST) {
+      setActionError(
+        "Not enough credits. Please top up credits before generating more content."
+      );
       return;
     }
 
@@ -1223,14 +461,14 @@ export default function ContentStudioPage() {
           tone,
           details,
           prompt,
-          ui_language: activeLanguage,
+          ui_language: "en",
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        setActionError(result.error || t.generateFailed);
+        setActionError(result.error || "Content could not be generated.");
         setIsGenerating(false);
         return;
       }
@@ -1239,8 +477,8 @@ export default function ContentStudioPage() {
 
       if (!title.trim()) {
         setTitle(
-          `${getOptionLabel(t.purposeLabels, contentPurpose)} - ${getOptionLabel(
-            t.contentTypeLabels,
+          `${getOptionLabel(purposeOptions, contentPurpose)} - ${getOptionLabel(
+            contentTypeOptions,
             contentType
           )}`
         );
@@ -1249,19 +487,22 @@ export default function ContentStudioPage() {
       if (result.business_name) {
         const knowledgeText =
           typeof result.knowledge_count === "number"
-            ? ` ${result.knowledge_count} ${t.knowledgeItemsUsed}`
+            ? ` ${result.knowledge_count} knowledge item(s) used.`
             : "";
 
         setActionMessage(
-          `${t.generatedForBusiness} ${result.business_name}.${knowledgeText} ${t.reviewBeforeSaving}`
+          `Content generated for ${result.business_name}.${knowledgeText} 5 credits have been used. Please review and edit before saving.`
         );
       } else {
-        setActionMessage(t.generated);
+        setActionMessage(
+          "Content generated using your business context. 5 credits have been used. Please review and edit before saving."
+        );
       }
 
       await loadCreditBalance();
     } catch (error) {
-      const message = error instanceof Error ? error.message : t.generateFailed;
+      const message =
+        error instanceof Error ? error.message : "Content could not be generated.";
 
       setActionError(message);
     }
@@ -1275,28 +516,28 @@ export default function ContentStudioPage() {
     setActionMessage("");
     setActionError("");
 
-    if (!workspace) {
-      setActionError(t.saveFailed);
+    if (!workspace?.id) {
+      setActionError("Content could not be saved.");
       return;
     }
 
     if (!title.trim() || !details.trim() || !generatedContent.trim()) {
-      setActionError(t.requiredFields);
+      setActionError("Please add a title, main details, and generated content.");
       return;
     }
 
     if (details.length > MAX_DETAILS_LENGTH) {
-      setActionError(t.detailsTooLong);
+      setActionError("Main details must be 420 characters or less.");
       return;
     }
 
     if (prompt.length > MAX_PROMPT_LENGTH) {
-      setActionError(t.promptTooLong);
+      setActionError("Extra instructions must be 2,000 characters or less.");
       return;
     }
 
     if (generatedContent.length > MAX_GENERATED_LENGTH) {
-      setActionError(t.contentTooLong);
+      setActionError("Generated content must be 8,000 characters or less.");
       return;
     }
 
@@ -1336,7 +577,7 @@ export default function ContentStudioPage() {
         .single();
 
       if (error) {
-        setActionError(error.message || t.updateFailed);
+        setActionError(error.message || "Content could not be updated.");
         setIsSaving(false);
         return;
       }
@@ -1347,7 +588,7 @@ export default function ContentStudioPage() {
         )
       );
 
-      setActionMessage(t.updated);
+      setActionMessage("Content updated successfully.");
       resetForm();
       setIsSaving(false);
       return;
@@ -1360,21 +601,21 @@ export default function ContentStudioPage() {
       .single();
 
     if (error) {
-      setActionError(error.message || t.saveFailed);
+      setActionError(error.message || "Content could not be saved.");
       setIsSaving(false);
       return;
     }
 
     setContentItems((current) => [data as ContentRow, ...current]);
-    setActionMessage(t.saved);
+    setActionMessage("Content saved successfully.");
     resetForm();
     setIsSaving(false);
   }
 
   async function archiveContent(itemId: string) {
-    if (!workspace) return;
+    if (!workspace?.id) return;
 
-    const shouldArchive = window.confirm(t.archiveConfirm);
+    const shouldArchive = window.confirm("Archive this content?");
 
     if (!shouldArchive) return;
 
@@ -1395,20 +636,20 @@ export default function ContentStudioPage() {
       .eq("workspace_id", workspace.id);
 
     if (error) {
-      setActionError(error.message || t.updateFailed);
+      setActionError(error.message || "Content could not be updated.");
       setSavingItemId("");
       return;
     }
 
     setContentItems((current) => current.filter((item) => item.id !== itemId));
-    setActionMessage(t.archived);
+    setActionMessage("Content archived.");
     setSavingItemId("");
   }
 
   async function deleteContent(itemId: string) {
-    if (!workspace) return;
+    if (!workspace?.id) return;
 
-    const shouldDelete = window.confirm(t.deleteConfirm);
+    const shouldDelete = window.confirm("Delete this content?");
 
     if (!shouldDelete) return;
 
@@ -1425,13 +666,13 @@ export default function ContentStudioPage() {
       .eq("workspace_id", workspace.id);
 
     if (error) {
-      setActionError(error.message || t.updateFailed);
+      setActionError(error.message || "Content could not be updated.");
       setSavingItemId("");
       return;
     }
 
     setContentItems((current) => current.filter((item) => item.id !== itemId));
-    setActionMessage(t.deleted);
+    setActionMessage("Content deleted.");
     setSavingItemId("");
   }
 
@@ -1468,7 +709,7 @@ export default function ContentStudioPage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
-            {t.loading}
+            Loading your content studio...
           </div>
         </section>
       </main>
@@ -1480,7 +721,7 @@ export default function ContentStudioPage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
-            <p className="text-xl font-black">{t.failed}</p>
+            <p className="text-xl font-black">Content Studio could not load.</p>
             <p className="mt-2 text-base font-semibold">
               {workspaceState.error}
             </p>
@@ -1491,7 +732,7 @@ export default function ContentStudioPage() {
   }
 
   return (
-    <main className="bg-[#F7F9FA] text-[#07111F]">
+    <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
       <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8 lg:py-14">
         <div className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9 lg:p-10">
           <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1500,7 +741,7 @@ export default function ContentStudioPage() {
               className="inline-flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
             >
               <ArrowLeft className="h-5 w-5" />
-              {t.back}
+              Back to Dashboard
             </Link>
 
             <button
@@ -1512,69 +753,37 @@ export default function ContentStudioPage() {
               className="inline-flex w-fit items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10"
             >
               <RefreshCcw className="h-5 w-5" />
-              {t.refresh}
+              Refresh
             </button>
           </div>
 
           <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
             <Sparkles className="h-5 w-5" />
-            {t.badge}
+            Content Studio
           </div>
 
           <h1 className="max-w-5xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-            {t.title}
+            Generate ready-to-use content for your business.
           </h1>
 
           <p className="mt-6 max-w-4xl text-xl font-semibold leading-9 text-slate-300">
-            {t.subtitle}
+            Create captions, WhatsApp messages, announcements, customer replies,
+            product descriptions, ad copy, blog ideas, and short scripts using
+            your business profile and Knowledge Base.
           </p>
         </div>
 
         <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
-          {summaryCards.map((card) => {
-            const Icon = card.icon;
-
-            return (
-              <div
-                key={card.label}
-                className={`rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 ${
-                  card.dark
-                    ? "border-[#7CFF3D] bg-[#07111F] text-white"
-                    : "border-slate-200 bg-white text-[#07111F]"
-                }`}
-              >
-                <div
-                  className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
-                    card.dark
-                      ? "bg-[#7CFF3D] text-[#07111F]"
-                      : "bg-[#07111F] text-[#7CFF3D]"
-                  }`}
-                >
-                  <Icon className="h-7 w-7" />
-                </div>
-
-                <p
-                  className={`text-lg font-black ${
-                    card.dark ? "text-slate-300" : "text-slate-500"
-                  }`}
-                >
-                  {card.label}
-                </p>
-
-                <p className="mt-2 text-3xl font-black tracking-[-0.04em]">
-                  {card.value}
-                </p>
-
-                <p
-                  className={`mt-2 text-base font-semibold leading-7 ${
-                    card.dark ? "text-slate-300" : "text-slate-600"
-                  }`}
-                >
-                  {card.note}
-                </p>
-              </div>
-            );
-          })}
+          {summaryCards.map((card) => (
+            <SummaryCard
+              key={card.label}
+              icon={card.icon}
+              label={card.label}
+              value={card.value}
+              note={card.note}
+              dark={card.dark}
+            />
+          ))}
         </div>
 
         <section className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
@@ -1585,20 +794,38 @@ export default function ContentStudioPage() {
 
             <div>
               <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                {t.noteTitle}
+                How this works
               </p>
 
               <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
-                {t.noteText}
+                Content Studio uses your logged-in business profile, saved
+                Knowledge Base, and your instructions to create business-specific
+                content. Each successful generation uses 5 credits.
               </h2>
 
               {creditBalance ? (
                 <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
-                  {t.includedPlanCredits}: {planCredits.toLocaleString()} •{" "}
-                  {t.topUpCredits}: {purchasedCredits.toLocaleString()} •{" "}
-                  {t.creditsUsed}: {usedCredits.toLocaleString()}
+                  Included plan credits: {planCredits.toLocaleString()} • Top-Up
+                  credits: {purchasedCredits.toLocaleString()} • Credits used:{" "}
+                  {usedCredits.toLocaleString()}
                 </p>
               ) : null}
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/dashboard/top-up"
+                  className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-6 py-4 text-base font-black text-[#07111F]"
+                >
+                  Top Up Credits
+                </Link>
+
+                <Link
+                  href="/dashboard/usage"
+                  className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-4 text-base font-black text-white"
+                >
+                  View Usage
+                </Link>
+              </div>
             </div>
           </div>
         </section>
@@ -1611,52 +838,53 @@ export default function ContentStudioPage() {
               </div>
 
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                {editingId ? t.editGeneratedTitle : t.createTitle}
+                {editingId ? "Edit Generated Content" : "Content Generator"}
               </p>
 
               <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                {t.createText}
+                Choose the format, purpose, and details. Kolkap will generate
+                content based on your logged-in business and Knowledge Base.
               </h2>
             </div>
 
             <form onSubmit={handleSaveContent} className="grid gap-5">
               <TextInput
-                label={t.titleLabel}
+                label="Content Title"
                 value={title}
                 onChange={setTitle}
-                placeholder={t.titlePlaceholder}
+                placeholder="Example: June Promotion WhatsApp Message"
               />
 
               <SelectInput
-                label={t.contentType}
+                label="Content Format"
                 value={contentType}
                 onChange={setContentType}
                 options={contentTypeOptions}
               />
 
               <SelectInput
-                label={t.purpose}
+                label="Content Purpose"
                 value={contentPurpose}
                 onChange={setContentPurpose}
                 options={purposeOptions}
               />
 
               <SelectInput
-                label={t.platform}
+                label="Where will you use it?"
                 value={platform}
                 onChange={setPlatform}
                 options={platformOptions}
               />
 
               <SelectInput
-                label={t.language}
+                label="Language"
                 value={entryLanguage}
                 onChange={setEntryLanguage}
                 options={languageOptions}
               />
 
               <SelectInput
-                label={t.tone}
+                label="Tone"
                 value={tone}
                 onChange={setTone}
                 options={toneOptions}
@@ -1664,7 +892,7 @@ export default function ContentStudioPage() {
 
               <label className="grid gap-2">
                 <span className="text-base font-black text-slate-700">
-                  {t.details}
+                  Main Details
                 </span>
 
                 <textarea
@@ -1672,7 +900,7 @@ export default function ContentStudioPage() {
                   value={details}
                   maxLength={MAX_DETAILS_LENGTH + 100}
                   onChange={(event) => setDetails(event.target.value)}
-                  placeholder={t.detailsPlaceholder}
+                  placeholder="Write what this content should include. Example: promotion details, product benefits, business introduction, sales offer, announcement, event details, reminder, or customer follow-up."
                   className={`w-full rounded-2xl border px-5 py-4 text-lg font-semibold leading-8 outline-none transition ${
                     isDetailsTooLong
                       ? "border-red-300 bg-red-50"
@@ -1685,13 +913,13 @@ export default function ContentStudioPage() {
                     isDetailsTooLong ? "text-red-600" : "text-slate-500"
                   }`}
                 >
-                  {detailsCount} / {MAX_DETAILS_LENGTH} {t.characters}
+                  {detailsCount} / {MAX_DETAILS_LENGTH} characters
                 </span>
               </label>
 
               <label className="grid gap-2">
                 <span className="text-base font-black text-slate-700">
-                  {t.prompt}
+                  Extra Instructions
                 </span>
 
                 <textarea
@@ -1699,7 +927,7 @@ export default function ContentStudioPage() {
                   value={prompt}
                   maxLength={MAX_PROMPT_LENGTH + 100}
                   onChange={(event) => setPrompt(event.target.value)}
-                  placeholder={t.promptPlaceholder}
+                  placeholder="Optional: Add target audience, price, location, deadline, CTA, must-include words, or any special instruction."
                   className={`w-full rounded-2xl border px-5 py-4 text-lg font-semibold leading-8 outline-none transition ${
                     isPromptTooLong
                       ? "border-red-300 bg-red-50"
@@ -1712,7 +940,7 @@ export default function ContentStudioPage() {
                     isPromptTooLong ? "text-red-600" : "text-slate-500"
                   }`}
                 >
-                  {promptCount} / {MAX_PROMPT_LENGTH} {t.characters}
+                  {promptCount} / {MAX_PROMPT_LENGTH} characters
                 </span>
               </label>
 
@@ -1725,10 +953,10 @@ export default function ContentStudioPage() {
                 >
                   <Wand2 className="h-6 w-6" />
                   {isGenerating
-                    ? t.generating
+                    ? "Generating..."
                     : generatedContent
-                      ? t.regenererateForCredit
-                      : t.generateForCredit}
+                      ? "Regenerate Content for 5 Credits"
+                      : "Generate Content for 5 Credits"}
                 </button>
 
                 <button
@@ -1738,7 +966,7 @@ export default function ContentStudioPage() {
                   className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-8 py-5 text-xl font-black text-[#07111F] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Clipboard className="h-6 w-6" />
-                  {copiedGenerated ? t.copied : t.copyGenerated}
+                  {copiedGenerated ? "Copied" : "Copy Generated"}
                 </button>
               </div>
 
@@ -1748,12 +976,12 @@ export default function ContentStudioPage() {
                 disabled={isLoadingCredits}
                 className="text-left text-sm font-black text-blue-600 disabled:opacity-50"
               >
-                {isLoadingCredits ? t.loading : t.refreshCredits}
+                {isLoadingCredits ? "Loading your content studio..." : "Refresh credits"}
               </button>
 
               <label className="grid gap-2">
                 <span className="text-base font-black text-slate-700">
-                  {t.generatedContent}
+                  Generated Content
                 </span>
 
                 <textarea
@@ -1761,7 +989,7 @@ export default function ContentStudioPage() {
                   value={generatedContent}
                   maxLength={MAX_GENERATED_LENGTH + 200}
                   onChange={(event) => setGeneratedContent(event.target.value)}
-                  placeholder={t.generatedPlaceholder}
+                  placeholder="Click Generate Content. The result will appear here. You can edit it before saving."
                   className={`w-full rounded-2xl border px-5 py-4 text-lg font-semibold leading-8 outline-none transition ${
                     isContentTooLong
                       ? "border-red-300 bg-red-50"
@@ -1774,7 +1002,7 @@ export default function ContentStudioPage() {
                     isContentTooLong ? "text-red-600" : "text-slate-500"
                   }`}
                 >
-                  {contentCount} / {MAX_GENERATED_LENGTH} {t.characters}
+                  {contentCount} / {MAX_GENERATED_LENGTH} characters
                 </span>
               </label>
 
@@ -1806,10 +1034,10 @@ export default function ContentStudioPage() {
                 >
                   <Save className="h-6 w-6" />
                   {isSaving
-                    ? t.saving
+                    ? "Saving..."
                     : editingId
-                      ? t.updateContent
-                      : t.saveContent}
+                      ? "Update Content"
+                      : "Save Content"}
                 </button>
 
                 {editingId ? (
@@ -1818,7 +1046,7 @@ export default function ContentStudioPage() {
                     onClick={resetForm}
                     className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-8 py-5 text-xl font-black text-[#07111F]"
                   >
-                    {t.cancelEdit}
+                    Cancel Edit
                   </button>
                 ) : null}
               </div>
@@ -1832,18 +1060,18 @@ export default function ContentStudioPage() {
               </div>
 
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                {t.savedTitle}
+                Saved Content
               </p>
 
               <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                {t.savedText}
+                Manage content your team can copy, edit, reuse, or archive.
               </h2>
             </div>
 
             <div className="grid gap-4">
               <label className="grid gap-2">
                 <span className="text-base font-black text-slate-700">
-                  {t.search}
+                  Search
                 </span>
 
                 <div className="flex h-14 items-center gap-3 rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5">
@@ -1852,20 +1080,17 @@ export default function ContentStudioPage() {
                   <input
                     value={searchTerm}
                     onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder={t.searchPlaceholder}
+                    placeholder="Search saved content..."
                     className="h-full w-full bg-transparent text-lg font-semibold outline-none"
                   />
                 </div>
               </label>
 
               <SelectInput
-                label={t.filterType}
+                label="Filter Content Type"
                 value={filterType}
                 onChange={setFilterType}
-                options={[
-                  { value: "all", label: t.allTypes },
-                  ...contentTypeOptions,
-                ]}
+                options={[{ value: "all", label: "All Content Types" }, ...contentTypeOptions]}
               />
             </div>
 
@@ -1877,7 +1102,7 @@ export default function ContentStudioPage() {
 
             {isLoading ? (
               <div className="mt-6 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-6 text-lg font-black">
-                {t.loading}
+                Loading your content studio...
               </div>
             ) : filteredContent.length === 0 ? (
               <div className="mt-6 rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-8">
@@ -1886,11 +1111,11 @@ export default function ContentStudioPage() {
                 </div>
 
                 <h3 className="text-4xl font-black tracking-[-0.05em]">
-                  {t.noSaved}
+                  No saved content yet.
                 </h3>
 
                 <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
-                  {t.noSavedText}
+                  Generate your first content, review it, then save it here.
                 </p>
               </div>
             ) : (
@@ -1914,25 +1139,17 @@ export default function ContentStudioPage() {
                             <div className="mt-3 flex flex-wrap gap-2">
                               <Badge
                                 text={getOptionLabel(
-                                  t.contentTypeLabels,
+                                  contentTypeOptions,
                                   item.content_type
                                 )}
                               />
                               <Badge
-                                text={getOptionLabel(
-                                  t.platformLabels,
-                                  item.platform
-                                )}
+                                text={getOptionLabel(platformOptions, item.platform)}
                               />
                               <Badge
-                                text={getOptionLabel(
-                                  t.languageLabels,
-                                  item.language
-                                )}
+                                text={getOptionLabel(languageOptions, item.language)}
                               />
-                              <Badge
-                                text={getOptionLabel(t.toneLabels, item.tone)}
-                              />
+                              <Badge text={getOptionLabel(toneOptions, item.tone)} />
                             </div>
                           </div>
 
@@ -1943,7 +1160,7 @@ export default function ContentStudioPage() {
                               className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-black text-[#07111F]"
                             >
                               <Clipboard className="h-4 w-4" />
-                              {isCopied ? t.copied : t.copy}
+                              {isCopied ? "Copied" : "Copy"}
                             </button>
 
                             <button
@@ -1952,7 +1169,7 @@ export default function ContentStudioPage() {
                               className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-black text-[#07111F]"
                             >
                               <Edit3 className="h-4 w-4" />
-                              {t.edit}
+                              Edit
                             </button>
 
                             <button
@@ -1961,7 +1178,7 @@ export default function ContentStudioPage() {
                               onClick={() => archiveContent(item.id)}
                               className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 disabled:opacity-60"
                             >
-                              {t.archive}
+                              Archive
                             </button>
 
                             <button
@@ -1971,14 +1188,14 @@ export default function ContentStudioPage() {
                               className="inline-flex items-center justify-center gap-2 rounded-full bg-red-50 px-4 py-3 text-sm font-black text-red-700 disabled:opacity-60"
                             >
                               <Trash2 className="h-4 w-4" />
-                              {t.delete}
+                              Delete
                             </button>
                           </div>
                         </div>
 
                         <div className="rounded-3xl bg-white p-5">
                           <p className="mb-3 text-sm font-black uppercase tracking-[0.14em] text-slate-500">
-                            {formatSavedTopic(item.topic, t)}
+                            {formatSavedTopic(item.topic)}
                           </p>
 
                           <p className="whitespace-pre-wrap text-base font-semibold leading-8 text-slate-700">
@@ -1987,7 +1204,7 @@ export default function ContentStudioPage() {
                         </div>
 
                         <div className="rounded-2xl bg-white p-4 text-sm font-bold text-slate-500">
-                          {t.updatedLabel}: {formatDate(item.updated_at)}
+                          Updated: {formatDate(item.updated_at)}
                         </div>
                       </div>
                     </div>
@@ -1999,6 +1216,56 @@ export default function ContentStudioPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function SummaryCard({
+  icon,
+  label,
+  value,
+  note,
+  dark = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  note: string;
+  dark?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 ${
+        dark
+          ? "border-[#7CFF3D] bg-[#07111F] text-white"
+          : "border-slate-200 bg-white text-[#07111F]"
+      }`}
+    >
+      <div
+        className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
+          dark ? "bg-[#7CFF3D] text-[#07111F]" : "bg-[#07111F] text-[#7CFF3D]"
+        }`}
+      >
+        {icon}
+      </div>
+
+      <p
+        className={`text-lg font-black ${
+          dark ? "text-slate-300" : "text-slate-500"
+        }`}
+      >
+        {label}
+      </p>
+
+      <p className="mt-2 text-3xl font-black tracking-[-0.04em]">{value}</p>
+
+      <p
+        className={`mt-2 text-base font-semibold leading-7 ${
+          dark ? "text-slate-300" : "text-slate-600"
+        }`}
+      >
+        {note}
+      </p>
+    </div>
   );
 }
 

@@ -4,6 +4,7 @@ import { KolkapLanguageProvider } from "@/app/context/LanguageContext";
 import KolkapUserHeader from "@/components/layout/KolkapUserHeader";
 import KolkapFooter from "@/components/layout/KolkapFooter";
 import "./globals.css";
+import KaiChatBubble from "@/components/kai/KaiChatBubble";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,6 +36,7 @@ export default function RootLayout({
           <KolkapUserHeader />
           {children}
           <KolkapFooter />
+          <KaiChatBubble />
         </KolkapLanguageProvider>
       </body>
     </html>

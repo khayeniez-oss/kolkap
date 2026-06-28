@@ -5,9 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   Bot,
-  ChevronDown,
   Home,
-  Languages,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -16,16 +14,19 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  kolkapLanguageOptions,
-  useKolkapLanguage,
-} from "@/app/context/LanguageContext";
 import KolkapLogo from "@/components/brand/KolkapLogo";
 import { createClient } from "@/lib/supabase/client";
 
 const STARTER_SIGNUP_URL = "/signup?plan=starter";
 
-const navItems = [
+type NavItem = {
+  label: string;
+  href: string;
+  publicHref?: string;
+  icon: typeof Home;
+};
+
+const navItems: NavItem[] = [
   {
     label: "Home",
     href: "/",
@@ -33,7 +34,7 @@ const navItems = [
   },
   {
     label: "Create AI",
-    href: "/dashboard/create-ai",
+    href: "/dashboard/agents/new",
     publicHref: STARTER_SIGNUP_URL,
     icon: Bot,
   },
@@ -44,47 +45,9 @@ const navItems = [
   },
 ];
 
-const translations = {
-  en: {
-    login: "Login",
-    start: "Start",
-    dashboard: "Dashboard",
-    logout: "Logout",
-    language: "Language",
-    notifications: "Notifications",
-    logoSubtitle: "24/7 AI Staff Responses",
-  },
-  id: {
-    login: "Login",
-    start: "Start",
-    dashboard: "Dashboard",
-    logout: "Logout",
-    language: "Language",
-    notifications: "Notifications",
-    logoSubtitle: "24/7 AI Staff Responses",
-  },
-  zh: {
-    login: "登录",
-    start: "开始",
-    dashboard: "Dashboard",
-    logout: "Logout",
-    language: "语言",
-    notifications: "通知",
-    logoSubtitle: "24/7 AI Staff Responses",
-  },
-  ms: {
-    login: "Login",
-    start: "Start",
-    dashboard: "Dashboard",
-    logout: "Logout",
-    language: "Language",
-    notifications: "Notifications",
-    logoSubtitle: "24/7 AI Staff Responses",
-  },
-};
-
 function isActivePath(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -92,13 +55,8 @@ export default function KolkapUserHeader() {
   const pathname = usePathname();
 
   const [open, setOpen] = useState(false);
-  const [languageOpen, setLanguageOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-
-  const { language, setLanguage, languageLabel } = useKolkapLanguage();
-  const t =
-    translations[language as keyof typeof translations] || translations.en;
 
   const isInsideDashboard = pathname.startsWith("/dashboard");
   const isPublicVisitor = isCheckingAuth ? true : !isLoggedIn;
@@ -139,8 +97,9 @@ export default function KolkapUserHeader() {
             <p className="text-2xl font-black leading-none tracking-[-0.055em] text-[#07111F]">
               kolkap
             </p>
+
             <p className="mt-2 text-[0.68rem] font-black uppercase tracking-[0.14em] text-slate-600">
-              {t.logoSubtitle}
+              24/7 AI Staff Responses
             </p>
           </div>
         </Link>
@@ -170,44 +129,10 @@ export default function KolkapUserHeader() {
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setLanguageOpen((value) => !value)}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-3 text-base font-black text-slate-700 transition hover:border-blue-400 hover:bg-white"
-            >
-              <Languages className="h-5 w-5" />
-              {languageLabel}
-              <ChevronDown className="h-4 w-4" />
-            </button>
-
-            {languageOpen ? (
-              <div className="absolute right-0 mt-3 w-64 overflow-hidden rounded-3xl border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-900/10">
-                {kolkapLanguageOptions.map((item) => (
-                  <button
-                    key={item.code}
-                    type="button"
-                    onClick={() => {
-                      setLanguage(item.code);
-                      setLanguageOpen(false);
-                    }}
-                    className={`block w-full rounded-2xl px-5 py-3 text-left text-base font-black transition ${
-                      language === item.code
-                        ? "bg-[#07111F] text-white"
-                        : "text-slate-700 hover:bg-[#F7F9FA]"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
           <button
             type="button"
             className="relative inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-[#F7F9FA] text-[#07111F] transition hover:border-blue-400 hover:bg-white"
-            aria-label={t.notifications}
+            aria-label="Notifications"
           >
             <Bell className="h-5 w-5" />
             <span className="absolute right-2.5 top-2.5 h-2.5 w-2.5 rounded-full bg-[#7CFF3D]" />
@@ -219,7 +144,7 @@ export default function KolkapUserHeader() {
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-3 text-base font-black text-slate-700 transition hover:border-blue-400 hover:bg-white"
             >
               <LayoutDashboard className="h-5 w-5" />
-              {t.dashboard}
+              Dashboard
             </Link>
           ) : null}
 
@@ -229,7 +154,7 @@ export default function KolkapUserHeader() {
               className="inline-flex items-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-base font-black text-white shadow-sm transition hover:-translate-y-0.5"
             >
               <LogOut className="h-5 w-5" />
-              {t.logout}
+              Logout
             </Link>
           ) : null}
 
@@ -239,7 +164,7 @@ export default function KolkapUserHeader() {
                 href="/login"
                 className="rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-3 text-base font-black text-slate-700 transition hover:border-blue-400 hover:bg-white"
               >
-                {t.login}
+                Login
               </Link>
 
               <Link
@@ -247,7 +172,7 @@ export default function KolkapUserHeader() {
                 className="inline-flex items-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-base font-black text-white shadow-sm transition hover:-translate-y-0.5"
               >
                 <Sparkles className="h-5 w-5" />
-                {t.start}
+                Start
               </Link>
             </>
           ) : null}
@@ -257,7 +182,7 @@ export default function KolkapUserHeader() {
           type="button"
           onClick={() => setOpen((value) => !value)}
           className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-[#F7F9FA] text-[#07111F] lg:hidden"
-          aria-label="Open menu"
+          aria-label={open ? "Close menu" : "Open menu"}
         >
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
@@ -289,37 +214,13 @@ export default function KolkapUserHeader() {
               );
             })}
 
-            <div className="rounded-2xl border border-slate-200 bg-[#F7F9FA] p-3">
-              <div className="mb-2 flex items-center gap-2 px-2 text-base font-black text-slate-500">
-                <Languages className="h-5 w-5" />
-                {t.language}
-              </div>
-
-              <div className="grid gap-2">
-                {kolkapLanguageOptions.map((item) => (
-                  <button
-                    key={item.code}
-                    type="button"
-                    onClick={() => setLanguage(item.code)}
-                    className={`rounded-xl px-4 py-3 text-left text-base font-black ${
-                      language === item.code
-                        ? "bg-[#07111F] text-white"
-                        : "bg-white text-slate-700"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <button
               type="button"
               className="flex items-center justify-between rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-black text-slate-700"
             >
               <span className="flex items-center gap-3">
                 <Bell className="h-6 w-6" />
-                {t.notifications}
+                Notifications
               </span>
 
               <span className="h-3 w-3 rounded-full bg-[#7CFF3D]" />
@@ -337,7 +238,7 @@ export default function KolkapUserHeader() {
                     onClick={() => setOpen(false)}
                     className="rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-center text-lg font-black text-slate-700"
                   >
-                    {t.dashboard}
+                    Dashboard
                   </Link>
                 ) : null}
 
@@ -346,7 +247,7 @@ export default function KolkapUserHeader() {
                   onClick={() => setOpen(false)}
                   className="rounded-full bg-[#07111F] px-5 py-4 text-center text-lg font-black text-white"
                 >
-                  {t.logout}
+                  Logout
                 </Link>
               </div>
             ) : null}
@@ -358,7 +259,7 @@ export default function KolkapUserHeader() {
                   onClick={() => setOpen(false)}
                   className="rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-center text-lg font-black text-slate-700"
                 >
-                  {t.login}
+                  Login
                 </Link>
 
                 <Link
@@ -366,7 +267,7 @@ export default function KolkapUserHeader() {
                   onClick={() => setOpen(false)}
                   className="rounded-full bg-[#07111F] px-5 py-4 text-center text-lg font-black text-white"
                 >
-                  {t.start}
+                  Start
                 </Link>
               </div>
             ) : null}

@@ -1,33 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   BarChart3,
+  BookOpen,
   Bot,
-  Building2,
   CheckCircle2,
   CreditCard,
   FileText,
+  Globe2,
   Inbox,
+  LayoutDashboard,
   MessageCircle,
   RefreshCcw,
   Rocket,
   Settings,
   Sparkles,
   TestTube2,
+  TrendingUp,
   UserRound,
   UsersRound,
   WalletCards,
   Zap,
 } from "lucide-react";
-import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
-import { getKolkapPlan, type KolkapPlanKey } from "@/lib/kolkapPlan";
+import {
+  getKolkapPlan,
+  getPlanAIStaffLabel,
+} from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
-
-type SupportedLanguage = "en" | "id" | "zh" | "ms";
 
 type DashboardStats = {
   aiStaffCount: number;
@@ -54,496 +57,25 @@ type CreditBalanceRow = {
   updated_at: string;
 };
 
-type DashboardTranslation = {
-  badge: string;
-  title: string;
-  subtitle: string;
-  loading: string;
-  failed: string;
-  refresh: string;
-  currentPlan: string;
-  credits: string;
-  creditUnit: string;
-  creditsLeft: string;
-  creditsUsed: string;
-  usage: string;
-  usageToday: string;
-  aiStaff: string;
-  conversations: string;
-  leads: string;
-  handover: string;
-  goLiveStatus: string;
-  workspaceStatus: string;
-  trialDays: string;
-  quickActions: string;
-  quickActionsText: string;
-  businessFlow: string;
-  businessFlowText: string;
-  management: string;
-  managementText: string;
-  latestActivity: string;
-  latestActivityText: string;
-  noActivity: string;
-  openPage: string;
-  viewLeads: string;
-  openInbox: string;
-  createAI: string;
-  testAI: string;
-  goLive: string;
-  settings: string;
-  billing: string;
-  topUp: string;
-  businessOverview: string;
-  reports: string;
-  team: string;
-  contentStudio: string;
-  knowledgeBase: string;
-  usagePage: string;
-  stepBusiness: string;
-  stepBusinessText: string;
-  stepCreateAI: string;
-  stepCreateAIText: string;
-  stepTestAI: string;
-  stepTestAIText: string;
-  stepGoLive: string;
-  stepGoLiveText: string;
-  stepInbox: string;
-  stepInboxText: string;
-  stepLeads: string;
-  stepLeadsText: string;
-  contentStudioQuickText: string;
-  usageQuickText: string;
-  noCreditBalance: string;
-  usedFromBalance: string;
-  includedCredits: string;
-  monthlyIncluded: string;
-  custom: string;
-  aiStaffIncluded: string;
-  customAIStaffLimit: string;
-  planNames: Record<string, string>;
-  status: Record<string, string>;
+const statusLabels: Record<string, string> = {
+  trial: "Trial",
+  active: "Active",
+  past_due: "Past Due",
+  cancelled: "Cancelled",
+  canceled: "Cancelled",
+  draft: "Draft",
+  testing: "Testing",
+  live: "Live",
+  pending: "Pending",
+  not_connected: "Not connected",
+  connected: "Connected",
+  checkout_created: "Checkout Created",
 };
 
-const translations: Record<SupportedLanguage, DashboardTranslation> = {
-  en: {
-    badge: "User Dashboard",
-    title: "Your Kolkap workspace is ready.",
-    subtitle:
-      "Manage your AI staff, test replies, activate your AI, track usage, monitor credits, and follow up with customer leads from one clear dashboard.",
-    loading: "Loading your dashboard...",
-    failed: "Dashboard could not load.",
-    refresh: "Refresh",
-    currentPlan: "Current Plan",
-    credits: "Credits",
-    creditUnit: "credits",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
-    usage: "Usage",
-    usageToday: "credits used today",
-    aiStaff: "AI Staff",
-    conversations: "Conversations",
-    leads: "Leads",
-    handover: "Handover",
-    goLiveStatus: "Go Live Status",
-    workspaceStatus: "Workspace Status",
-    trialDays: "Trial Days Left",
-    quickActions: "Quick Actions",
-    quickActionsText:
-      "Jump directly to the most important actions in your Kolkap workspace.",
-    businessFlow: "Main Business Flow",
-    businessFlowText:
-      "This is the recommended setup flow for every business owner using Kolkap.",
-    management: "Workspace Management",
-    managementText:
-      "Manage billing, credits, usage, settings, reports, team access, and business knowledge.",
-    latestActivity: "Latest Activity",
-    latestActivityText:
-      "Your latest customer activity will appear here once your inbox starts receiving conversations.",
-    noActivity: "No customer conversation yet.",
-    openPage: "Open Page",
-    viewLeads: "View Leads",
-    openInbox: "Open Inbox",
-    createAI: "Create AI",
-    testAI: "Test AI",
-    goLive: "Go Live",
-    settings: "Settings",
-    billing: "Billing",
-    topUp: "Top Up",
-    businessOverview: "Business Overview",
-    reports: "Reports",
-    team: "Team",
-    contentStudio: "Content Studio",
-    knowledgeBase: "Knowledge Base",
-    usagePage: "Usage",
-    stepBusiness: "1. Review Business",
-    stepBusinessText:
-      "Check your business profile, contact details, WhatsApp number, and workspace summary.",
-    stepCreateAI: "2. Create AI",
-    stepCreateAIText:
-      "Create your AI staff and define its role, tone, channel, business knowledge, and instructions.",
-    stepTestAI: "3. Test AI",
-    stepTestAIText:
-      "Send sample customer questions and check how your AI replies before going live.",
-    stepGoLive: "4. Go Live",
-    stepGoLiveText:
-      "Review readiness, select the AI staff, and activate it in your Kolkap workspace.",
-    stepInbox: "5. Inbox",
-    stepInboxText:
-      "View customer conversations, AI replies, human replies, and handover requests.",
-    stepLeads: "6. Leads",
-    stepLeadsText:
-      "Track customer opportunities, update lead status, and follow up with potential customers.",
-    contentStudioQuickText:
-      "Generate business content for 5 credits per successful generation.",
-    usageQuickText:
-      "Track credits used, credits left, AI actions, and workspace activity.",
-    noCreditBalance: "Credit balance not found yet.",
-    usedFromBalance: "used from balance",
-    includedCredits: "total credits",
-    monthlyIncluded: "monthly included",
-    custom: "Custom",
-    aiStaffIncluded: "AI staff included",
-    customAIStaffLimit: "Custom AI staff limit",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    status: {
-      trial: "Trial",
-      active: "Active",
-      past_due: "Past Due",
-      cancelled: "Cancelled",
-      draft: "Draft",
-      testing: "Testing",
-      live: "Live",
-      pending: "Pending",
-      not_connected: "Not connected",
-      connected: "Connected",
-    },
-  },
+function statusLabel(value: string | null | undefined) {
+  if (!value) return "Not set";
 
-  id: {
-    badge: "Dashboard Pengguna",
-    title: "Workspace Kolkap Anda sudah siap.",
-    subtitle:
-      "Kelola AI staff, tes balasan, aktifkan AI, pantau penggunaan, monitor kredit, dan follow up leads pelanggan dari satu dashboard yang jelas.",
-    loading: "Memuat dashboard Anda...",
-    failed: "Dashboard tidak dapat dimuat.",
-    refresh: "Muat Ulang",
-    currentPlan: "Paket Saat Ini",
-    credits: "Kredit",
-    creditUnit: "kredit",
-    creditsLeft: "Sisa Kredit",
-    creditsUsed: "Kredit Terpakai",
-    usage: "Penggunaan",
-    usageToday: "kredit digunakan hari ini",
-    aiStaff: "AI Staff",
-    conversations: "Percakapan",
-    leads: "Leads",
-    handover: "Handover",
-    goLiveStatus: "Status Go Live",
-    workspaceStatus: "Status Workspace",
-    trialDays: "Sisa Hari Trial",
-    quickActions: "Aksi Cepat",
-    quickActionsText:
-      "Masuk langsung ke aksi paling penting di workspace Kolkap Anda.",
-    businessFlow: "Alur Utama Bisnis",
-    businessFlowText:
-      "Ini adalah alur setup yang disarankan untuk setiap pemilik bisnis yang menggunakan Kolkap.",
-    management: "Manajemen Workspace",
-    managementText:
-      "Kelola billing, kredit, penggunaan, pengaturan, laporan, akses tim, dan business knowledge.",
-    latestActivity: "Aktivitas Terbaru",
-    latestActivityText:
-      "Aktivitas pelanggan terbaru akan muncul di sini setelah inbox mulai menerima percakapan.",
-    noActivity: "Belum ada percakapan pelanggan.",
-    openPage: "Buka Halaman",
-    viewLeads: "Lihat Leads",
-    openInbox: "Buka Inbox",
-    createAI: "Buat AI",
-    testAI: "Tes AI",
-    goLive: "Go Live",
-    settings: "Pengaturan",
-    billing: "Billing",
-    topUp: "Top Up",
-    businessOverview: "Ringkasan Bisnis",
-    reports: "Laporan",
-    team: "Tim",
-    contentStudio: "Content Studio",
-    knowledgeBase: "Knowledge Base",
-    usagePage: "Penggunaan",
-    stepBusiness: "1. Review Bisnis",
-    stepBusinessText:
-      "Cek profil bisnis, detail kontak, nomor WhatsApp, dan ringkasan workspace.",
-    stepCreateAI: "2. Buat AI",
-    stepCreateAIText:
-      "Buat AI staff dan atur role, tone, channel, business knowledge, dan instruksinya.",
-    stepTestAI: "3. Tes AI",
-    stepTestAIText:
-      "Kirim contoh pertanyaan pelanggan dan cek balasan AI sebelum go live.",
-    stepGoLive: "4. Go Live",
-    stepGoLiveText:
-      "Review kesiapan, pilih AI staff, dan aktifkan AI di workspace Kolkap.",
-    stepInbox: "5. Inbox",
-    stepInboxText:
-      "Lihat percakapan pelanggan, balasan AI, balasan human, dan request handover.",
-    stepLeads: "6. Leads",
-    stepLeadsText:
-      "Pantau peluang pelanggan, update status lead, dan follow up calon pelanggan.",
-    contentStudioQuickText:
-      "Buat konten bisnis dengan 5 kredit untuk setiap hasil yang berhasil dibuat.",
-    usageQuickText:
-      "Pantau kredit terpakai, sisa kredit, aktivitas AI, dan aktivitas workspace.",
-    noCreditBalance: "Saldo kredit belum ditemukan.",
-    usedFromBalance: "digunakan dari saldo",
-    includedCredits: "total kredit",
-    monthlyIncluded: "termasuk bulanan",
-    custom: "Custom",
-    aiStaffIncluded: "AI staff termasuk",
-    customAIStaffLimit: "Limit AI staff custom",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    status: {
-      trial: "Trial",
-      active: "Aktif",
-      past_due: "Tertunda",
-      cancelled: "Dibatalkan",
-      draft: "Draft",
-      testing: "Testing",
-      live: "Live",
-      pending: "Menunggu",
-      not_connected: "Belum terhubung",
-      connected: "Terhubung",
-    },
-  },
-
-  zh: {
-    badge: "用户仪表板",
-    title: "您的 Kolkap workspace 已准备好。",
-    subtitle:
-      "在一个清晰的 dashboard 中管理 AI 员工、测试回复、启用 AI、查看使用量、监控积分，并跟进客户线索。",
-    loading: "正在加载 dashboard...",
-    failed: "Dashboard 无法加载。",
-    refresh: "刷新",
-    currentPlan: "当前套餐",
-    credits: "积分",
-    creditUnit: "积分",
-    creditsLeft: "剩余积分",
-    creditsUsed: "已用积分",
-    usage: "使用量",
-    usageToday: "今日已用积分",
-    aiStaff: "AI 员工",
-    conversations: "对话",
-    leads: "线索",
-    handover: "人工接手",
-    goLiveStatus: "上线状态",
-    workspaceStatus: "Workspace 状态",
-    trialDays: "试用剩余天数",
-    quickActions: "快速操作",
-    quickActionsText: "快速进入 Kolkap workspace 中最重要的操作。",
-    businessFlow: "主要业务流程",
-    businessFlowText: "这是每位 Kolkap 企业用户推荐的设置流程。",
-    management: "Workspace 管理",
-    managementText:
-      "管理 billing、积分、使用量、设置、报告、团队权限和企业知识。",
-    latestActivity: "最新活动",
-    latestActivityText:
-      "当 inbox 开始收到客户对话后，最新客户活动会显示在这里。",
-    noActivity: "暂无客户对话。",
-    openPage: "打开页面",
-    viewLeads: "查看线索",
-    openInbox: "打开 Inbox",
-    createAI: "创建 AI",
-    testAI: "测试 AI",
-    goLive: "上线",
-    settings: "设置",
-    billing: "Billing",
-    topUp: "充值",
-    businessOverview: "企业概览",
-    reports: "报告",
-    team: "团队",
-    contentStudio: "Content Studio",
-    knowledgeBase: "Knowledge Base",
-    usagePage: "使用量",
-    stepBusiness: "1. 查看企业资料",
-    stepBusinessText:
-      "检查企业资料、联系方式、WhatsApp 号码和 workspace 摘要。",
-    stepCreateAI: "2. 创建 AI",
-    stepCreateAIText:
-      "创建 AI 员工，并设置角色、语气、渠道、企业知识和指令。",
-    stepTestAI: "3. 测试 AI",
-    stepTestAIText: "发送客户问题示例，在上线前检查 AI 回复。",
-    stepGoLive: "4. 上线",
-    stepGoLiveText:
-      "检查准备情况，选择 AI 员工，并在 Kolkap workspace 中启用。",
-    stepInbox: "5. Inbox",
-    stepInboxText: "查看客户对话、AI 回复、人工回复和接手请求。",
-    stepLeads: "6. 线索",
-    stepLeadsText: "追踪客户机会，更新线索状态，并跟进潜在客户。",
-    contentStudioQuickText: "每次成功生成业务内容会使用 5 积分。",
-    usageQuickText:
-      "追踪已用积分、剩余积分、AI 操作和 workspace 活动。",
-    noCreditBalance: "尚未找到积分余额。",
-    usedFromBalance: "已从余额使用",
-    includedCredits: "总积分",
-    monthlyIncluded: "每月包含",
-    custom: "自定义",
-    aiStaffIncluded: "包含 AI 员工",
-    customAIStaffLimit: "自定义 AI 员工数量",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    status: {
-      trial: "试用",
-      active: "有效",
-      past_due: "逾期",
-      cancelled: "已取消",
-      draft: "草稿",
-      testing: "测试中",
-      live: "已上线",
-      pending: "待处理",
-      not_connected: "未连接",
-      connected: "已连接",
-    },
-  },
-
-  ms: {
-    badge: "Dashboard Pengguna",
-    title: "Workspace Kolkap anda sudah siap.",
-    subtitle:
-      "Urus AI staff, test balasan, aktifkan AI, pantau penggunaan, monitor kredit, dan follow up leads pelanggan dari satu dashboard yang jelas.",
-    loading: "Memuatkan dashboard anda...",
-    failed: "Dashboard tidak dapat dimuatkan.",
-    refresh: "Segar Semula",
-    currentPlan: "Pelan Semasa",
-    credits: "Kredit",
-    creditUnit: "kredit",
-    creditsLeft: "Baki Kredit",
-    creditsUsed: "Kredit Digunakan",
-    usage: "Penggunaan",
-    usageToday: "kredit digunakan hari ini",
-    aiStaff: "AI Staff",
-    conversations: "Perbualan",
-    leads: "Leads",
-    handover: "Handover",
-    goLiveStatus: "Status Go Live",
-    workspaceStatus: "Status Workspace",
-    trialDays: "Hari Trial Berbaki",
-    quickActions: "Aksi Cepat",
-    quickActionsText:
-      "Masuk terus ke aksi paling penting dalam workspace Kolkap anda.",
-    businessFlow: "Alur Utama Bisnes",
-    businessFlowText:
-      "Ini ialah alur setup yang disarankan untuk setiap pemilik bisnes yang menggunakan Kolkap.",
-    management: "Pengurusan Workspace",
-    managementText:
-      "Urus billing, kredit, penggunaan, tetapan, laporan, akses team, dan business knowledge.",
-    latestActivity: "Aktiviti Terbaru",
-    latestActivityText:
-      "Aktiviti pelanggan terbaru akan muncul di sini selepas inbox mula menerima perbualan.",
-    noActivity: "Belum ada perbualan pelanggan.",
-    openPage: "Buka Halaman",
-    viewLeads: "Lihat Leads",
-    openInbox: "Buka Inbox",
-    createAI: "Cipta AI",
-    testAI: "Test AI",
-    goLive: "Go Live",
-    settings: "Tetapan",
-    billing: "Billing",
-    topUp: "Top Up",
-    businessOverview: "Ringkasan Bisnes",
-    reports: "Laporan",
-    team: "Team",
-    contentStudio: "Content Studio",
-    knowledgeBase: "Knowledge Base",
-    usagePage: "Penggunaan",
-    stepBusiness: "1. Review Bisnes",
-    stepBusinessText:
-      "Semak profil bisnes, detail kontak, nombor WhatsApp, dan ringkasan workspace.",
-    stepCreateAI: "2. Cipta AI",
-    stepCreateAIText:
-      "Cipta AI staff dan tetapkan role, tone, channel, business knowledge, dan arahan.",
-    stepTestAI: "3. Test AI",
-    stepTestAIText:
-      "Hantar contoh soalan pelanggan dan semak balasan AI sebelum go live.",
-    stepGoLive: "4. Go Live",
-    stepGoLiveText:
-      "Review kesiapan, pilih AI staff, dan aktifkan AI dalam workspace Kolkap.",
-    stepInbox: "5. Inbox",
-    stepInboxText:
-      "Lihat perbualan pelanggan, balasan AI, balasan human, dan request handover.",
-    stepLeads: "6. Leads",
-    stepLeadsText:
-      "Pantau peluang pelanggan, update status lead, dan follow up bakal pelanggan.",
-    contentStudioQuickText:
-      "Jana kandungan bisnes dengan 5 kredit untuk setiap hasil yang berjaya dijana.",
-    usageQuickText:
-      "Pantau kredit digunakan, baki kredit, aksi AI, dan aktiviti workspace.",
-    noCreditBalance: "Baki kredit belum dijumpai.",
-    usedFromBalance: "digunakan daripada baki",
-    includedCredits: "jumlah kredit",
-    monthlyIncluded: "termasuk bulanan",
-    custom: "Custom",
-    aiStaffIncluded: "AI staff termasuk",
-    customAIStaffLimit: "Had AI staff custom",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    status: {
-      trial: "Trial",
-      active: "Aktif",
-      past_due: "Tertunda",
-      cancelled: "Dibatalkan",
-      draft: "Draft",
-      testing: "Testing",
-      live: "Live",
-      pending: "Menunggu",
-      not_connected: "Belum bersambung",
-      connected: "Bersambung",
-    },
-  },
-};
-
-function getSupportedLanguage(language: string): SupportedLanguage {
-  if (language === "id" || language === "zh" || language === "ms") {
-    return language;
-  }
-
-  return "en";
-}
-
-function getAIStaffLimit(planKey: KolkapPlanKey) {
-  const plan = getKolkapPlan(planKey);
-
-  if (plan.aiStaffLimit === "custom") return "custom";
-
-  return plan.aiStaffLimit;
-}
-
-function statusLabel(t: DashboardTranslation, value: string) {
-  return t.status[value] || value;
-}
-
-function localizePlanName(
-  planKey: string | null | undefined,
-  fallback: string,
-  t: DashboardTranslation
-) {
-  if (!planKey) return fallback;
-
-  return t.planNames[planKey] || fallback;
+  return statusLabels[value] || value.replace(/_/g, " ");
 }
 
 function getCreditsLeft(balance: CreditBalanceRow | null) {
@@ -557,8 +89,8 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
   );
 }
 
-function formatCredits(amount: number, t: DashboardTranslation) {
-  return `${amount.toLocaleString()} ${t.creditUnit}`;
+function formatCredits(amount: number) {
+  return `${amount.toLocaleString()} credits`;
 }
 
 function getTodayStartIso() {
@@ -568,19 +100,9 @@ function getTodayStartIso() {
 }
 
 export default function DashboardPage() {
-  const { language } = useKolkapLanguage();
-  const activeLanguage = getSupportedLanguage(language);
-  const t = translations[activeLanguage];
-
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
-  const currentPlanName = localizePlanName(
-    workspaceState.planKey,
-    currentPlan.name,
-    t
-  );
-  const aiLimit = getAIStaffLimit(workspaceState.planKey);
 
   const [stats, setStats] = useState<DashboardStats>({
     aiStaffCount: 0,
@@ -606,26 +128,19 @@ export default function DashboardPage() {
   const purchasedCredits = Number(creditBalance?.purchased_credits || 0);
   const totalCredits = planCredits + purchasedCredits;
 
-  const aiLimitValue =
-    aiLimit === "custom"
-      ? `${stats.aiStaffCount}/${t.custom}`
-      : `${stats.aiStaffCount}/${aiLimit}`;
-
-  const aiLimitNote =
-    aiLimit === "custom"
-      ? t.customAIStaffLimit
-      : `${aiLimit} ${t.aiStaffIncluded}`;
-
   const planCreditNote =
     planCredits > 0
-      ? `${formatCredits(planCredits, t)} ${t.monthlyIncluded}`
-      : t.includedCredits;
+      ? `${formatCredits(planCredits)} monthly included`
+      : "Plan credits";
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadStats() {
-      if (!workspace) return;
+      if (!workspace?.id) {
+        setIsLoadingStats(false);
+        return;
+      }
 
       setIsLoadingStats(true);
       setStatsError("");
@@ -647,20 +162,24 @@ export default function DashboardPage() {
           .from("ai_staff")
           .select("id", { count: "exact", head: true })
           .eq("workspace_id", workspace.id),
+
         supabase
           .from("customer_conversations")
           .select("id", { count: "exact", head: true })
           .eq("workspace_id", workspace.id),
+
         supabase
           .from("customer_conversations")
           .select("id", { count: "exact", head: true })
           .eq("workspace_id", workspace.id)
           .neq("lead_status", "closed"),
+
         supabase
           .from("customer_conversations")
           .select("id", { count: "exact", head: true })
           .eq("workspace_id", workspace.id)
           .eq("handover_requested", true),
+
         supabase
           .from("customer_conversations")
           .select("last_message")
@@ -668,15 +187,18 @@ export default function DashboardPage() {
           .order("last_message_at", { ascending: false, nullsFirst: false })
           .limit(1)
           .maybeSingle(),
+
         supabase
           .from("workspace_credit_balances")
           .select("*")
           .eq("workspace_id", workspace.id)
           .maybeSingle(),
+
         supabase
           .from("workspace_usage_events")
           .select("id", { count: "exact", head: true })
           .eq("workspace_id", workspace.id),
+
         supabase
           .from("workspace_usage_events")
           .select("credits_used")
@@ -708,6 +230,10 @@ export default function DashboardPage() {
         0
       );
 
+      const latestData = latestResult.data as {
+        last_message?: string | null;
+      } | null;
+
       setCreditBalance((creditResult.data ?? null) as CreditBalanceRow | null);
 
       setStats({
@@ -717,7 +243,7 @@ export default function DashboardPage() {
         handoverCount: handoverResult.count ?? 0,
         usageEventCount: usageResult.count ?? 0,
         creditsUsedToday: todayCreditsUsed,
-        latestConversation: latestResult.data?.last_message ?? "",
+        latestConversation: latestData?.last_message ?? "",
       });
 
       setIsLoadingStats(false);
@@ -728,172 +254,201 @@ export default function DashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [workspace, reloadKey]);
+  }, [workspace?.id, reloadKey]);
 
   const summaryCards = [
     {
-      label: t.currentPlan,
-      value: currentPlanName,
+      label: "Current Plan",
+      value: currentPlan.name,
       note: currentPlan.priceLabel,
-      icon: WalletCards,
+      icon: <WalletCards className="h-7 w-7" />,
       href: "/dashboard/billing",
     },
     {
-      label: t.creditsLeft,
+      label: "Credits Left",
       value: creditsLeft === null ? "—" : creditsLeft.toLocaleString(),
       note: creditBalance
-        ? `${usedCredits.toLocaleString()} ${t.usedFromBalance}`
-        : t.noCreditBalance,
-      icon: CreditCard,
+        ? `${usedCredits.toLocaleString()} credits used`
+        : "Credit balance not found yet.",
+      icon: <CreditCard className="h-7 w-7" />,
       href: "/dashboard/usage",
       dark: true,
     },
     {
-      label: t.usage,
-      value: isLoadingStats ? "..." : `${stats.usageEventCount}`,
-      note: `${stats.creditsUsedToday.toLocaleString()} ${t.usageToday}`,
-      icon: BarChart3,
-      href: "/dashboard/usage",
-    },
-    {
-      label: t.aiStaff,
-      value: aiLimitValue,
-      note: aiLimitNote,
-      icon: Bot,
+      label: "AI Staff",
+      value: `${stats.aiStaffCount}`,
+      note: getPlanAIStaffLabel(currentPlan),
+      icon: <Bot className="h-7 w-7" />,
       href: "/dashboard/create-ai",
     },
     {
-      label: t.goLiveStatus,
-      value: statusLabel(t, workspaceState.goLiveStatus),
-      note: statusLabel(t, workspaceState.whatsappStatus),
-      icon: Rocket,
+      label: "Inbox",
+      value: isLoadingStats ? "..." : stats.conversationCount.toLocaleString(),
+      note: "Customer conversations",
+      icon: <Inbox className="h-7 w-7" />,
+      href: "/dashboard/inbox",
+    },
+    {
+      label: "Go Live",
+      value: statusLabel(workspaceState.goLiveStatus),
+      note: "Review readiness",
+      icon: <Rocket className="h-7 w-7" />,
       href: "/dashboard/go-live",
     },
   ];
 
   const quickActions = [
     {
-      title: t.createAI,
-      text: t.stepCreateAIText,
+      title: "Onboarding",
+      text: "Follow the safe setup order before activating AI replies for real customers.",
+      href: "/dashboard/onboarding",
+      icon: <LayoutDashboard className="h-6 w-6" />,
+    },
+    {
+      title: "Create AI Staff",
+      text: "Build your AI staff role, tone, behavior, and customer reply style.",
       href: "/dashboard/create-ai",
-      icon: Bot,
+      icon: <Bot className="h-6 w-6" />,
     },
     {
-      title: t.testAI,
-      text: t.stepTestAIText,
+      title: "Knowledge Base",
+      text: "Add FAQs, services, prices, policies, and approved answers for your AI.",
+      href: "/dashboard/knowledge-base",
+      icon: <BookOpen className="h-6 w-6" />,
+    },
+    {
+      title: "Test AI",
+      text: "Send sample customer questions and review replies before going live.",
       href: "/dashboard/test-ai",
-      icon: TestTube2,
+      icon: <TestTube2 className="h-6 w-6" />,
     },
     {
-      title: t.contentStudio,
-      text: t.contentStudioQuickText,
-      href: "/dashboard/content-studio",
-      icon: FileText,
+      title: "Website Chat",
+      text: "Set widget status, selected AI staff, auto-reply, and handover rules.",
+      href: "/dashboard/integrations/website-chat",
+      icon: <Globe2 className="h-6 w-6" />,
     },
     {
-      title: t.openInbox,
-      text: t.stepInboxText,
-      href: "/dashboard/inbox",
-      icon: Inbox,
-    },
-    {
-      title: t.usagePage,
-      text: t.usageQuickText,
-      href: "/dashboard/usage",
-      icon: BarChart3,
-    },
-    {
-      title: t.viewLeads,
-      text: t.stepLeadsText,
-      href: "/dashboard/leads",
-      icon: UsersRound,
+      title: "WhatsApp",
+      text: "Manage WhatsApp numbers, AI support, auto-reply, and handover.",
+      href: "/dashboard/integrations/whatsapp",
+      icon: <MessageCircle className="h-6 w-6" />,
     },
   ];
 
-  const flowCards = [
+  const setupFlow = [
     {
-      title: t.stepBusiness,
-      text: t.stepBusinessText,
-      href: "/dashboard/business-overview",
-      icon: Building2,
+      title: "1. Settings",
+      text: "Complete business profile, contact details, timezone, and default AI preferences.",
+      href: "/dashboard/settings",
+      icon: <Settings className="h-6 w-6" />,
+      done: Boolean(workspace?.business_name),
     },
     {
-      title: t.stepCreateAI,
-      text: t.stepCreateAIText,
+      title: "2. Create AI Staff",
+      text: "Create the AI staff member that will help with customer replies and automation.",
       href: "/dashboard/create-ai",
-      icon: Bot,
+      icon: <Bot className="h-6 w-6" />,
+      done: stats.aiStaffCount > 0,
     },
     {
-      title: t.stepTestAI,
-      text: t.stepTestAIText,
+      title: "3. Knowledge Base",
+      text: "Add services, prices, FAQs, policies, and instructions so replies are accurate.",
+      href: "/dashboard/knowledge-base",
+      icon: <BookOpen className="h-6 w-6" />,
+      done: false,
+    },
+    {
+      title: "4. Test AI",
+      text: "Test common customer questions before activating real customer replies.",
       href: "/dashboard/test-ai",
-      icon: TestTube2,
+      icon: <TestTube2 className="h-6 w-6" />,
+      done: false,
     },
     {
-      title: t.stepGoLive,
-      text: t.stepGoLiveText,
+      title: "5. Website Chat",
+      text: "Prepare your website widget, AI staff, auto-reply, and human handover controls.",
+      href: "/dashboard/integrations/website-chat",
+      icon: <Globe2 className="h-6 w-6" />,
+      done: false,
+    },
+    {
+      title: "6. WhatsApp",
+      text: "Add WhatsApp numbers and control AI support, auto-reply, primary number, and handover.",
+      href: "/dashboard/integrations/whatsapp",
+      icon: <MessageCircle className="h-6 w-6" />,
+      done: workspaceState.whatsappStatus === "connected",
+    },
+    {
+      title: "7. Go Live",
+      text: "Review plan, credits, AI staff, knowledge, testing, and channel readiness.",
       href: "/dashboard/go-live",
-      icon: Rocket,
+      icon: <Rocket className="h-6 w-6" />,
+      done: workspaceState.goLiveStatus === "live",
     },
     {
-      title: t.stepInbox,
-      text: t.stepInboxText,
+      title: "8. Inbox & Leads",
+      text: "Review conversations, handover, AI replies, leads, and follow-up activity.",
       href: "/dashboard/inbox",
-      icon: Inbox,
-    },
-    {
-      title: t.stepLeads,
-      text: t.stepLeadsText,
-      href: "/dashboard/leads",
-      icon: UsersRound,
+      icon: <Inbox className="h-6 w-6" />,
+      done: stats.conversationCount > 0,
     },
   ];
 
   const managementCards = [
     {
-      title: t.businessOverview,
-      href: "/dashboard/business-overview",
-      icon: Building2,
-    },
-    {
-      title: t.billing,
-      href: "/dashboard/billing",
-      icon: CreditCard,
-    },
-    {
-      title: t.usagePage,
-      href: "/dashboard/usage",
-      icon: BarChart3,
-    },
-    {
-      title: t.topUp,
-      href: "/dashboard/top-up",
-      icon: WalletCards,
-    },
-    {
-      title: t.settings,
-      href: "/dashboard/settings",
-      icon: Settings,
-    },
-    {
-      title: t.reports,
-      href: "/dashboard/reports",
-      icon: BarChart3,
-    },
-    {
-      title: t.team,
-      href: "/dashboard/team",
-      icon: UserRound,
-    },
-    {
-      title: t.contentStudio,
+      title: "Content Studio",
+      text: "Generate captions, WhatsApp messages, ad copy, scripts, and customer replies.",
       href: "/dashboard/content-studio",
-      icon: FileText,
+      icon: <FileText className="h-6 w-6" />,
     },
     {
-      title: t.knowledgeBase,
-      href: "/dashboard/knowledge-base",
-      icon: MessageCircle,
+      title: "Usage",
+      text: "Track AI actions, messages, skipped replies, and credit deductions.",
+      href: "/dashboard/usage",
+      icon: <BarChart3 className="h-6 w-6" />,
+    },
+    {
+      title: "Reports",
+      text: "Review channel performance, leads, handover, AI activity, and credit usage.",
+      href: "/dashboard/reports",
+      icon: <TrendingUp className="h-6 w-6" />,
+    },
+    {
+      title: "Top Up",
+      text: "Buy extra credits through Stripe when your workspace needs more capacity.",
+      href: "/dashboard/top-up",
+      icon: <WalletCards className="h-6 w-6" />,
+    },
+    {
+      title: "Billing",
+      text: "Manage your plan, subscription, cancellation, and billing status.",
+      href: "/dashboard/billing",
+      icon: <CreditCard className="h-6 w-6" />,
+    },
+    {
+      title: "Team",
+      text: "Invite and manage team members who help operate your workspace.",
+      href: "/dashboard/team",
+      icon: <UsersRound className="h-6 w-6" />,
+    },
+    {
+      title: "Settings",
+      text: "Update business profile, notifications, AI preferences, and account settings.",
+      href: "/dashboard/settings",
+      icon: <Settings className="h-6 w-6" />,
+    },
+    {
+      title: "Leads",
+      text: "Track customer opportunities, lead status, and follow-up activity.",
+      href: "/dashboard/leads",
+      icon: <UserRound className="h-6 w-6" />,
+    },
+    {
+      title: "Inbox",
+      text: "Manage customer conversations, AI suggestions, and human handover.",
+      href: "/dashboard/inbox",
+      icon: <Inbox className="h-6 w-6" />,
     },
   ];
 
@@ -901,16 +456,18 @@ export default function DashboardPage() {
     const items = [
       Boolean(workspace?.business_name),
       stats.aiStaffCount > 0,
+      workspaceState.whatsappStatus === "connected",
       workspaceState.goLiveStatus === "live",
       stats.conversationCount > 0,
     ];
 
     return items.filter(Boolean).length;
   }, [
-    workspace,
+    workspace?.business_name,
     stats.aiStaffCount,
     stats.conversationCount,
     workspaceState.goLiveStatus,
+    workspaceState.whatsappStatus,
   ]);
 
   if (workspaceState.isLoading) {
@@ -918,7 +475,7 @@ export default function DashboardPage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
-            {t.loading}
+            Loading your dashboard...
           </div>
         </section>
       </main>
@@ -930,7 +487,7 @@ export default function DashboardPage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
-            <p className="text-xl font-black">{t.failed}</p>
+            <p className="text-xl font-black">Dashboard could not load.</p>
             <p className="mt-2 text-base font-semibold">
               {workspaceState.error}
             </p>
@@ -941,13 +498,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="bg-[#F7F9FA] text-[#07111F]">
+    <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
       <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8 lg:py-14">
         <div className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9 lg:p-10">
           <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="inline-flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
               <Sparkles className="h-5 w-5" />
-              {t.badge}
+              Kolkap Dashboard
             </div>
 
             <button
@@ -956,54 +513,41 @@ export default function DashboardPage() {
               className="inline-flex w-fit items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10"
             >
               <RefreshCcw className="h-5 w-5" />
-              {t.refresh}
+              Refresh
             </button>
           </div>
 
           <h1 className="max-w-5xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-            {t.title}
+            Manage your AI staff, channels, credits, and customer conversations.
           </h1>
 
           <p className="mt-6 max-w-4xl text-xl font-semibold leading-9 text-slate-300">
-            {t.subtitle}
+            Create AI staff, add knowledge, test replies, activate Website Chat
+            or WhatsApp, review Inbox and Leads, track credits, and manage your
+            workspace from one dashboard.
           </p>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
-                {t.workspaceStatus}
-              </p>
-              <p className="mt-2 text-2xl font-black">
-                {statusLabel(t, workspaceState.status)}
-              </p>
-            </div>
+            <HeroStat
+              label="Workspace Status"
+              value={statusLabel(workspaceState.status)}
+            />
 
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
-                {t.trialDays}
-              </p>
-              <p className="mt-2 text-2xl font-black">
-                {workspaceState.trialDaysRemaining}
-              </p>
-            </div>
+            <HeroStat
+              label="Trial Days Left"
+              value={String(workspaceState.trialDaysRemaining)}
+            />
 
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
-                {t.creditsLeft}
-              </p>
-              <p className="mt-2 text-2xl font-black text-[#7CFF3D]">
-                {creditsLeft === null ? "—" : creditsLeft.toLocaleString()}
-              </p>
-            </div>
+            <HeroStat
+              label="Credits Left"
+              value={creditsLeft === null ? "—" : creditsLeft.toLocaleString()}
+              highlight
+            />
 
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-              <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
-                {t.usage}
-              </p>
-              <p className="mt-2 text-2xl font-black">
-                {isLoadingStats ? "..." : stats.usageEventCount}
-              </p>
-            </div>
+            <HeroStat
+              label="Go Live"
+              value={statusLabel(workspaceState.goLiveStatus)}
+            />
           </div>
         </div>
 
@@ -1014,52 +558,17 @@ export default function DashboardPage() {
         ) : null}
 
         <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
-          {summaryCards.map((card) => {
-            const Icon = card.icon;
-
-            return (
-              <Link
-                key={card.label}
-                href={card.href}
-                className={`group rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-900/10 ${
-                  card.dark
-                    ? "border-[#7CFF3D] bg-[#07111F] text-white"
-                    : "border-slate-200 bg-white text-[#07111F]"
-                }`}
-              >
-                <div
-                  className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
-                    card.dark
-                      ? "bg-[#7CFF3D] text-[#07111F]"
-                      : "bg-[#07111F] text-[#7CFF3D]"
-                  }`}
-                >
-                  <Icon className="h-7 w-7" />
-                </div>
-                <p
-                  className={`text-lg font-black ${
-                    card.dark ? "text-slate-300" : "text-slate-500"
-                  }`}
-                >
-                  {card.label}
-                </p>
-                <p className="mt-2 text-3xl font-black tracking-[-0.04em]">
-                  {card.value}
-                </p>
-                <p
-                  className={`mt-2 text-base font-semibold leading-7 ${
-                    card.dark ? "text-slate-300" : "text-slate-600"
-                  }`}
-                >
-                  {card.note}
-                </p>
-                <div className="mt-5 inline-flex items-center gap-2 text-sm font-black text-blue-600">
-                  {t.openPage}
-                  <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
-                </div>
-              </Link>
-            );
-          })}
+          {summaryCards.map((card) => (
+            <SummaryLinkCard
+              key={card.label}
+              href={card.href}
+              icon={card.icon}
+              label={card.label}
+              value={card.value}
+              note={card.note}
+              dark={card.dark}
+            />
+          ))}
         </div>
 
         <section className="mb-8 rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
@@ -1070,56 +579,43 @@ export default function DashboardPage() {
               </div>
 
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                {t.credits}
+                Credits
               </p>
 
               <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                {t.creditsLeft}:{" "}
+                Credits Left:{" "}
                 {creditsLeft === null ? "—" : creditsLeft.toLocaleString()}
               </h2>
 
               <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
                 {creditBalance
-                  ? `${usedCredits.toLocaleString()} ${
-                      t.usedFromBalance
-                    } • ${totalCredits.toLocaleString()} ${t.includedCredits}`
-                  : t.noCreditBalance}
+                  ? `${usedCredits.toLocaleString()} used • ${totalCredits.toLocaleString()} total credits • ${stats.creditsUsedToday.toLocaleString()} used today`
+                  : "Credit balance not found yet."}
               </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
-              <Link
+              <MiniLinkCard
                 href="/dashboard/usage"
-                className="rounded-[2rem] bg-[#07111F] p-6 text-white"
-              >
-                <BarChart3 className="mb-5 h-9 w-9 text-[#7CFF3D]" />
-                <p className="text-xl font-black">{t.usagePage}</p>
-                <p className="mt-2 text-sm font-semibold text-slate-300">
-                  {t.creditsUsed}: {usedCredits.toLocaleString()}
-                </p>
-              </Link>
+                title="Usage"
+                text={`Credits used: ${usedCredits.toLocaleString()}`}
+                icon={<BarChart3 className="h-9 w-9 text-[#7CFF3D]" />}
+                dark
+              />
 
-              <Link
+              <MiniLinkCard
                 href="/dashboard/billing"
-                className="rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-6"
-              >
-                <CreditCard className="mb-5 h-9 w-9 text-[#07111F]" />
-                <p className="text-xl font-black">{t.billing}</p>
-                <p className="mt-2 text-sm font-semibold text-slate-600">
-                  {currentPlan.priceLabel}
-                </p>
-              </Link>
+                title="Billing"
+                text={currentPlan.priceLabel}
+                icon={<CreditCard className="h-9 w-9 text-[#07111F]" />}
+              />
 
-              <Link
+              <MiniLinkCard
                 href="/dashboard/top-up"
-                className="rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-6"
-              >
-                <WalletCards className="mb-5 h-9 w-9 text-[#07111F]" />
-                <p className="text-xl font-black">{t.topUp}</p>
-                <p className="mt-2 text-sm font-semibold text-slate-600">
-                  {planCreditNote}
-                </p>
-              </Link>
+                title="Top Up"
+                text={planCreditNote}
+                icon={<WalletCards className="h-9 w-9 text-[#07111F]" />}
+              />
             </div>
           </div>
         </section>
@@ -1131,40 +627,23 @@ export default function DashboardPage() {
             </div>
 
             <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-              {t.quickActions}
+              Quick Actions
             </p>
 
             <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-              {t.quickActionsText}
+              Jump into the actions that move your AI workspace forward.
             </h2>
 
             <div className="mt-8 grid gap-4">
-              {quickActions.map((action) => {
-                const Icon = action.icon;
-
-                return (
-                  <Link
-                    key={action.title}
-                    href={action.href}
-                    className="group rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#07111F]">
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-xl font-black">{action.title}</p>
-                          <ArrowRight className="h-5 w-5 shrink-0 transition group-hover:translate-x-1" />
-                        </div>
-                        <p className="mt-2 text-base font-semibold leading-7 text-slate-300">
-                          {action.text}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+              {quickActions.map((action) => (
+                <DarkActionLink
+                  key={action.title}
+                  href={action.href}
+                  icon={action.icon}
+                  title={action.title}
+                  text={action.text}
+                />
+              ))}
             </div>
           </section>
 
@@ -1174,52 +653,25 @@ export default function DashboardPage() {
             </div>
 
             <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              {t.businessFlow}
+              Main Setup Flow
             </p>
 
             <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-              {t.businessFlowText}
+              Follow this flow before your AI staff starts helping real
+              customers.
             </h2>
 
             <div className="mt-8 grid gap-4">
-              {flowCards.map((item, index) => {
-                const Icon = item.icon;
-                const isDone =
-                  (index === 0 && Boolean(workspace?.business_name)) ||
-                  (index === 1 && stats.aiStaffCount > 0) ||
-                  (index === 2 && stats.aiStaffCount > 0) ||
-                  (index === 3 && workspaceState.goLiveStatus === "live") ||
-                  (index === 4 && stats.conversationCount > 0) ||
-                  (index === 5 && stats.leadCount > 0);
-
-                return (
-                  <Link
-                    key={item.title}
-                    href={item.href}
-                    className="group rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 transition hover:bg-white"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#07111F]">
-                        <Icon className="h-6 w-6" />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-xl font-black">{item.title}</p>
-                          {isDone ? (
-                            <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
-                          ) : (
-                            <ArrowRight className="h-5 w-5 shrink-0 text-blue-600 transition group-hover:translate-x-1" />
-                          )}
-                        </div>
-                        <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
-                          {item.text}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+              {setupFlow.map((item) => (
+                <SetupFlowLink
+                  key={item.title}
+                  href={item.href}
+                  icon={item.icon}
+                  title={item.title}
+                  text={item.text}
+                  done={item.done}
+                />
+              ))}
             </div>
           </section>
         </div>
@@ -1230,44 +682,38 @@ export default function DashboardPage() {
               <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
                 <Settings className="h-8 w-8" />
               </div>
+
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                {t.management}
+                Workspace Management
               </p>
+
               <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                {t.managementText}
+                Manage content, usage, reports, credits, billing, team, inbox,
+                leads, and settings.
               </h2>
             </div>
 
             <div className="rounded-[2rem] border border-blue-100 bg-blue-50 p-5">
               <p className="text-sm font-black uppercase tracking-[0.14em] text-blue-700">
-                {t.workspaceStatus}
+                Setup Progress
               </p>
+
               <p className="mt-2 text-3xl font-black tracking-[-0.04em] text-blue-950">
-                {workspaceHealth}/4
+                {workspaceHealth}/5
               </p>
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {managementCards.map((item) => {
-              const Icon = item.icon;
-
-              return (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className="group rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 transition hover:bg-white"
-                >
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#07111F]">
-                    <Icon className="h-6 w-6" />
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-lg font-black">{item.title}</p>
-                    <ArrowRight className="h-4 w-4 text-blue-600 transition group-hover:translate-x-1" />
-                  </div>
-                </Link>
-              );
-            })}
+            {managementCards.map((item) => (
+              <ManagementLink
+                key={item.title}
+                href={item.href}
+                icon={item.icon}
+                title={item.title}
+                text={item.text}
+              />
+            ))}
           </div>
         </section>
 
@@ -1277,17 +723,31 @@ export default function DashboardPage() {
               <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
                 <MessageCircle className="h-8 w-8" />
               </div>
+
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                {t.latestActivity}
+                Customer Activity
               </p>
+
               <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                {t.latestActivityText}
+                Customer conversations, leads, and handover activity will appear
+                here as your channels start receiving messages.
               </h2>
             </div>
 
             <div className="rounded-[2rem] bg-[#07111F] p-6 text-white">
-              <p className="text-xl font-black leading-9">
-                {stats.latestConversation || t.noActivity}
+              <div className="grid gap-4 sm:grid-cols-3">
+                <ActivityStat
+                  label="Conversations"
+                  value={stats.conversationCount}
+                />
+
+                <ActivityStat label="Leads" value={stats.leadCount} />
+
+                <ActivityStat label="Handover" value={stats.handoverCount} />
+              </div>
+
+              <p className="mt-6 text-xl font-black leading-9">
+                {stats.latestConversation || "No customer conversation yet."}
               </p>
 
               <div className="mt-7 grid gap-4 sm:grid-cols-2">
@@ -1295,7 +755,7 @@ export default function DashboardPage() {
                   href="/dashboard/inbox"
                   className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-6 py-4 text-base font-black text-[#07111F]"
                 >
-                  {t.openInbox}
+                  Open Inbox
                   <ArrowRight className="h-5 w-5" />
                 </Link>
 
@@ -1303,7 +763,7 @@ export default function DashboardPage() {
                   href="/dashboard/leads"
                   className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-4 text-base font-black text-white"
                 >
-                  {t.viewLeads}
+                  View Leads
                   <ArrowRight className="h-5 w-5" />
                 </Link>
               </div>
@@ -1312,5 +772,245 @@ export default function DashboardPage() {
         </section>
       </section>
     </main>
+  );
+}
+
+function HeroStat({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+      <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
+        {label}
+      </p>
+
+      <p className={`mt-2 text-2xl font-black ${highlight ? "text-[#7CFF3D]" : ""}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function SummaryLinkCard({
+  href,
+  icon,
+  label,
+  value,
+  note,
+  dark = false,
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+  value: string;
+  note: string;
+  dark?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`group rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-900/10 ${
+        dark
+          ? "border-[#7CFF3D] bg-[#07111F] text-white"
+          : "border-slate-200 bg-white text-[#07111F]"
+      }`}
+    >
+      <div
+        className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
+          dark ? "bg-[#7CFF3D] text-[#07111F]" : "bg-[#07111F] text-[#7CFF3D]"
+        }`}
+      >
+        {icon}
+      </div>
+
+      <p
+        className={`text-lg font-black ${
+          dark ? "text-slate-300" : "text-slate-500"
+        }`}
+      >
+        {label}
+      </p>
+
+      <p className="mt-2 text-3xl font-black tracking-[-0.04em]">{value}</p>
+
+      <p
+        className={`mt-2 text-base font-semibold leading-7 ${
+          dark ? "text-slate-300" : "text-slate-600"
+        }`}
+      >
+        {note}
+      </p>
+
+      <div className="mt-5 inline-flex items-center gap-2 text-sm font-black text-blue-600">
+        Open Page
+        <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+      </div>
+    </Link>
+  );
+}
+
+function MiniLinkCard({
+  href,
+  title,
+  text,
+  icon,
+  dark = false,
+}: {
+  href: string;
+  title: string;
+  text: string;
+  icon: ReactNode;
+  dark?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-[2rem] p-6 ${
+        dark
+          ? "bg-[#07111F] text-white"
+          : "border border-slate-200 bg-[#F7F9FA] text-[#07111F]"
+      }`}
+    >
+      <div className="mb-5">{icon}</div>
+
+      <p className="text-xl font-black">{title}</p>
+
+      <p
+        className={`mt-2 text-sm font-semibold ${
+          dark ? "text-slate-300" : "text-slate-600"
+        }`}
+      >
+        {text}
+      </p>
+    </Link>
+  );
+}
+
+function DarkActionLink({
+  href,
+  icon,
+  title,
+  text,
+}: {
+  href: string;
+  icon: ReactNode;
+  title: string;
+  text: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
+    >
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#07111F]">
+          {icon}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xl font-black">{title}</p>
+            <ArrowRight className="h-5 w-5 shrink-0 transition group-hover:translate-x-1" />
+          </div>
+
+          <p className="mt-2 text-base font-semibold leading-7 text-slate-300">
+            {text}
+          </p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function SetupFlowLink({
+  href,
+  icon,
+  title,
+  text,
+  done,
+}: {
+  href: string;
+  icon: ReactNode;
+  title: string;
+  text: string;
+  done: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 transition hover:bg-white"
+    >
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#07111F]">
+          {icon}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xl font-black">{title}</p>
+
+            {done ? (
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
+            ) : (
+              <ArrowRight className="h-5 w-5 shrink-0 text-blue-600 transition group-hover:translate-x-1" />
+            )}
+          </div>
+
+          <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
+            {text}
+          </p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function ManagementLink({
+  href,
+  icon,
+  title,
+  text,
+}: {
+  href: string;
+  icon: ReactNode;
+  title: string;
+  text: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 transition hover:bg-white"
+    >
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#07111F]">
+        {icon}
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-lg font-black">{title}</p>
+        <ArrowRight className="h-4 w-4 text-blue-600 transition group-hover:translate-x-1" />
+      </div>
+
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+        {text}
+      </p>
+    </Link>
+  );
+}
+
+function ActivityStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+      <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-2 text-3xl font-black">{value}</p>
+    </div>
   );
 }

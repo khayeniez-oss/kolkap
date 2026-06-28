@@ -6,6 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+type WorkspaceRow = {
+  id: string;
+  owner_user_id: string;
+  stripe_subscription_id: string | null;
+};
+
 function getAdminSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -36,8 +42,8 @@ function shouldIgnoreDeleteError(error: { code?: string } | null) {
   if (!error) return true;
 
   return (
-    error.code === "42P01" ||
-    error.code === "42703" ||
+    error.code === "42P01" || // table does not exist
+    error.code === "42703" || // column does not exist
     error.code === "PGRST116"
   );
 }
@@ -57,6 +63,74 @@ async function deleteByColumn(input: {
   if (error && !shouldIgnoreDeleteError(error)) {
     throw error;
   }
+}
+
+async function cancelStripeSubscription(subscriptionId: string | null) {
+  if (!subscriptionId) return;
+
+  const stripe = getStripe();
+
+  if (!stripe) return;
+
+  try {
+    await stripe.subscriptions.cancel(subscriptionId);
+  } catch (error) {
+    console.error(
+      "Stripe subscription cancellation failed during account deletion.",
+      error instanceof Error ? error.message : error
+    );
+  }
+}
+
+async function deleteWorkspaceData(workspaceId: string) {
+  const workspaceScopedTables = [
+    // Usage, billing, credits
+    "workspace_usage_events",
+    "workspace_credit_topups",
+    "workspace_credit_balances",
+
+    // AI setup
+    "ai_test_runs",
+    "ai_staff",
+
+    // Knowledge base
+    "workspace_knowledge_base",
+    "business_knowledge",
+
+    // Website chat
+    "workspace_website_chat_settings",
+    "website_chat_messages",
+    "website_chat_conversations",
+
+    // WhatsApp / message logs
+    "whatsapp_message_logs",
+    "whatsapp_numbers",
+    "whatsapp_connections",
+    "workspace_whatsapp_numbers",
+
+    // Inbox / customer messages
+    "customer_messages",
+    "conversation_messages",
+    "customer_conversations",
+
+    // Leads / team
+    "leads",
+    "team_members",
+  ];
+
+  for (const table of workspaceScopedTables) {
+    await deleteByColumn({
+      table,
+      column: "workspace_id",
+      value: workspaceId,
+    });
+  }
+
+  await deleteByColumn({
+    table: "business_workspaces",
+    column: "id",
+    value: workspaceId,
+  });
 }
 
 export async function POST(request: Request) {
@@ -81,7 +155,7 @@ export async function POST(request: Request) {
       throw userError;
     }
 
-    if (!user) {
+    if (!user?.id) {
       return NextResponse.json(
         { error: "Please log in to delete your account." },
         { status: 401 }
@@ -92,85 +166,18 @@ export async function POST(request: Request) {
 
     const { data: workspaces, error: workspaceError } = await supabaseAdmin
       .from("business_workspaces")
-      .select("id, stripe_subscription_id")
+      .select("id, owner_user_id, stripe_subscription_id")
       .eq("owner_user_id", user.id);
 
     if (workspaceError) {
       throw workspaceError;
     }
 
-    const stripe = getStripe();
+    const workspaceRows = (workspaces ?? []) as WorkspaceRow[];
 
-    for (const workspace of workspaces || []) {
-      const workspaceId = workspace.id as string;
-      const stripeSubscriptionId = workspace.stripe_subscription_id as
-        | string
-        | null;
-
-      if (stripe && stripeSubscriptionId) {
-        try {
-          await stripe.subscriptions.cancel(stripeSubscriptionId);
-        } catch (stripeError) {
-          console.error(
-            "Stripe subscription cancellation failed during account deletion.",
-            stripeError instanceof Error ? stripeError.message : stripeError
-          );
-        }
-      }
-
-      await deleteByColumn({
-        table: "workspace_usage_events",
-        column: "workspace_id",
-        value: workspaceId,
-      });
-
-      await deleteByColumn({
-        table: "workspace_credit_balances",
-        column: "workspace_id",
-        value: workspaceId,
-      });
-
-      await deleteByColumn({
-        table: "ai_staff",
-        column: "workspace_id",
-        value: workspaceId,
-      });
-
-      await deleteByColumn({
-        table: "business_knowledge",
-        column: "workspace_id",
-        value: workspaceId,
-      });
-
-      await deleteByColumn({
-        table: "customer_conversations",
-        column: "workspace_id",
-        value: workspaceId,
-      });
-
-      await deleteByColumn({
-        table: "conversation_messages",
-        column: "workspace_id",
-        value: workspaceId,
-      });
-
-      await deleteByColumn({
-        table: "leads",
-        column: "workspace_id",
-        value: workspaceId,
-      });
-
-      await deleteByColumn({
-        table: "team_members",
-        column: "workspace_id",
-        value: workspaceId,
-      });
-
-      await deleteByColumn({
-        table: "business_workspaces",
-        column: "id",
-        value: workspaceId,
-      });
+    for (const workspace of workspaceRows) {
+      await cancelStripeSubscription(workspace.stripe_subscription_id);
+      await deleteWorkspaceData(workspace.id);
     }
 
     await deleteByColumn({

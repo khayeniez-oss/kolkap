@@ -1,123 +1,228 @@
 import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
 import {
   ArrowRight,
   BookOpen,
   Bot,
   Brain,
-  Building2,
   CheckCircle2,
   Database,
   Fingerprint,
+  Globe2,
+  Inbox,
   LockKeyhole,
   MessageCircle,
   PlugZap,
+  Rocket,
   Route,
   Send,
   ShieldCheck,
+  TestTube2,
 } from "lucide-react";
 import KolkapLogo from "@/components/brand/KolkapLogo";
+
+type BrainStep = {
+  number: string;
+  title: string;
+  text: string;
+  icon: LucideIcon;
+};
+
+type WorkspaceCard = {
+  business: string;
+  type: string;
+  color: string;
+  items: string[];
+};
+
+type IdentitySource = {
+  title: string;
+  text: string;
+  icon: LucideIcon;
+};
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "AI Brain", href: "/dashboard/ai-brain" },
-  { label: "AI Staff", href: "/dashboard/agents" },
+  { label: "Create AI Staff", href: "/dashboard/create-ai" },
   { label: "Knowledge", href: "/dashboard/knowledge-base" },
+  { label: "Test AI", href: "/dashboard/test-ai" },
   { label: "Inbox", href: "/dashboard/inbox" },
   { label: "Leads", href: "/dashboard/leads" },
-  { label: "Integrations", href: "/dashboard/integrations" },
-  { label: "Billing", href: "/dashboard/billing" },
+  { label: "Website Chat", href: "/dashboard/integrations/website-chat" },
+  { label: "WhatsApp", href: "/dashboard/integrations/whatsapp" },
+  { label: "Go Live", href: "/dashboard/go-live" },
 ];
 
-const brainSteps = [
+const brainSteps: BrainStep[] = [
   {
     number: "01",
-    title: "Incoming message received",
-    text: "A customer sends a message through WhatsApp, website chat, email, or another connected channel.",
+    title: "Message or request comes in",
+    text: "A customer message, test message, inbox reply request, content request, website chat message, or WhatsApp message reaches Kolkap.",
     icon: MessageCircle,
   },
   {
     number: "02",
-    title: "Identify the business",
-    text: "Kolkap checks the channel ID, phone number, widget ID, or webhook token to find the correct business_id.",
+    title: "Resolve the correct workspace",
+    text: "Kolkap identifies the correct workspace from the logged-in user, active team member, selected workspace, website widget, or connected WhatsApp channel.",
     icon: Fingerprint,
   },
   {
     number: "03",
-    title: "Load the right AI staff",
-    text: "Kolkap checks which AI role should answer, such as receptionist, WhatsApp responder, or support agent.",
-    icon: Bot,
+    title: "Load that business profile",
+    text: "Kolkap loads the selected business workspace only, including profile, settings, status, trial, billing, and channel readiness.",
+    icon: Database,
   },
   {
     number: "04",
-    title: "Load business knowledge",
-    text: "Kolkap loads only that business’s FAQs, pricing, services, policies, files, and approved answers.",
-    icon: BookOpen,
+    title: "Load the right AI staff",
+    text: "Kolkap selects the AI staff member for the channel or task, such as receptionist, WhatsApp responder, support assistant, or content assistant.",
+    icon: Bot,
   },
   {
     number: "05",
-    title: "Apply rules and safety",
-    text: "Kolkap applies tone, language, handover rules, blocked topics, and safety instructions before replying.",
-    icon: ShieldCheck,
+    title: "Load private knowledge",
+    text: "Kolkap loads only that workspace’s active business knowledge, such as FAQs, services, prices, policies, approved answers, URLs, and handover rules.",
+    icon: BookOpen,
   },
   {
     number: "06",
-    title: "Reply as that business",
-    text: "The AI reply goes back through the same channel and the conversation is saved under that business only.",
+    title: "Check credits and safety",
+    text: "Kolkap checks workspace access, active trial or subscription, credit balance, safe instructions, tone, language, and handover rules before generating.",
+    icon: ShieldCheck,
+  },
+  {
+    number: "07",
+    title: "Generate as that business",
+    text: "The AI generates a reply or content as the selected business, not as generic Kolkap support, and avoids exposing internal system details.",
+    icon: Brain,
+  },
+  {
+    number: "08",
+    title: "Save usage and response",
+    text: "After successful generation, the API logs usage, credits are deducted by the database trigger, and the result returns to the correct page or channel.",
     icon: Send,
   },
 ];
 
-const workspaceCards = [
+const workspaceCards: WorkspaceCard[] = [
   {
     business: "Business A",
     type: "Bali Villa Agency",
     color: "bg-[#7CFF3D] text-[#07111F]",
-    items: ["business_id", "AI Staff", "Knowledge Base", "Inbox", "Leads", "Settings"],
+    items: [
+      "workspace_id",
+      "AI Staff",
+      "Knowledge Base",
+      "Inbox",
+      "Leads",
+      "Settings",
+      "Credits",
+    ],
   },
   {
     business: "Business B",
     type: "Clinic",
     color: "bg-blue-600 text-white",
-    items: ["business_id", "AI Staff", "Knowledge Base", "Inbox", "Leads", "Settings"],
+    items: [
+      "workspace_id",
+      "AI Staff",
+      "Knowledge Base",
+      "Inbox",
+      "Leads",
+      "Settings",
+      "Credits",
+    ],
   },
   {
     business: "Business C",
     type: "Restaurant",
     color: "bg-violet-600 text-white",
-    items: ["business_id", "AI Staff", "Knowledge Base", "Inbox", "Leads", "Settings"],
+    items: [
+      "workspace_id",
+      "AI Staff",
+      "Knowledge Base",
+      "Inbox",
+      "Leads",
+      "Settings",
+      "Credits",
+    ],
   },
 ];
 
 const dataRules = [
-  "Every AI reply must know the business_id first.",
-  "One business cannot access another business’s knowledge.",
+  "Every AI action must resolve the correct workspace_id first.",
+  "A logged-in owner uses their own active workspace.",
+  "An active team member uses the workspace they were invited to.",
+  "One workspace cannot access another workspace’s knowledge.",
   "Every conversation belongs to one business workspace.",
-  "Every lead must be saved under the correct business.",
-  "Every connected channel must map back to a business_id.",
-  "Handover rules are private per business.",
+  "Every lead is saved under the correct workspace.",
+  "Every usage event is logged under the correct workspace.",
+  "Credit deduction happens from the correct workspace balance.",
+  "Handover rules are private per workspace.",
 ];
 
-const identitySources = [
+const identitySources: IdentitySource[] = [
   {
-    title: "WhatsApp",
-    text: "Identify business using phone_number_id or connected WhatsApp sender.",
-    icon: PlugZap,
+    title: "Dashboard",
+    text: "Identify workspace using the logged-in owner or active team member session.",
+    icon: Brain,
   },
   {
     title: "Website Chat",
-    text: "Identify business using widget business_id from the embedded script.",
-    icon: CodeBox,
+    text: "Identify workspace using the embedded website widget or workspace reference.",
+    icon: Globe2,
+  },
+  {
+    title: "WhatsApp",
+    text: "Identify workspace using the connected WhatsApp number, phone number ID, or channel connection.",
+    icon: PlugZap,
   },
   {
     title: "Custom Webhook",
-    text: "Identify business using a secure webhook token or channel_id.",
+    text: "Identify workspace using a secure webhook token, channel ID, or future integration reference.",
     icon: Route,
   },
 ];
 
-function CodeBox({ className = "" }: { className?: string }) {
-  return <Database className={className} />;
-}
+const livePages = [
+  {
+    title: "Create AI Staff",
+    text: "Create and manage the AI staff profile used by the brain.",
+    href: "/dashboard/create-ai",
+    icon: Bot,
+  },
+  {
+    title: "Knowledge Base",
+    text: "Add the business facts that the AI Brain should use.",
+    href: "/dashboard/knowledge-base",
+    icon: BookOpen,
+  },
+  {
+    title: "Test AI",
+    text: "Test replies before activating real customer channels.",
+    href: "/dashboard/test-ai",
+    icon: TestTube2,
+  },
+  {
+    title: "Inbox",
+    text: "Generate suggested replies and review customer conversations.",
+    href: "/dashboard/inbox",
+    icon: Inbox,
+  },
+  {
+    title: "Website Chat",
+    text: "Prepare website chat AI replies, handover, and status.",
+    href: "/dashboard/integrations/website-chat",
+    icon: Globe2,
+  },
+  {
+    title: "WhatsApp",
+    text: "Prepare WhatsApp AI replies, numbers, and channel rules.",
+    href: "/dashboard/integrations/whatsapp",
+    icon: MessageCircle,
+  },
+];
 
 export default function AIBrainPage() {
   return (
@@ -151,25 +256,28 @@ export default function AIBrainPage() {
             </div>
 
             <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-              One AI platform, many private business workspaces.
+              One AI Brain, many private business workspaces.
             </h1>
 
             <p className="mt-6 max-w-2xl text-xl font-semibold leading-9 text-slate-300">
-              Kolkap uses one main AI system, but every business has its own
-              private workspace, knowledge base, AI staff, conversations, leads,
-              and rules.
+              Kolkap uses one central AI Brain, but every business has its own
+              private workspace, AI staff, business knowledge, inbox, leads,
+              credits, settings, and rules.
             </p>
 
             <div className="mt-8 rounded-3xl border border-[#7CFF3D]/30 bg-[#7CFF3D]/10 p-5">
               <div className="flex items-start gap-4">
                 <LockKeyhole className="mt-1 h-8 w-8 shrink-0 text-[#7CFF3D]" />
+
                 <div>
                   <p className="text-2xl font-black text-[#7CFF3D]">
                     Golden Rule
                   </p>
+
                   <p className="mt-2 text-xl font-semibold leading-9 text-slate-200">
-                    Every AI reply must identify the correct business_id before
-                    loading knowledge or sending a response.
+                    Every AI reply must resolve the correct workspace_id before
+                    loading AI staff, knowledge, credits, or generating a
+                    response.
                   </p>
                 </div>
               </div>
@@ -190,23 +298,26 @@ export default function AIBrainPage() {
             </h2>
 
             <p className="mt-5 text-xl font-semibold leading-9 text-slate-600">
-              The AI engine can be the same, but the data it uses must always be
-              separated by business. This prevents one client’s AI from using
-              another client’s information.
+              The AI engine can be shared, but the data it uses must always be
+              separated by workspace. This prevents one business AI from using
+              another business’s private information.
             </p>
 
             <div className="mt-6 grid gap-4">
               {[
                 "Same Kolkap platform",
-                "Different business data",
+                "Different workspace_id",
+                "Different business knowledge",
                 "Different AI staff",
                 "Different customer conversations",
+                "Different credit balance",
               ].map((item) => (
                 <div
                   key={item}
                   className="flex items-start gap-4 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5"
                 >
                   <CheckCircle2 className="mt-1 h-7 w-7 shrink-0 text-[#07111F]" />
+
                   <p className="text-lg font-black leading-8">{item}</p>
                 </div>
               ))}
@@ -220,18 +331,20 @@ export default function AIBrainPage() {
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
                 AI Reply Flow
               </p>
+
               <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
                 How Kolkap decides what to say
               </h2>
             </div>
 
             <p className="max-w-xl text-lg font-semibold leading-8 text-slate-600">
-              This is the future backend logic. For now, this page is visual so
-              the product architecture stays clear.
+              This is the live product architecture: every AI action resolves
+              the correct workspace first, then uses that business’s private
+              data only.
             </p>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-5 lg:grid-cols-4">
             {brainSteps.map((step) => {
               const Icon = step.icon;
 
@@ -250,11 +363,11 @@ export default function AIBrainPage() {
                     </span>
                   </div>
 
-                  <h3 className="text-3xl font-black tracking-[-0.04em]">
+                  <h3 className="text-2xl font-black tracking-[-0.04em]">
                     {step.title}
                   </h3>
 
-                  <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
+                  <p className="mt-4 text-base font-semibold leading-7 text-slate-600">
                     {step.text}
                   </p>
                 </div>
@@ -268,6 +381,7 @@ export default function AIBrainPage() {
             <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
               Private Workspaces
             </p>
+
             <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
               Each business gets its own private AI context
             </h2>
@@ -322,10 +436,12 @@ export default function AIBrainPage() {
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
                 <PlugZap className="h-8 w-8" />
               </div>
+
               <div>
                 <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                  Channel Identity
+                  Workspace Identity
                 </p>
+
                 <h2 className="mt-1 text-3xl font-black tracking-[-0.04em]">
                   How Kolkap knows the business
                 </h2>
@@ -348,6 +464,7 @@ export default function AIBrainPage() {
 
                       <div>
                         <p className="text-2xl font-black">{source.title}</p>
+
                         <p className="mt-2 text-lg font-semibold leading-8 text-slate-600">
                           {source.text}
                         </p>
@@ -364,12 +481,14 @@ export default function AIBrainPage() {
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
                 <Database className="h-8 w-8" />
               </div>
+
               <div>
                 <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
                   Data Rules
                 </p>
+
                 <h2 className="mt-1 text-3xl font-black tracking-[-0.04em]">
-                  Every table needs business_id
+                  Every AI table needs workspace_id
                 </h2>
               </div>
             </div>
@@ -381,10 +500,53 @@ export default function AIBrainPage() {
                   className="flex items-start gap-4 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5"
                 >
                   <CheckCircle2 className="mt-1 h-7 w-7 shrink-0 text-[#07111F]" />
+
                   <p className="text-lg font-black leading-8">{rule}</p>
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-7">
+          <div className="mb-6">
+            <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+              Connected Pages
+            </p>
+
+            <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
+              These dashboard pages use the AI Brain flow
+            </h2>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {livePages.map((page) => {
+              const Icon = page.icon;
+
+              return (
+                <Link
+                  key={page.title}
+                  href={page.href}
+                  className="group rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-6 transition hover:-translate-y-1 hover:bg-white hover:shadow-xl hover:shadow-slate-900/10"
+                >
+                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+                    <Icon className="h-7 w-7" />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4">
+                    <h3 className="text-2xl font-black tracking-[-0.04em]">
+                      {page.title}
+                    </h3>
+
+                    <ArrowRight className="h-5 w-5 text-blue-600 transition group-hover:translate-x-1" />
+                  </div>
+
+                  <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
+                    {page.text}
+                  </p>
+                </Link>
+              );
+            })}
           </div>
         </section>
 
@@ -396,21 +558,23 @@ export default function AIBrainPage() {
               </p>
 
               <h2 className="mt-3 text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl">
-                Message in → identify business → load private workspace → AI replies as that business.
+                Message in → resolve workspace → load private knowledge → AI
+                replies as that business.
               </h2>
 
               <p className="mt-5 text-xl font-semibold leading-9 text-slate-300">
-                This is the foundation of Kolkap. If this logic is correct, the
-                platform can serve many businesses safely without mixing data.
+                This is the foundation of Kolkap. When this logic is correct,
+                the platform can serve many businesses safely without mixing
+                data.
               </p>
             </div>
 
             <Link
-              href="/dashboard/integrations"
+              href="/dashboard/go-live"
               className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
             >
-              Continue to Integrations
-              <ArrowRight className="h-6 w-6" />
+              Continue to Go Live
+              <Rocket className="h-6 w-6" />
             </Link>
           </div>
         </section>

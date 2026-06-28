@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,18 +11,19 @@ import {
   CircleAlert,
   Clock3,
   CreditCard,
+  Globe2,
+  MessageCircle,
   RefreshCcw,
   Rocket,
   ShieldCheck,
+  Smartphone,
+  TestTube2,
   WalletCards,
   Zap,
 } from "lucide-react";
-import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { getKolkapPlan } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
-
-type SupportedLanguage = "en" | "id" | "zh" | "ms";
 
 type AiStaffRow = {
   id: string;
@@ -66,427 +67,22 @@ type CreditBalanceRow = {
   updated_at: string;
 };
 
-type GoLiveTranslation = {
-  badge: string;
-  title: string;
-  subtitle: string;
-  loading: string;
-  failed: string;
-  back: string;
-  refresh: string;
-  currentPlan: string;
-  aiStaff: string;
-  aiStaffIncluded: string;
-  customAIStaffLimit: string;
-  creditsLeft: string;
-  creditsUsed: string;
-  creditUnit: string;
-  creditsUnit: string;
-  planCredits: string;
-  topUpCredits: string;
-  creditCost: string;
-  goLiveStatus: string;
-  whatsappStatus: string;
-  selectAI: string;
-  selectAIText: string;
-  readiness: string;
-  readinessText: string;
-  creditRuleTitle: string;
-  creditRuleText: string;
-  websiteReplyCost: string;
-  whatsappReplyCost: string;
-  longerReplyNote: string;
-  businessReady: string;
-  aiReady: string;
-  testReady: string;
-  creditsReady: string;
-  activePlanReady: string;
-  whatsappReady: string;
-  activateTitle: string;
-  activateText: string;
-  activateAI: string;
-  activating: string;
-  activated: string;
-  activateFailed: string;
-  cannotActivate: string;
-  noAI: string;
-  createAI: string;
-  testAI: string;
-  openSettings: string;
-  selectedAI: string;
-  recentTest: string;
-  noTest: string;
-  required: string;
-  recommended: string;
-  complete: string;
-  needsAction: string;
-  topUp: string;
-  usage: string;
-  billing: string;
-  selectedCostNote: string;
-  noCreditBalance: string;
-  planNames: Record<string, string>;
-  statuses: Record<string, string>;
+type WebsiteChatSettingsRow = {
+  id: string;
+  workspace_id: string;
+  owner_user_id: string;
+  selected_ai_staff_id: string | null;
+  widget_title: string;
+  widget_subtitle: string;
+  welcome_message: string;
+  is_active: boolean;
+  ai_enabled: boolean;
+  auto_reply_enabled: boolean;
+  handover_enabled: boolean;
+  allowed_domains: string[];
+  created_at: string;
+  updated_at: string;
 };
-
-const translations: Record<SupportedLanguage, GoLiveTranslation> = {
-  en: {
-    badge: "Go Live",
-    title: "Review your AI setup before going live.",
-    subtitle:
-      "Check your AI staff, saved test, business details, credits, and workspace status before activating your AI.",
-    loading: "Loading your go-live setup...",
-    failed: "Go Live page could not load.",
-    back: "Back to Dashboard",
-    refresh: "Refresh",
-    currentPlan: "Current Plan",
-    aiStaff: "AI Staff",
-    aiStaffIncluded: "AI staff included",
-    customAIStaffLimit: "Custom AI staff limit",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
-    creditUnit: "Credit",
-    creditsUnit: "Credits",
-    planCredits: "Plan credits",
-    topUpCredits: "Top-Up credits",
-    creditCost: "Auto-Reply Cost",
-    goLiveStatus: "Go Live Status",
-    whatsappStatus: "WhatsApp Status",
-    selectAI: "Select AI Staff",
-    selectAIText:
-      "Choose which AI staff you want to activate for your business workspace.",
-    readiness: "Go-Live Readiness",
-    readinessText:
-      "Your AI is ready when the important setup items are complete.",
-    creditRuleTitle: "Important Credit Rule",
-    creditRuleText:
-      "When auto-reply is live, every successful AI reply uses credits. Website chat replies start from 3 credits, WhatsApp replies start from 5 credits, and longer replies may use more credits. If credits run out, auto-reply should pause until the workspace tops up or upgrades.",
-    websiteReplyCost: "Website chat AI reply starts from 3 credits",
-    whatsappReplyCost: "WhatsApp AI reply starts from 5 credits",
-    longerReplyNote: "Longer replies may use more credits",
-    businessReady: "Business details added",
-    aiReady: "AI staff created",
-    testReady: "AI test saved",
-    creditsReady: "Credits available",
-    activePlanReady: "Active plan or trial",
-    whatsappReady: "WhatsApp number added",
-    activateTitle: "Activate AI",
-    activateText:
-      "Once activated, this AI staff will be marked live in your Kolkap workspace. Auto-reply uses credits, so keep your credits topped up before going live.",
-    activateAI: "Activate AI",
-    activating: "Activating...",
-    activated: "AI staff is now live in your workspace.",
-    activateFailed: "AI staff could not be activated.",
-    cannotActivate:
-      "Complete the required setup items before activating your AI.",
-    noAI: "No AI staff found yet.",
-    createAI: "Create AI Staff",
-    testAI: "Test AI",
-    openSettings: "Open Settings",
-    selectedAI: "Selected AI",
-    recentTest: "Latest Saved Test",
-    noTest:
-      "No saved test found for this AI yet. Please test the AI before going live.",
-    required: "Required",
-    recommended: "Recommended",
-    complete: "Complete",
-    needsAction: "Needs action",
-    topUp: "Top Up",
-    usage: "Usage",
-    billing: "Billing",
-    selectedCostNote: "Minimum cost based on the selected AI channel",
-    noCreditBalance:
-      "Credit balance has not been created for this workspace yet.",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    statuses: {
-      draft: "Draft",
-      testing: "Testing",
-      live: "Live",
-      pending: "Pending",
-      not_connected: "Not connected",
-      connected: "Connected",
-      trial: "Trial",
-      active: "Active",
-      past_due: "Past Due",
-      cancelled: "Cancelled",
-    },
-  },
-
-  id: {
-    badge: "Go Live",
-    title: "Review setup AI sebelum go live.",
-    subtitle:
-      "Cek AI staff, test yang tersimpan, detail bisnis, kredit, dan status workspace sebelum mengaktifkan AI.",
-    loading: "Memuat setup go-live Anda...",
-    failed: "Halaman Go Live tidak dapat dimuat.",
-    back: "Kembali ke Dashboard",
-    refresh: "Muat Ulang",
-    currentPlan: "Paket Saat Ini",
-    aiStaff: "AI Staff",
-    aiStaffIncluded: "AI staff termasuk",
-    customAIStaffLimit: "Limit AI staff custom",
-    creditsLeft: "Sisa Kredit",
-    creditsUsed: "Kredit Terpakai",
-    creditUnit: "Kredit",
-    creditsUnit: "Kredit",
-    planCredits: "Kredit paket",
-    topUpCredits: "Kredit Top-Up",
-    creditCost: "Biaya Auto-Reply",
-    goLiveStatus: "Status Go Live",
-    whatsappStatus: "Status WhatsApp",
-    selectAI: "Pilih AI Staff",
-    selectAIText:
-      "Pilih AI staff yang ingin diaktifkan untuk workspace bisnis Anda.",
-    readiness: "Kesiapan Go-Live",
-    readinessText:
-      "AI Anda siap saat bagian setup penting sudah lengkap.",
-    creditRuleTitle: "Aturan Kredit Penting",
-    creditRuleText:
-      "Saat auto-reply live, setiap balasan AI yang berhasil menggunakan kredit. Balasan website chat mulai dari 3 kredit, balasan WhatsApp mulai dari 5 kredit, dan balasan yang lebih panjang dapat memakai lebih banyak kredit. Jika kredit habis, auto-reply harus pause sampai workspace melakukan top up atau upgrade.",
-    websiteReplyCost: "Balasan AI website chat mulai dari 3 kredit",
-    whatsappReplyCost: "Balasan AI WhatsApp mulai dari 5 kredit",
-    longerReplyNote: "Balasan yang lebih panjang dapat memakai lebih banyak kredit",
-    businessReady: "Detail bisnis sudah ditambahkan",
-    aiReady: "AI staff sudah dibuat",
-    testReady: "Test AI sudah disimpan",
-    creditsReady: "Kredit tersedia",
-    activePlanReady: "Paket aktif atau trial",
-    whatsappReady: "Nomor WhatsApp sudah ditambahkan",
-    activateTitle: "Aktifkan AI",
-    activateText:
-      "Setelah diaktifkan, AI staff ini akan ditandai live di workspace Kolkap Anda. Auto-reply menggunakan kredit, jadi pastikan kredit cukup sebelum go live.",
-    activateAI: "Aktifkan AI",
-    activating: "Mengaktifkan...",
-    activated: "AI staff sekarang live di workspace Anda.",
-    activateFailed: "AI staff tidak dapat diaktifkan.",
-    cannotActivate:
-      "Lengkapi setup yang dibutuhkan sebelum mengaktifkan AI.",
-    noAI: "Belum ada AI staff.",
-    createAI: "Buat AI Staff",
-    testAI: "Test AI",
-    openSettings: "Buka Settings",
-    selectedAI: "AI Terpilih",
-    recentTest: "Test Tersimpan Terbaru",
-    noTest:
-      "Belum ada test tersimpan untuk AI ini. Silakan test AI sebelum go live.",
-    required: "Wajib",
-    recommended: "Disarankan",
-    complete: "Lengkap",
-    needsAction: "Perlu dilengkapi",
-    topUp: "Top Up",
-    usage: "Penggunaan",
-    billing: "Billing",
-    selectedCostNote: "Minimum biaya berdasarkan channel AI yang dipilih",
-    noCreditBalance: "Saldo kredit belum dibuat untuk workspace ini.",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    statuses: {
-      draft: "Draft",
-      testing: "Testing",
-      live: "Live",
-      pending: "Menunggu",
-      not_connected: "Belum terhubung",
-      connected: "Terhubung",
-      trial: "Trial",
-      active: "Aktif",
-      past_due: "Tertunda",
-      cancelled: "Dibatalkan",
-    },
-  },
-
-  zh: {
-    badge: "Go Live",
-    title: "上线前检查您的 AI 设置。",
-    subtitle:
-      "启用 AI 前，请检查 AI staff、已保存测试、业务资料、积分和 workspace 状态。",
-    loading: "正在加载 go-live 设置...",
-    failed: "Go Live 页面无法加载。",
-    back: "返回 Dashboard",
-    refresh: "刷新",
-    currentPlan: "当前套餐",
-    aiStaff: "AI Staff",
-    aiStaffIncluded: "包含 AI staff",
-    customAIStaffLimit: "自定义 AI staff 数量",
-    creditsLeft: "剩余积分",
-    creditsUsed: "已用积分",
-    creditUnit: "积分",
-    creditsUnit: "积分",
-    planCredits: "套餐积分",
-    topUpCredits: "充值积分",
-    creditCost: "Auto-Reply 积分费用",
-    goLiveStatus: "Go Live 状态",
-    whatsappStatus: "WhatsApp 状态",
-    selectAI: "选择 AI Staff",
-    selectAIText: "选择您要为业务 workspace 启用的 AI staff。",
-    readiness: "Go-Live 准备情况",
-    readinessText: "当重要设置项目完成后，您的 AI 就可以准备上线。",
-    creditRuleTitle: "重要积分规则",
-    creditRuleText:
-      "Auto-reply 上线后，每次成功的 AI 回复都会使用积分。Website chat AI 回复从 3 积分开始，WhatsApp AI 回复从 5 积分开始，较长回复可能会使用更多积分。如果积分用完，auto-reply 应暂停，直到 workspace top up 或升级。",
-    websiteReplyCost: "Website chat AI 回复从 3 积分开始",
-    whatsappReplyCost: "WhatsApp AI 回复从 5 积分开始",
-    longerReplyNote: "较长回复可能会使用更多积分",
-    businessReady: "业务资料已添加",
-    aiReady: "AI staff 已创建",
-    testReady: "AI 测试已保存",
-    creditsReady: "积分可用",
-    activePlanReady: "有效套餐或 trial",
-    whatsappReady: "WhatsApp 号码已添加",
-    activateTitle: "启用 AI",
-    activateText:
-      "启用后，此 AI staff 会在您的 Kolkap workspace 中标记为 live。Auto-reply 会使用积分，请确保上线前积分充足。",
-    activateAI: "启用 AI",
-    activating: "正在启用...",
-    activated: "AI staff 现在已在您的 workspace 中 live。",
-    activateFailed: "AI staff 无法启用。",
-    cannotActivate: "请先完成所需设置，再启用 AI。",
-    noAI: "尚未找到 AI staff。",
-    createAI: "创建 AI Staff",
-    testAI: "Test AI",
-    openSettings: "打开 Settings",
-    selectedAI: "已选择 AI",
-    recentTest: "最新已保存测试",
-    noTest: "此 AI 尚未保存测试。请先测试 AI，再 go live。",
-    required: "必需",
-    recommended: "建议",
-    complete: "完成",
-    needsAction: "需要处理",
-    topUp: "Top Up",
-    usage: "使用量",
-    billing: "Billing",
-    selectedCostNote: "最低积分费用会根据所选 AI 渠道显示",
-    noCreditBalance: "此 workspace 尚未创建积分余额。",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    statuses: {
-      draft: "Draft",
-      testing: "Testing",
-      live: "Live",
-      pending: "待处理",
-      not_connected: "未连接",
-      connected: "已连接",
-      trial: "Trial",
-      active: "有效",
-      past_due: "逾期",
-      cancelled: "已取消",
-    },
-  },
-
-  ms: {
-    badge: "Go Live",
-    title: "Review setup AI sebelum go live.",
-    subtitle:
-      "Semak AI staff, test yang disimpan, detail bisnes, kredit, dan status workspace sebelum mengaktifkan AI.",
-    loading: "Memuatkan setup go-live anda...",
-    failed: "Halaman Go Live tidak dapat dimuatkan.",
-    back: "Kembali ke Dashboard",
-    refresh: "Segar Semula",
-    currentPlan: "Pelan Semasa",
-    aiStaff: "AI Staff",
-    aiStaffIncluded: "AI staff termasuk",
-    customAIStaffLimit: "Had AI staff custom",
-    creditsLeft: "Baki Kredit",
-    creditsUsed: "Kredit Digunakan",
-    creditUnit: "Kredit",
-    creditsUnit: "Kredit",
-    planCredits: "Kredit pelan",
-    topUpCredits: "Kredit Top-Up",
-    creditCost: "Kos Auto-Reply",
-    goLiveStatus: "Status Go Live",
-    whatsappStatus: "Status WhatsApp",
-    selectAI: "Pilih AI Staff",
-    selectAIText:
-      "Pilih AI staff yang anda mahu aktifkan untuk workspace bisnes anda.",
-    readiness: "Kesiapan Go-Live",
-    readinessText:
-      "AI anda sedia apabila item setup penting sudah lengkap.",
-    creditRuleTitle: "Peraturan Kredit Penting",
-    creditRuleText:
-      "Apabila auto-reply live, setiap balasan AI yang berjaya menggunakan kredit. Balasan website chat bermula daripada 3 kredit, balasan WhatsApp bermula daripada 5 kredit, dan balasan yang lebih panjang mungkin menggunakan lebih banyak kredit. Jika kredit habis, auto-reply harus pause sehingga workspace top up atau upgrade.",
-    websiteReplyCost: "Balasan AI website chat bermula daripada 3 kredit",
-    whatsappReplyCost: "Balasan AI WhatsApp bermula daripada 5 kredit",
-    longerReplyNote: "Balasan yang lebih panjang mungkin menggunakan lebih banyak kredit",
-    businessReady: "Detail bisnes sudah ditambah",
-    aiReady: "AI staff sudah dibuat",
-    testReady: "Test AI sudah disimpan",
-    creditsReady: "Kredit tersedia",
-    activePlanReady: "Pelan aktif atau trial",
-    whatsappReady: "Nombor WhatsApp sudah ditambah",
-    activateTitle: "Aktifkan AI",
-    activateText:
-      "Selepas diaktifkan, AI staff ini akan ditanda live dalam workspace Kolkap anda. Auto-reply menggunakan kredit, jadi pastikan kredit mencukupi sebelum go live.",
-    activateAI: "Aktifkan AI",
-    activating: "Mengaktifkan...",
-    activated: "AI staff kini live dalam workspace anda.",
-    activateFailed: "AI staff tidak dapat diaktifkan.",
-    cannotActivate:
-      "Lengkapkan setup yang diperlukan sebelum mengaktifkan AI.",
-    noAI: "Belum ada AI staff.",
-    createAI: "Cipta AI Staff",
-    testAI: "Test AI",
-    openSettings: "Buka Settings",
-    selectedAI: "AI Dipilih",
-    recentTest: "Test Tersimpan Terkini",
-    noTest:
-      "Belum ada test tersimpan untuk AI ini. Sila test AI sebelum go live.",
-    required: "Wajib",
-    recommended: "Disarankan",
-    complete: "Lengkap",
-    needsAction: "Perlu dilengkapkan",
-    topUp: "Top Up",
-    usage: "Penggunaan",
-    billing: "Billing",
-    selectedCostNote: "Kos minimum berdasarkan channel AI yang dipilih",
-    noCreditBalance: "Baki kredit belum dibuat untuk workspace ini.",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    statuses: {
-      draft: "Draft",
-      testing: "Testing",
-      live: "Live",
-      pending: "Menunggu",
-      not_connected: "Belum bersambung",
-      connected: "Bersambung",
-      trial: "Trial",
-      active: "Aktif",
-      past_due: "Tertunda",
-      cancelled: "Dibatalkan",
-    },
-  },
-};
-
-function getSupportedLanguage(language: string): SupportedLanguage {
-  if (language === "id" || language === "zh" || language === "ms") {
-    return language;
-  }
-
-  return "en";
-}
-
-function statusLabel(
-  statuses: Record<string, string>,
-  value: string | null | undefined
-) {
-  if (!value) return statuses.pending;
-  return statuses[value] || value;
-}
 
 function getCreditsLeft(balance: CreditBalanceRow | null) {
   if (!balance) return null;
@@ -499,24 +95,42 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
   );
 }
 
-function localizePlanName(
-  planKey: string | null | undefined,
-  fallback: string,
-  t: GoLiveTranslation
-) {
-  if (!planKey) return fallback;
-  return t.planNames[planKey] || fallback;
+function statusLabel(value: string | null | undefined) {
+  if (!value) return "Pending";
+  if (value === "draft") return "Draft";
+  if (value === "testing") return "Testing";
+  if (value === "live") return "Live";
+  if (value === "pending") return "Pending";
+  if (value === "not_connected") return "Not connected";
+  if (value === "connected") return "Connected";
+  if (value === "trial") return "Trial";
+  if (value === "active") return "Active";
+  if (value === "past_due") return "Past Due";
+  if (value === "cancelled") return "Cancelled";
+  if (value === "canceled") return "Cancelled";
+
+  return value.replace(/_/g, " ");
 }
 
-function getAIStaffLimitLabel(
-  plan: ReturnType<typeof getKolkapPlan>,
-  t: GoLiveTranslation
-) {
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Not available";
+
+  try {
+    return new Intl.DateTimeFormat("en-AU", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+function getAiStaffLimitLabel(plan: ReturnType<typeof getKolkapPlan>) {
   if (plan.aiStaffLimit === "custom") {
-    return t.customAIStaffLimit;
+    return "Custom AI staff limit";
   }
 
-  return `${plan.aiStaffLimit} ${t.aiStaffIncluded}`;
+  return `${plan.aiStaffLimit} AI staff included`;
 }
 
 function getAutoReplyMinimumCredits(channel?: string | null) {
@@ -527,47 +141,29 @@ function getAutoReplyMinimumCredits(channel?: string | null) {
   return 3;
 }
 
-function getAutoReplyCostLabel(
-  channel: string | null | undefined,
-  t: GoLiveTranslation
-) {
-  const credits = getAutoReplyMinimumCredits(channel);
-
-  return `${credits} ${t.creditsUnit}`;
-}
-
-function getAutoReplyCostNote(
-  channel: string | null | undefined,
-  t: GoLiveTranslation
-) {
+function getAutoReplyCostNote(channel?: string | null) {
   const normalized = String(channel || "").toLowerCase();
 
   if (normalized.includes("whatsapp")) {
-    return t.whatsappReplyCost;
+    return "WhatsApp AI replies start from 5 credits.";
   }
 
-  return t.websiteReplyCost;
+  return "Website Chat AI replies start from 3 credits.";
 }
 
 export default function GoLivePage() {
-  const { language } = useKolkapLanguage();
-  const activeLanguage = getSupportedLanguage(language);
-  const t = translations[activeLanguage];
-
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
-  const currentPlanName = localizePlanName(
-    workspaceState.planKey,
-    currentPlan.name,
-    t
-  );
 
   const [aiStaffRows, setAiStaffRows] = useState<AiStaffRow[]>([]);
   const [testRuns, setTestRuns] = useState<AiTestRunRow[]>([]);
   const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
     null
   );
+  const [websiteChatSettings, setWebsiteChatSettings] =
+    useState<WebsiteChatSettingsRow | null>(null);
+  const [knowledgeCount, setKnowledgeCount] = useState(0);
 
   const [selectedAiStaffId, setSelectedAiStaffId] = useState("");
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -584,18 +180,32 @@ export default function GoLivePage() {
   const purchasedCredits = Number(creditBalance?.purchased_credits || 0);
   const totalCredits = planCredits + purchasedCredits;
 
+  const businessProfile = workspace as
+    | (typeof workspace & {
+        business_email?: string | null;
+        business_type?: string | null;
+        whatsapp_number?: string | null;
+      })
+    | null;
+
   useEffect(() => {
     let isMounted = true;
 
     async function loadData() {
-      if (!workspace) return;
+      if (!workspace?.id) return;
 
       setIsLoadingData(true);
       setDataError("");
 
       const supabase = createClient();
 
-      const [aiStaffResult, testRunsResult, creditResult] = await Promise.all([
+      const [
+        aiStaffResult,
+        testRunsResult,
+        creditResult,
+        websiteChatResult,
+        knowledgeResult,
+      ] = await Promise.all([
         supabase
           .from("ai_staff")
           .select("*")
@@ -613,12 +223,28 @@ export default function GoLivePage() {
           .select("*")
           .eq("workspace_id", workspace.id)
           .maybeSingle(),
+
+        supabase
+          .from("workspace_website_chat_settings")
+          .select("*")
+          .eq("workspace_id", workspace.id)
+          .maybeSingle(),
+
+        supabase
+          .from("workspace_knowledge_base")
+          .select("id", { count: "exact", head: true })
+          .eq("workspace_id", workspace.id)
+          .eq("status", "active"),
       ]);
 
       if (!isMounted) return;
 
       const firstError =
-        aiStaffResult.error || testRunsResult.error || creditResult.error;
+        aiStaffResult.error ||
+        testRunsResult.error ||
+        creditResult.error ||
+        websiteChatResult.error ||
+        knowledgeResult.error;
 
       if (firstError) {
         setDataError(firstError.message);
@@ -645,6 +271,10 @@ export default function GoLivePage() {
       setAiStaffRows(aiRows);
       setTestRuns(runRows);
       setCreditBalance((creditResult.data ?? null) as CreditBalanceRow | null);
+      setWebsiteChatSettings(
+        (websiteChatResult.data ?? null) as WebsiteChatSettingsRow | null
+      );
+      setKnowledgeCount(knowledgeResult.count ?? 0);
 
       if (aiRows.length > 0) {
         setSelectedAiStaffId(
@@ -660,12 +290,11 @@ export default function GoLivePage() {
     return () => {
       isMounted = false;
     };
-  }, [workspace, reloadKey]);
+  }, [workspace?.id, reloadKey]);
 
-  const selectedAiStaff = useMemo(
-    () => aiStaffRows.find((staff) => staff.id === selectedAiStaffId) ?? null,
-    [aiStaffRows, selectedAiStaffId]
-  );
+  const selectedAiStaff = useMemo(() => {
+    return aiStaffRows.find((staff) => staff.id === selectedAiStaffId) ?? null;
+  }, [aiStaffRows, selectedAiStaffId]);
 
   const selectedAiLatestTest = useMemo(() => {
     if (!selectedAiStaff) return null;
@@ -675,114 +304,170 @@ export default function GoLivePage() {
     );
   }, [testRuns, selectedAiStaff]);
 
-  const hasBusinessDetails = Boolean(
-    workspace?.business_name && workspace?.business_type
-  );
-  const hasAiStaff = Boolean(selectedAiStaff);
-  const hasSavedTest = Boolean(selectedAiLatestTest);
-  const hasCredits = Number(creditsLeft || 0) > 0;
-  const hasCreditBalance = Boolean(creditBalance);
   const hasActivePlan =
     workspaceState.status === "trial" || workspaceState.status === "active";
-  const hasWhatsappNumber = Boolean(workspace?.whatsapp_number);
 
-  const selectedAutoReplyCostLabel = getAutoReplyCostLabel(
-    selectedAiStaff?.channel,
-    t
+  const hasBusinessDetails = Boolean(
+    businessProfile?.business_name &&
+      (businessProfile?.business_email || businessProfile?.business_type)
   );
+
+  const hasAiStaff = Boolean(selectedAiStaff);
+  const hasSavedTest = Boolean(selectedAiLatestTest);
+  const hasCreditBalance = Boolean(creditBalance);
+  const hasCredits = Number(creditsLeft || 0) > 0;
+  const hasBusinessKnowledge = knowledgeCount > 0;
+
+  const websiteChatConfigured = Boolean(
+    websiteChatSettings?.selected_ai_staff_id &&
+      websiteChatSettings?.widget_title &&
+      websiteChatSettings?.widget_subtitle
+  );
+
+  const websiteChatAutoReplyReady = Boolean(
+    websiteChatSettings?.is_active &&
+      websiteChatSettings?.ai_enabled &&
+      websiteChatSettings?.auto_reply_enabled &&
+      websiteChatSettings?.selected_ai_staff_id
+  );
+
+  const hasWhatsappNumber = Boolean(businessProfile?.whatsapp_number);
+  const hasCustomerChannelReady = websiteChatAutoReplyReady || hasWhatsappNumber;
+
+  const selectedAutoReplyCredits = getAutoReplyMinimumCredits(
+    selectedAiStaff?.channel
+  );
+
   const selectedAutoReplyCostNote = getAutoReplyCostNote(
-    selectedAiStaff?.channel,
-    t
+    selectedAiStaff?.channel
   );
 
   const requiredReady =
+    hasActivePlan &&
     hasBusinessDetails &&
     hasAiStaff &&
     hasSavedTest &&
-    hasCredits &&
     hasCreditBalance &&
-    hasActivePlan;
+    hasCredits &&
+    hasBusinessKnowledge &&
+    hasCustomerChannelReady;
 
   const checklist = [
     {
-      label: t.activePlanReady,
+      label: "Active plan or trial",
+      description: "Your workspace must have an active trial or subscription.",
       ready: hasActivePlan,
-      type: t.required,
+      type: "Required",
       actionHref: "/dashboard/billing",
-      actionLabel: t.billing,
+      actionLabel: "Open Billing",
     },
     {
-      label: t.businessReady,
+      label: "Business profile ready",
+      description: "Business name and business contact details should be saved.",
       ready: hasBusinessDetails,
-      type: t.required,
-      actionHref: "/dashboard/settings",
-      actionLabel: t.openSettings,
+      type: "Required",
+      actionHref: "/dashboard/business-overview",
+      actionLabel: "Open Business Overview",
     },
     {
-      label: t.aiReady,
+      label: "AI staff created",
+      description: "At least one AI staff member must exist.",
       ready: hasAiStaff,
-      type: t.required,
+      type: "Required",
       actionHref: "/dashboard/create-ai",
-      actionLabel: t.createAI,
+      actionLabel: "Create AI Staff",
     },
     {
-      label: t.testReady,
+      label: "AI test completed",
+      description:
+        "Run a test reply before going live so the AI response quality is checked.",
       ready: hasSavedTest,
-      type: t.required,
+      type: "Required",
       actionHref: selectedAiStaff
         ? `/dashboard/test-ai?ai=${selectedAiStaff.id}`
         : "/dashboard/test-ai",
-      actionLabel: t.testAI,
+      actionLabel: "Test AI",
     },
     {
-      label: t.creditsReady,
-      ready: hasCredits && hasCreditBalance,
-      type: t.required,
+      label: "Business knowledge added",
+      description:
+        "Add FAQs, prices, policies, services, or business rules so AI can answer accurately.",
+      ready: hasBusinessKnowledge,
+      type: "Required",
+      actionHref: "/dashboard/knowledge-base",
+      actionLabel: "Add Knowledge",
+    },
+    {
+      label: "Credits available",
+      description:
+        "Auto-replies and AI suggestions use credits. Keep credits available before going live.",
+      ready: hasCreditBalance && hasCredits,
+      type: "Required",
       actionHref: "/dashboard/top-up",
-      actionLabel: t.topUp,
+      actionLabel: "Top Up",
     },
     {
-      label: t.whatsappReady,
+      label: "Customer channel ready",
+      description:
+        "Turn on Website Chat auto-reply or add a WhatsApp number before activating automation.",
+      ready: hasCustomerChannelReady,
+      type: "Required",
+      actionHref: "/dashboard/integrations/website-chat",
+      actionLabel: "Open Website Chat",
+    },
+    {
+      label: "Website Chat configured",
+      description:
+        "Widget text, selected AI staff, and Website Chat settings should be saved.",
+      ready: websiteChatConfigured,
+      type: "Recommended",
+      actionHref: "/dashboard/integrations/website-chat",
+      actionLabel: "Open Website Chat",
+    },
+    {
+      label: "WhatsApp number added",
+      description:
+        "Recommended if you want AI replies and handover support through WhatsApp.",
       ready: hasWhatsappNumber,
-      type: t.recommended,
-      actionHref: "/dashboard/settings",
-      actionLabel: t.openSettings,
+      type: "Recommended",
+      actionHref: "/dashboard/integrations/whatsapp",
+      actionLabel: "Open WhatsApp",
     },
   ];
 
   const summaryCards = [
     {
-      label: t.currentPlan,
-      value: currentPlanName,
+      label: "Current Plan",
+      value: currentPlan.name,
       note: currentPlan.priceLabel,
-      icon: WalletCards,
+      icon: <WalletCards className="h-7 w-7" />,
     },
     {
-      label: t.aiStaff,
+      label: "AI Staff",
       value: `${aiStaffRows.length}`,
-      note: getAIStaffLimitLabel(currentPlan, t),
-      icon: Bot,
+      note: getAiStaffLimitLabel(currentPlan),
+      icon: <Bot className="h-7 w-7" />,
     },
     {
-      label: t.creditsLeft,
+      label: "Credits Left",
       value: creditsLeft === null ? "—" : creditsLeft.toLocaleString(),
       note: creditBalance
-        ? `${t.creditsUsed}: ${usedCredits.toLocaleString()}`
-        : t.noCreditBalance,
-      icon: CreditCard,
+        ? `Credits used: ${usedCredits.toLocaleString()}`
+        : "Credit balance has not been created yet.",
+      icon: <CreditCard className="h-7 w-7" />,
       dark: true,
     },
     {
-      label: t.creditCost,
-      value: selectedAutoReplyCostLabel,
+      label: "AI Reply Cost",
+      value: `${selectedAutoReplyCredits} Credits`,
       note: selectedAutoReplyCostNote,
-      icon: Zap,
+      icon: <Zap className="h-7 w-7" />,
     },
     {
-      label: t.goLiveStatus,
-      value: statusLabel(t.statuses, workspaceState.goLiveStatus),
-      note: statusLabel(t.statuses, workspaceState.whatsappStatus),
-      icon: ShieldCheck,
+      label: "Go Live Status",
+      value: statusLabel(workspaceState.goLiveStatus),
+      note: `WhatsApp: ${statusLabel(workspaceState.whatsappStatus)}`,
+      icon: <ShieldCheck className="h-7 w-7" />,
     },
   ];
 
@@ -791,7 +476,9 @@ export default function GoLivePage() {
     setActivateError("");
 
     if (!workspace || !selectedAiStaff || !requiredReady) {
-      setActivateError(t.cannotActivate);
+      setActivateError(
+        "Complete the required setup items before activating your AI."
+      );
       return;
     }
 
@@ -806,10 +493,11 @@ export default function GoLivePage() {
         status: "live",
         updated_at: now,
       })
-      .eq("id", selectedAiStaff.id);
+      .eq("id", selectedAiStaff.id)
+      .eq("workspace_id", workspace.id);
 
     if (aiError) {
-      setActivateError(aiError.message || t.activateFailed);
+      setActivateError(aiError.message || "AI staff could not be activated.");
       setIsActivating(false);
       return;
     }
@@ -825,7 +513,9 @@ export default function GoLivePage() {
       .eq("id", workspace.id);
 
     if (workspaceError) {
-      setActivateError(workspaceError.message || t.activateFailed);
+      setActivateError(
+        workspaceError.message || "Workspace could not be marked live."
+      );
       setIsActivating(false);
       return;
     }
@@ -838,7 +528,9 @@ export default function GoLivePage() {
       )
     );
 
-    setActivateMessage(t.activated);
+    setActivateMessage(
+      "AI staff is now live in your workspace. Channel auto-reply controls remain managed inside Website Chat and WhatsApp settings."
+    );
     setIsActivating(false);
   }
 
@@ -847,7 +539,7 @@ export default function GoLivePage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
-            {t.loading}
+            Loading Go Live setup...
           </div>
         </section>
       </main>
@@ -859,7 +551,7 @@ export default function GoLivePage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
-            <p className="text-xl font-black">{t.failed}</p>
+            <p className="text-xl font-black">Go Live page could not load.</p>
             <p className="mt-2 text-base font-semibold">
               {workspaceState.error}
             </p>
@@ -870,7 +562,7 @@ export default function GoLivePage() {
   }
 
   return (
-    <main className="bg-[#F7F9FA] text-[#07111F]">
+    <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
       <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8 lg:py-14">
         <div className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9 lg:p-10">
           <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -879,7 +571,7 @@ export default function GoLivePage() {
               className="inline-flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
             >
               <ArrowLeft className="h-5 w-5" />
-              {t.back}
+              Back to Dashboard
             </Link>
 
             <button
@@ -888,69 +580,37 @@ export default function GoLivePage() {
               className="inline-flex w-fit items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10"
             >
               <RefreshCcw className="h-5 w-5" />
-              {t.refresh}
+              Refresh
             </button>
           </div>
 
           <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
             <Rocket className="h-5 w-5" />
-            {t.badge}
+            Go Live
           </div>
 
           <h1 className="max-w-5xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-            {t.title}
+            Review your AI setup before going live.
           </h1>
 
           <p className="mt-6 max-w-4xl text-xl font-semibold leading-9 text-slate-300">
-            {t.subtitle}
+            Check your plan, credits, AI staff, saved test, business knowledge,
+            Website Chat setup, and customer channels before activating AI for
+            your workspace.
           </p>
         </div>
 
         <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
-          {summaryCards.map((card) => {
-            const Icon = card.icon;
-
-            return (
-              <div
-                key={card.label}
-                className={`rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 ${
-                  card.dark
-                    ? "border-[#7CFF3D] bg-[#07111F] text-white"
-                    : "border-slate-200 bg-white text-[#07111F]"
-                }`}
-              >
-                <div
-                  className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
-                    card.dark
-                      ? "bg-[#7CFF3D] text-[#07111F]"
-                      : "bg-[#07111F] text-[#7CFF3D]"
-                  }`}
-                >
-                  <Icon className="h-7 w-7" />
-                </div>
-
-                <p
-                  className={`text-lg font-black ${
-                    card.dark ? "text-slate-300" : "text-slate-500"
-                  }`}
-                >
-                  {card.label}
-                </p>
-
-                <p className="mt-2 text-3xl font-black tracking-[-0.04em]">
-                  {card.value}
-                </p>
-
-                <p
-                  className={`mt-2 text-base font-semibold leading-7 ${
-                    card.dark ? "text-slate-300" : "text-slate-600"
-                  }`}
-                >
-                  {card.note}
-                </p>
-              </div>
-            );
-          })}
+          {summaryCards.map((card) => (
+            <SummaryCard
+              key={card.label}
+              icon={card.icon}
+              label={card.label}
+              value={card.value}
+              note={card.note}
+              dark={card.dark}
+            />
+          ))}
         </div>
 
         <section className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
@@ -961,31 +621,19 @@ export default function GoLivePage() {
 
             <div>
               <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                {t.creditRuleTitle}
+                Important Credit Rule
               </p>
 
               <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
-                {t.creditRuleText}
+                When auto-reply is live, every successful AI reply uses credits.
+                Website Chat replies start from 3 credits. WhatsApp replies
+                start from 5 credits. Longer replies may use more credits.
               </h2>
 
               <div className="mt-6 grid gap-3 lg:grid-cols-3">
-                <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                  <p className="text-lg font-black text-[#7CFF3D]">
-                    {t.websiteReplyCost}
-                  </p>
-                </div>
-
-                <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                  <p className="text-lg font-black text-[#7CFF3D]">
-                    {t.whatsappReplyCost}
-                  </p>
-                </div>
-
-                <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                  <p className="text-lg font-black text-[#7CFF3D]">
-                    {t.longerReplyNote}
-                  </p>
-                </div>
+                <CreditRuleCard text="Website Chat AI reply starts from 3 credits." />
+                <CreditRuleCard text="WhatsApp AI reply starts from 5 credits." />
+                <CreditRuleCard text="If credits run out, auto-reply should pause until top-up or upgrade." />
               </div>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -994,7 +642,7 @@ export default function GoLivePage() {
                   className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-4 text-base font-black text-white"
                 >
                   <BarChart3 className="h-5 w-5" />
-                  {t.usage}
+                  Usage
                 </Link>
 
                 <Link
@@ -1002,7 +650,7 @@ export default function GoLivePage() {
                   className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-6 py-4 text-base font-black text-[#07111F]"
                 >
                   <WalletCards className="h-5 w-5" />
-                  {t.topUp}
+                  Top Up
                 </Link>
 
                 <Link
@@ -1010,7 +658,7 @@ export default function GoLivePage() {
                   className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-4 text-base font-black text-white"
                 >
                   <CreditCard className="h-5 w-5" />
-                  {t.billing}
+                  Billing
                 </Link>
               </div>
             </div>
@@ -1019,30 +667,14 @@ export default function GoLivePage() {
 
         {isLoadingData ? (
           <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
-            {t.loading}
+            Loading Go Live setup...
           </div>
         ) : dataError ? (
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-xl font-black text-red-700">
             {dataError}
           </div>
         ) : aiStaffRows.length === 0 ? (
-          <section className="rounded-[2.2rem] border border-slate-200 bg-white p-8 shadow-sm shadow-slate-900/5">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-              <Bot className="h-8 w-8" />
-            </div>
-
-            <h2 className="text-4xl font-black tracking-[-0.05em]">
-              {t.noAI}
-            </h2>
-
-            <Link
-              href="/dashboard/create-ai"
-              className="mt-7 inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white"
-            >
-              {t.createAI}
-              <ArrowRight className="h-6 w-6" />
-            </Link>
-          </section>
+          <NoAiStaffState />
         ) : (
           <>
             <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
@@ -1052,17 +684,17 @@ export default function GoLivePage() {
                 </div>
 
                 <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                  {t.selectAI}
+                  Select AI Staff
                 </p>
 
                 <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                  {t.selectAIText}
+                  Choose which AI staff you want to activate.
                 </h2>
 
                 <div className="mt-8 grid gap-5">
                   <label className="grid gap-2">
                     <span className="text-base font-black text-slate-700">
-                      {t.aiStaff}
+                      AI Staff
                     </span>
 
                     <select
@@ -1085,7 +717,7 @@ export default function GoLivePage() {
                   {selectedAiStaff ? (
                     <div className="rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5">
                       <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500">
-                        {t.selectedAI}
+                        Selected AI
                       </p>
 
                       <h3 className="mt-2 text-3xl font-black tracking-[-0.04em]">
@@ -1093,23 +725,25 @@ export default function GoLivePage() {
                       </h3>
 
                       <p className="mt-2 text-lg font-semibold leading-8 text-slate-600">
-                        {selectedAiStaff.role} • {selectedAiStaff.channel} •{" "}
-                        {selectedAiStaff.reply_tone}
+                        {selectedAiStaff.role} •{" "}
+                        {selectedAiStaff.channel || "General"} •{" "}
+                        {selectedAiStaff.reply_tone || "Professional"}
                       </p>
 
                       <p className="mt-4 inline-flex rounded-full bg-white px-5 py-3 text-sm font-black text-[#07111F]">
-                        {statusLabel(t.statuses, selectedAiStaff.status)}
+                        {statusLabel(selectedAiStaff.status)}
                       </p>
 
                       <p className="mt-4 rounded-2xl bg-white p-4 text-base font-black leading-7 text-slate-700">
-                        {t.selectedCostNote}: {selectedAutoReplyCostLabel}
+                        Minimum AI reply cost for this channel:{" "}
+                        {selectedAutoReplyCredits} credits
                       </p>
                     </div>
                   ) : null}
 
                   <div className="rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5">
                     <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500">
-                      {t.recentTest}
+                      Latest Saved Test
                     </p>
 
                     {selectedAiLatestTest ? (
@@ -1120,15 +754,31 @@ export default function GoLivePage() {
 
                         <p className="mt-3 flex items-center gap-2 text-sm font-black text-slate-500">
                           <Clock3 className="h-4 w-4" />
-                          {new Date(
-                            selectedAiLatestTest.created_at
-                          ).toLocaleString()}
+                          {formatDate(selectedAiLatestTest.created_at)}
                         </p>
                       </>
                     ) : (
-                      <p className="mt-3 text-lg font-black leading-8 text-amber-700">
-                        {t.noTest}
-                      </p>
+                      <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-800">
+                        <p className="text-lg font-black">
+                          No saved test found for this AI yet.
+                        </p>
+                        <p className="mt-2 text-base font-semibold leading-7">
+                          Test this AI before going live so you can review its
+                          response quality.
+                        </p>
+
+                        <Link
+                          href={
+                            selectedAiStaff
+                              ? `/dashboard/test-ai?ai=${selectedAiStaff.id}`
+                              : "/dashboard/test-ai"
+                          }
+                          className="mt-5 inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-base font-black text-white"
+                        >
+                          Test AI
+                          <ArrowRight className="h-5 w-5" />
+                        </Link>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1140,57 +790,65 @@ export default function GoLivePage() {
                 </div>
 
                 <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                  {t.readiness}
+                  Go-Live Readiness
                 </p>
 
                 <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                  {t.readinessText}
+                  Complete the required items before activating AI.
                 </h2>
 
                 <div className="mt-8 grid gap-4">
                   {checklist.map((item) => (
-                    <div
+                    <ChecklistRow
                       key={item.label}
-                      className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div
-                          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
-                            item.ready
-                              ? "bg-[#07111F] text-[#7CFF3D]"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
-                        >
-                          {item.ready ? (
-                            <CheckCircle2 className="h-6 w-6" />
-                          ) : (
-                            <CircleAlert className="h-6 w-6" />
-                          )}
-                        </div>
-
-                        <div>
-                          <p className="text-xl font-black">{item.label}</p>
-                          <p className="mt-1 text-sm font-black uppercase tracking-[0.14em] text-slate-500">
-                            {item.type} •{" "}
-                            {item.ready ? t.complete : t.needsAction}
-                          </p>
-                        </div>
-                      </div>
-
-                      {!item.ready ? (
-                        <Link
-                          href={item.actionHref}
-                          className="inline-flex items-center justify-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-sm font-black text-white"
-                        >
-                          {item.actionLabel}
-                          <ArrowRight className="h-4 w-4" />
-                        </Link>
-                      ) : null}
-                    </div>
+                      label={item.label}
+                      description={item.description}
+                      ready={item.ready}
+                      type={item.type}
+                      actionHref={item.actionHref}
+                      actionLabel={item.actionLabel}
+                    />
                   ))}
                 </div>
               </section>
             </div>
+
+            <section className="mt-8 grid gap-6 lg:grid-cols-3">
+              <ChannelCard
+                icon={<Globe2 className="h-7 w-7" />}
+                title="Website Chat"
+                status={websiteChatAutoReplyReady ? "Ready" : "Needs setup"}
+                text={
+                  websiteChatAutoReplyReady
+                    ? "Website Chat is active with AI support and auto-reply enabled."
+                    : "Open Website Chat settings to select AI staff, activate chat, and turn on auto-reply."
+                }
+                href="/dashboard/integrations/website-chat"
+                action="Open Website Chat"
+              />
+
+              <ChannelCard
+                icon={<Smartphone className="h-7 w-7" />}
+                title="WhatsApp"
+                status={hasWhatsappNumber ? "Number added" : "Not ready"}
+                text={
+                  hasWhatsappNumber
+                    ? "A WhatsApp number is saved for this workspace."
+                    : "Connect or add a WhatsApp number before using WhatsApp automation."
+                }
+                href="/dashboard/integrations/whatsapp"
+                action="Open WhatsApp"
+              />
+
+              <ChannelCard
+                icon={<MessageCircle className="h-7 w-7" />}
+                title="Inbox"
+                status="Ready"
+                text="Inbox is your control room for conversations, handover, leads, and saved replies."
+                href="/dashboard/inbox"
+                action="Open Inbox"
+              />
+            </section>
 
             <section className="mt-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
               <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
@@ -1200,19 +858,19 @@ export default function GoLivePage() {
                   </div>
 
                   <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                    {t.activateTitle}
+                    Activate AI
                   </p>
 
                   <h2 className="mt-3 text-4xl font-black leading-tight tracking-[-0.05em]">
-                    {t.activateText}
+                    Activate this AI staff when your setup is ready.
                   </h2>
 
                   <p className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-5 text-base font-semibold leading-8 text-slate-300">
-                    {t.selectedCostNote}: {selectedAutoReplyCostLabel} •{" "}
-                    {t.planCredits}: {totalCredits.toLocaleString()} •{" "}
+                    Minimum AI reply cost: {selectedAutoReplyCredits} credits •
+                    Total credits: {totalCredits.toLocaleString()} •{" "}
                     {creditsLeft === null
-                      ? t.noCreditBalance
-                      : `${t.creditsLeft}: ${creditsLeft.toLocaleString()}`}
+                      ? "Credit balance has not been created yet."
+                      : `Credits left: ${creditsLeft.toLocaleString()}`}
                   </p>
 
                   {activateMessage ? (
@@ -1236,7 +894,7 @@ export default function GoLivePage() {
                     className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Rocket className="h-6 w-6" />
-                    {isActivating ? t.activating : t.activateAI}
+                    {isActivating ? "Activating..." : "Activate AI"}
                   </button>
 
                   {selectedAiStaff ? (
@@ -1244,8 +902,8 @@ export default function GoLivePage() {
                       href={`/dashboard/test-ai?ai=${selectedAiStaff.id}`}
                       className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-8 py-5 text-xl font-black text-white"
                     >
-                      {t.testAI}
-                      <ArrowRight className="h-6 w-6" />
+                      <TestTube2 className="h-6 w-6" />
+                      Test AI
                     </Link>
                   ) : null}
 
@@ -1253,7 +911,7 @@ export default function GoLivePage() {
                     href="/dashboard/top-up"
                     className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-8 py-5 text-xl font-black text-white"
                   >
-                    {t.topUp}
+                    Top Up
                     <ArrowRight className="h-6 w-6" />
                   </Link>
                 </div>
@@ -1263,5 +921,185 @@ export default function GoLivePage() {
         )}
       </section>
     </main>
+  );
+}
+
+function SummaryCard({
+  icon,
+  label,
+  value,
+  note,
+  dark = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  note: string;
+  dark?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 ${
+        dark
+          ? "border-[#7CFF3D] bg-[#07111F] text-white"
+          : "border-slate-200 bg-white text-[#07111F]"
+      }`}
+    >
+      <div
+        className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
+          dark ? "bg-[#7CFF3D] text-[#07111F]" : "bg-[#07111F] text-[#7CFF3D]"
+        }`}
+      >
+        {icon}
+      </div>
+
+      <p
+        className={`text-lg font-black ${
+          dark ? "text-slate-300" : "text-slate-500"
+        }`}
+      >
+        {label}
+      </p>
+
+      <p className="mt-2 text-3xl font-black tracking-[-0.04em]">{value}</p>
+
+      <p
+        className={`mt-2 text-base font-semibold leading-7 ${
+          dark ? "text-slate-300" : "text-slate-600"
+        }`}
+      >
+        {note}
+      </p>
+    </div>
+  );
+}
+
+function CreditRuleCard({ text }: { text: string }) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+      <p className="text-lg font-black text-[#7CFF3D]">{text}</p>
+    </div>
+  );
+}
+
+function ChecklistRow({
+  label,
+  description,
+  ready,
+  type,
+  actionHref,
+  actionLabel,
+}: {
+  label: string;
+  description: string;
+  ready: boolean;
+  type: string;
+  actionHref: string;
+  actionLabel: string;
+}) {
+  return (
+    <div className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-4">
+        <div
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+            ready ? "bg-[#07111F] text-[#7CFF3D]" : "bg-amber-100 text-amber-700"
+          }`}
+        >
+          {ready ? (
+            <CheckCircle2 className="h-6 w-6" />
+          ) : (
+            <CircleAlert className="h-6 w-6" />
+          )}
+        </div>
+
+        <div>
+          <p className="text-xl font-black">{label}</p>
+          <p className="mt-1 text-base font-semibold leading-7 text-slate-600">
+            {description}
+          </p>
+          <p className="mt-2 text-sm font-black uppercase tracking-[0.14em] text-slate-500">
+            {type} • {ready ? "Complete" : "Needs action"}
+          </p>
+        </div>
+      </div>
+
+      {!ready ? (
+        <Link
+          href={actionHref}
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-sm font-black text-white"
+        >
+          {actionLabel}
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+function ChannelCard({
+  icon,
+  title,
+  status,
+  text,
+  href,
+  action,
+}: {
+  icon: ReactNode;
+  title: string;
+  status: string;
+  text: string;
+  href: string;
+  action: string;
+}) {
+  return (
+    <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-7">
+      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+        {icon}
+      </div>
+
+      <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+        {title}
+      </p>
+
+      <h3 className="mt-2 text-3xl font-black tracking-[-0.04em]">{status}</h3>
+
+      <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
+        {text}
+      </p>
+
+      <Link
+        href={href}
+        className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-base font-black text-white"
+      >
+        {action}
+        <ArrowRight className="h-5 w-5" />
+      </Link>
+    </div>
+  );
+}
+
+function NoAiStaffState() {
+  return (
+    <section className="rounded-[2.2rem] border border-slate-200 bg-white p-8 shadow-sm shadow-slate-900/5">
+      <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+        <Bot className="h-8 w-8" />
+      </div>
+
+      <h2 className="text-4xl font-black tracking-[-0.05em]">
+        No AI staff found yet.
+      </h2>
+
+      <p className="mt-4 max-w-3xl text-lg font-semibold leading-8 text-slate-600">
+        Create at least one AI staff member before using Go Live.
+      </p>
+
+      <Link
+        href="/dashboard/create-ai"
+        className="mt-7 inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white"
+      >
+        Create AI Staff
+        <ArrowRight className="h-6 w-6" />
+      </Link>
+    </section>
   );
 }

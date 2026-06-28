@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   BarChart3,
   Bot,
   CalendarDays,
@@ -18,12 +19,9 @@ import {
   WalletCards,
   Zap,
 } from "lucide-react";
-import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { getKolkapPlan } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
-
-type SupportedLanguage = "en" | "id" | "zh" | "ms";
 
 type UsageEventRow = {
   id: string;
@@ -60,65 +58,7 @@ type Option = {
   label: string;
 };
 
-type UsageTranslation = {
-  loading: string;
-  failed: string;
-  back: string;
-  refresh: string;
-  badge: string;
-  title: string;
-  subtitle: string;
-  currentPlan: string;
-  creditsLeft: string;
-  creditsUsed: string;
-  planCredits: string;
-  purchasedCredits: string;
-  totalActivity: string;
-  aiActions: string;
-  messageActions: string;
-  today: string;
-  overviewTitle: string;
-  overviewText: string;
-  search: string;
-  searchPlaceholder: string;
-  channel: string;
-  eventType: string;
-  historyTitle: string;
-  historyText: string;
-  noUsage: string;
-  noUsageText: string;
-  topChannels: string;
-  topEvents: string;
-  status: string;
-  credits: string;
-  count: string;
-  date: string;
-  success: string;
-  failedStatus: string;
-  pending: string;
-  shown: string;
-  noExtraDetails: string;
-  knowledgeUsed: string;
-  contentType: string;
-  purpose: string;
-  platform: string;
-  businessAction: string;
-  recentActivity: string;
-  trackedCredits: string;
-  includedInPlan: string;
-  extraCredits: string;
-  aiGenerations: string;
-  messageVolume: string;
-  billingPeriod: string;
-  noCreditBalance: string;
-  noDataYet: string;
-  activityIn: string;
-  planNames: Record<string, string>;
-  channelLabels: Record<string, string>;
-  eventTypeLabels: Record<string, string>;
-};
-
-const channelValues = [
+const DEFAULT_CHANNELS = [
   "all",
   "dashboard",
   "inbox",
@@ -129,486 +69,116 @@ const channelValues = [
   "knowledge_base",
   "team",
   "go_live",
+  "billing",
   "email",
   "api",
   "system",
 ];
 
-const eventTypeValues = [
+const DEFAULT_EVENT_TYPES = [
   "all",
-  "customer_message_received",
+  "test_ai_generated",
   "ai_reply_generated",
+  "website_chat_message_received",
+  "website_chat_ai_reply_generated",
+  "website_chat_auto_reply_skipped",
+  "customer_message_received",
   "ai_reply_sent",
   "human_reply_sent",
   "whatsapp_message_received",
   "whatsapp_message_sent",
-  "website_chat_message_received",
   "content_generated",
   "content_saved",
-  "test_ai_generated",
-  "team_invite_sent",
   "knowledge_created",
   "knowledge_updated",
   "ai_staff_created",
+  "team_invite_sent",
   "go_live_enabled",
   "go_live_disabled",
   "email_sent",
   "system_event",
 ];
 
-const translations: Record<SupportedLanguage, UsageTranslation> = {
-  en: {
-    loading: "Loading usage...",
-    failed: "Usage page could not load.",
-    back: "Back to Dashboard",
-    refresh: "Refresh",
-    badge: "Usage",
-    title: "Track your workspace activity and credits.",
-    subtitle:
-      "See credits left, credits used, AI replies, content generations, inbox actions, messages, and workspace activity.",
-    currentPlan: "Current Plan",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
-    planCredits: "Plan Credits",
-    purchasedCredits: "Top-Up Credits",
-    totalActivity: "Total Activity",
-    aiActions: "AI Actions",
-    messageActions: "Messages",
-    today: "Today",
-    overviewTitle: "Usage Overview",
-    overviewText:
-      "Every successful AI action creates a usage event. The system deducts credits automatically, then this page shows the updated balance.",
-    search: "Search",
-    searchPlaceholder: "Search usage history...",
-    channel: "Channel",
-    eventType: "Event Type",
-    historyTitle: "Usage History",
-    historyText:
-      "This shows recent activity from Content Studio, Test AI, Inbox, WhatsApp, website chat, team, and other connected tools.",
-    noUsage: "No usage recorded yet.",
-    noUsageText:
-      "Usage will appear after you generate content, test AI, generate inbox replies, send messages, or connect WhatsApp.",
-    topChannels: "Usage by Channel",
-    topEvents: "Usage by Action",
-    status: "Status",
-    credits: "Credits",
-    count: "Count",
-    date: "Date",
-    success: "Success",
-    failedStatus: "Failed",
-    pending: "Pending",
-    shown: "shown",
-    noExtraDetails: "No extra details.",
-    knowledgeUsed: "Knowledge used",
-    contentType: "Content type",
-    purpose: "Purpose",
-    platform: "Platform",
-    businessAction: "Business action",
-    recentActivity: "Recent activity",
-    trackedCredits: "Tracked credit usage",
-    includedInPlan: "Included in monthly plan",
-    extraCredits: "Purchased extra credits",
-    aiGenerations: "AI generations and replies",
-    messageVolume: "Messages and replies",
-    billingPeriod: "Billing period",
-    noCreditBalance:
-      "Credit balance has not been created for this workspace yet.",
-    noDataYet: "No data yet.",
-    activityIn: "in",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    channelLabels: {
-      all: "All Channels",
-      dashboard: "Dashboard",
-      inbox: "Inbox",
-      whatsapp: "WhatsApp",
-      website_chat: "Website Chat",
-      content_studio: "Content Studio",
-      test_ai: "Test AI",
-      knowledge_base: "Knowledge Base",
-      team: "Team",
-      go_live: "Go Live",
-      email: "Email",
-      api: "API",
-      system: "System",
-    },
-    eventTypeLabels: {
-      all: "All Events",
-      customer_message_received: "Customer Message Received",
-      ai_reply_generated: "AI Reply Generated",
-      ai_reply_sent: "AI Reply Sent",
-      human_reply_sent: "Human Reply Sent",
-      whatsapp_message_received: "WhatsApp Message Received",
-      whatsapp_message_sent: "WhatsApp Message Sent",
-      website_chat_message_received: "Website Chat Message",
-      content_generated: "Content Generated",
-      content_saved: "Content Saved",
-      test_ai_generated: "Test AI Generated",
-      team_invite_sent: "Team Invite Sent",
-      knowledge_created: "Knowledge Created",
-      knowledge_updated: "Knowledge Updated",
-      ai_staff_created: "AI Staff Created",
-      go_live_enabled: "Go Live Enabled",
-      go_live_disabled: "Go Live Disabled",
-      email_sent: "Email Sent",
-      system_event: "System Event",
-    },
-  },
+function formatValue(value: unknown) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
-  id: {
-    loading: "Memuat penggunaan...",
-    failed: "Halaman penggunaan tidak dapat dimuat.",
-    back: "Kembali ke Dashboard",
-    refresh: "Muat Ulang",
-    badge: "Penggunaan",
-    title: "Pantau aktivitas workspace dan kredit Anda.",
-    subtitle:
-      "Lihat sisa kredit, kredit terpakai, balasan AI, pembuatan konten, aksi inbox, pesan, dan aktivitas workspace.",
-    currentPlan: "Paket Saat Ini",
-    creditsLeft: "Sisa Kredit",
-    creditsUsed: "Kredit Terpakai",
-    planCredits: "Kredit Paket",
-    purchasedCredits: "Kredit Top-Up",
-    totalActivity: "Total Aktivitas",
-    aiActions: "Aksi AI",
-    messageActions: "Pesan",
-    today: "Hari Ini",
-    overviewTitle: "Ringkasan Penggunaan",
-    overviewText:
-      "Setiap aksi AI yang berhasil akan membuat usage event. Sistem akan mengurangi kredit secara otomatis, lalu halaman ini menampilkan saldo terbaru.",
-    search: "Cari",
-    searchPlaceholder: "Cari riwayat penggunaan...",
-    channel: "Channel",
-    eventType: "Jenis Event",
-    historyTitle: "Riwayat Penggunaan",
-    historyText:
-      "Ini menampilkan aktivitas terbaru dari Content Studio, Test AI, Inbox, WhatsApp, website chat, team, dan tools lain yang terhubung.",
-    noUsage: "Belum ada penggunaan.",
-    noUsageText:
-      "Penggunaan akan muncul setelah Anda membuat konten, test AI, generate balasan inbox, mengirim pesan, atau menghubungkan WhatsApp.",
-    topChannels: "Penggunaan per Channel",
-    topEvents: "Penggunaan per Aksi",
-    status: "Status",
-    credits: "Kredit",
-    count: "Jumlah",
-    date: "Tanggal",
-    success: "Berhasil",
-    failedStatus: "Gagal",
-    pending: "Menunggu",
-    shown: "ditampilkan",
-    noExtraDetails: "Tidak ada detail tambahan.",
-    knowledgeUsed: "Knowledge digunakan",
-    contentType: "Jenis konten",
-    purpose: "Tujuan",
-    platform: "Platform",
-    businessAction: "Aksi bisnis",
-    recentActivity: "Aktivitas terbaru",
-    trackedCredits: "Penggunaan kredit tercatat",
-    includedInPlan: "Termasuk dalam paket bulanan",
-    extraCredits: "Kredit tambahan yang dibeli",
-    aiGenerations: "Generate AI dan balasan AI",
-    messageVolume: "Pesan dan balasan",
-    billingPeriod: "Periode billing",
-    noCreditBalance: "Saldo kredit belum dibuat untuk workspace ini.",
-    noDataYet: "Belum ada data.",
-    activityIn: "di",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    channelLabels: {
-      all: "Semua Channel",
-      dashboard: "Dashboard",
-      inbox: "Inbox",
-      whatsapp: "WhatsApp",
-      website_chat: "Website Chat",
-      content_studio: "Content Studio",
-      test_ai: "Test AI",
-      knowledge_base: "Knowledge Base",
-      team: "Team",
-      go_live: "Go Live",
-      email: "Email",
-      api: "API",
-      system: "System",
-    },
-    eventTypeLabels: {
-      all: "Semua Event",
-      customer_message_received: "Pesan Customer Diterima",
-      ai_reply_generated: "Balasan AI Dibuat",
-      ai_reply_sent: "Balasan AI Dikirim",
-      human_reply_sent: "Balasan Human Dikirim",
-      whatsapp_message_received: "Pesan WhatsApp Diterima",
-      whatsapp_message_sent: "Pesan WhatsApp Dikirim",
-      website_chat_message_received: "Pesan Website Chat",
-      content_generated: "Konten Dibuat",
-      content_saved: "Konten Disimpan",
-      test_ai_generated: "Test AI Dibuat",
-      team_invite_sent: "Undangan Team Dikirim",
-      knowledge_created: "Knowledge Dibuat",
-      knowledge_updated: "Knowledge Diupdate",
-      ai_staff_created: "AI Staff Dibuat",
-      go_live_enabled: "Go Live Diaktifkan",
-      go_live_disabled: "Go Live Dinonaktifkan",
-      email_sent: "Email Dikirim",
-      system_event: "System Event",
-    },
-  },
+function channelLabel(value: string | null | undefined) {
+  if (!value) return "Unknown";
+  if (value === "all") return "All Channels";
+  if (value === "website_chat") return "Website Chat";
+  if (value === "content_studio") return "Content Studio";
+  if (value === "test_ai") return "Test AI";
+  if (value === "knowledge_base") return "Knowledge Base";
+  if (value === "go_live") return "Go Live";
+  if (value === "whatsapp") return "WhatsApp";
+  if (value === "inbox") return "Inbox";
+  if (value === "dashboard") return "Dashboard";
+  if (value === "billing") return "Billing";
+  if (value === "email") return "Email";
+  if (value === "api") return "API";
+  if (value === "system") return "System";
 
-  zh: {
-    loading: "正在加载使用量...",
-    failed: "使用量页面无法加载。",
-    back: "返回 Dashboard",
-    refresh: "刷新",
-    badge: "使用量",
-    title: "追踪您的 workspace 活动和积分。",
-    subtitle:
-      "查看剩余积分、已用积分、AI 回复、内容生成、inbox 操作、消息和 workspace 活动。",
-    currentPlan: "当前套餐",
-    creditsLeft: "剩余积分",
-    creditsUsed: "已用积分",
-    planCredits: "套餐积分",
-    purchasedCredits: "充值积分",
-    totalActivity: "总活动",
-    aiActions: "AI 操作",
-    messageActions: "消息",
-    today: "今天",
-    overviewTitle: "使用量概览",
-    overviewText:
-      "每一次成功的 AI 操作都会创建一条使用记录。系统会自动扣除积分，然后此页面会显示最新余额。",
-    search: "搜索",
-    searchPlaceholder: "搜索使用记录...",
-    channel: "Channel",
-    eventType: "Event 类型",
-    historyTitle: "使用记录",
-    historyText:
-      "这里显示来自 Content Studio、Test AI、Inbox、WhatsApp、website chat、team 和其他连接工具的最新活动。",
-    noUsage: "还没有使用记录。",
-    noUsageText:
-      "当您生成内容、测试 AI、生成 inbox 回复、发送消息或连接 WhatsApp 后，使用记录会显示在这里。",
-    topChannels: "按 Channel 查看使用量",
-    topEvents: "按操作查看使用量",
-    status: "状态",
-    credits: "积分",
-    count: "数量",
-    date: "日期",
-    success: "成功",
-    failedStatus: "失败",
-    pending: "等待中",
-    shown: "已显示",
-    noExtraDetails: "没有额外详情。",
-    knowledgeUsed: "已使用 Knowledge",
-    contentType: "内容类型",
-    purpose: "目的",
-    platform: "平台",
-    businessAction: "业务操作",
-    recentActivity: "最新活动",
-    trackedCredits: "已追踪的积分使用",
-    includedInPlan: "包含在月度套餐中",
-    extraCredits: "已购买的额外积分",
-    aiGenerations: "AI 生成和回复",
-    messageVolume: "消息和回复",
-    billingPeriod: "账单周期",
-    noCreditBalance: "此 workspace 尚未创建积分余额。",
-    noDataYet: "暂无数据。",
-    activityIn: "在",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    channelLabels: {
-      all: "所有 Channel",
-      dashboard: "Dashboard",
-      inbox: "Inbox",
-      whatsapp: "WhatsApp",
-      website_chat: "Website Chat",
-      content_studio: "Content Studio",
-      test_ai: "Test AI",
-      knowledge_base: "Knowledge Base",
-      team: "Team",
-      go_live: "Go Live",
-      email: "Email",
-      api: "API",
-      system: "System",
-    },
-    eventTypeLabels: {
-      all: "所有 Event",
-      customer_message_received: "收到客户消息",
-      ai_reply_generated: "AI 回复已生成",
-      ai_reply_sent: "AI 回复已发送",
-      human_reply_sent: "人工回复已发送",
-      whatsapp_message_received: "收到 WhatsApp 消息",
-      whatsapp_message_sent: "WhatsApp 消息已发送",
-      website_chat_message_received: "Website Chat 消息",
-      content_generated: "内容已生成",
-      content_saved: "内容已保存",
-      test_ai_generated: "Test AI 已生成",
-      team_invite_sent: "Team 邀请已发送",
-      knowledge_created: "Knowledge 已创建",
-      knowledge_updated: "Knowledge 已更新",
-      ai_staff_created: "AI Staff 已创建",
-      go_live_enabled: "Go Live 已启用",
-      go_live_disabled: "Go Live 已关闭",
-      email_sent: "Email 已发送",
-      system_event: "System Event",
-    },
-  },
+  return formatValue(value);
+}
 
-  ms: {
-    loading: "Memuatkan penggunaan...",
-    failed: "Halaman penggunaan tidak dapat dimuatkan.",
-    back: "Kembali ke Dashboard",
-    refresh: "Segar Semula",
-    badge: "Penggunaan",
-    title: "Pantau aktiviti workspace dan kredit anda.",
-    subtitle:
-      "Lihat baki kredit, kredit digunakan, balasan AI, penjanaan kandungan, aksi inbox, mesej, dan aktiviti workspace.",
-    currentPlan: "Pelan Semasa",
-    creditsLeft: "Baki Kredit",
-    creditsUsed: "Kredit Digunakan",
-    planCredits: "Kredit Pelan",
-    purchasedCredits: "Kredit Top-Up",
-    totalActivity: "Jumlah Aktiviti",
-    aiActions: "Aksi AI",
-    messageActions: "Mesej",
-    today: "Hari Ini",
-    overviewTitle: "Ringkasan Penggunaan",
-    overviewText:
-      "Setiap aksi AI yang berjaya akan mencipta usage event. Sistem akan menolak kredit secara automatik, kemudian halaman ini memaparkan baki terkini.",
-    search: "Cari",
-    searchPlaceholder: "Cari sejarah penggunaan...",
-    channel: "Channel",
-    eventType: "Jenis Event",
-    historyTitle: "Sejarah Penggunaan",
-    historyText:
-      "Ini memaparkan aktiviti terkini daripada Content Studio, Test AI, Inbox, WhatsApp, website chat, team, dan tools lain yang bersambung.",
-    noUsage: "Belum ada penggunaan.",
-    noUsageText:
-      "Penggunaan akan muncul selepas anda jana kandungan, test AI, jana balasan inbox, hantar mesej, atau sambungkan WhatsApp.",
-    topChannels: "Penggunaan mengikut Channel",
-    topEvents: "Penggunaan mengikut Aksi",
-    status: "Status",
-    credits: "Kredit",
-    count: "Jumlah",
-    date: "Tarikh",
-    success: "Berjaya",
-    failedStatus: "Gagal",
-    pending: "Menunggu",
-    shown: "dipaparkan",
-    noExtraDetails: "Tiada detail tambahan.",
-    knowledgeUsed: "Knowledge digunakan",
-    contentType: "Jenis kandungan",
-    purpose: "Tujuan",
-    platform: "Platform",
-    businessAction: "Aksi bisnes",
-    recentActivity: "Aktiviti terkini",
-    trackedCredits: "Penggunaan kredit direkodkan",
-    includedInPlan: "Termasuk dalam pelan bulanan",
-    extraCredits: "Kredit tambahan yang dibeli",
-    aiGenerations: "Jana AI dan balasan AI",
-    messageVolume: "Mesej dan balasan",
-    billingPeriod: "Tempoh billing",
-    noCreditBalance: "Baki kredit belum dibuat untuk workspace ini.",
-    noDataYet: "Belum ada data.",
-    activityIn: "di",
-    planNames: {
-      starter: "Starter",
-      growth: "Growth",
-      professional: "Professional",
-      business: "Business",
-    },
-    channelLabels: {
-      all: "Semua Channel",
-      dashboard: "Dashboard",
-      inbox: "Inbox",
-      whatsapp: "WhatsApp",
-      website_chat: "Website Chat",
-      content_studio: "Content Studio",
-      test_ai: "Test AI",
-      knowledge_base: "Knowledge Base",
-      team: "Team",
-      go_live: "Go Live",
-      email: "Email",
-      api: "API",
-      system: "System",
-    },
-    eventTypeLabels: {
-      all: "Semua Event",
-      customer_message_received: "Mesej Customer Diterima",
-      ai_reply_generated: "Balasan AI Dijana",
-      ai_reply_sent: "Balasan AI Dihantar",
-      human_reply_sent: "Balasan Human Dihantar",
-      whatsapp_message_received: "Mesej WhatsApp Diterima",
-      whatsapp_message_sent: "Mesej WhatsApp Dihantar",
-      website_chat_message_received: "Mesej Website Chat",
-      content_generated: "Kandungan Dijana",
-      content_saved: "Kandungan Disimpan",
-      test_ai_generated: "Test AI Dijana",
-      team_invite_sent: "Jemputan Team Dihantar",
-      knowledge_created: "Knowledge Dicipta",
-      knowledge_updated: "Knowledge Dikemaskini",
-      ai_staff_created: "AI Staff Dicipta",
-      go_live_enabled: "Go Live Diaktifkan",
-      go_live_disabled: "Go Live Dimatikan",
-      email_sent: "Email Dihantar",
-      system_event: "System Event",
-    },
-  },
-};
+function eventLabel(value: string | null | undefined) {
+  if (!value) return "Unknown Event";
+  if (value === "all") return "All Events";
+  if (value === "test_ai_generated") return "Test AI Generated";
+  if (value === "ai_reply_generated") return "Inbox AI Suggestion Generated";
+  if (value === "website_chat_message_received") return "Website Chat Message Received";
+  if (value === "website_chat_ai_reply_generated") return "Website Chat AI Reply Generated";
+  if (value === "website_chat_auto_reply_skipped") return "Website Chat Auto-Reply Skipped";
+  if (value === "customer_message_received") return "Customer Message Received";
+  if (value === "ai_reply_sent") return "AI Reply Sent";
+  if (value === "human_reply_sent") return "Human Reply Sent";
+  if (value === "whatsapp_message_received") return "WhatsApp Message Received";
+  if (value === "whatsapp_message_sent") return "WhatsApp Message Sent";
+  if (value === "content_generated") return "Content Generated";
+  if (value === "content_saved") return "Content Saved";
+  if (value === "knowledge_created") return "Knowledge Created";
+  if (value === "knowledge_updated") return "Knowledge Updated";
+  if (value === "ai_staff_created") return "AI Staff Created";
+  if (value === "team_invite_sent") return "Team Invite Sent";
+  if (value === "go_live_enabled") return "Go Live Enabled";
+  if (value === "go_live_disabled") return "Go Live Disabled";
+  if (value === "email_sent") return "Email Sent";
+  if (value === "system_event") return "System Event";
 
-function getSupportedLanguage(language: string): SupportedLanguage {
-  if (language === "id" || language === "zh" || language === "ms") {
-    return language;
+  return formatValue(value);
+}
+
+function statusLabel(value: string | null | undefined) {
+  if (!value) return "Success";
+  if (value === "success") return "Success";
+  if (value === "failed") return "Failed";
+  if (value === "pending") return "Pending";
+
+  return formatValue(value);
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Not available";
+
+  try {
+    return new Intl.DateTimeFormat("en-AU", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return value;
   }
-
-  return "en";
-}
-
-function getOptions(values: string[], labels: Record<string, string>): Option[] {
-  return values.map((value) => ({
-    value,
-    label: labels[value] || formatValue(value),
-  }));
-}
-
-function getOptionLabel(labels: Record<string, string>, value: string) {
-  return labels[value] || formatValue(value);
-}
-
-function getEventLabel(value: string, t: UsageTranslation) {
-  return getOptionLabel(t.eventTypeLabels, value);
-}
-
-function getChannelLabel(value: string, t: UsageTranslation) {
-  return getOptionLabel(t.channelLabels, value);
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toLocaleString();
 }
 
 function isToday(value: string) {
   const date = new Date(value);
   const now = new Date();
 
-  if (Number.isNaN(date.getTime())) {
-    return false;
-  }
+  if (Number.isNaN(date.getTime())) return false;
 
   return (
     date.getFullYear() === now.getFullYear() &&
@@ -617,100 +187,106 @@ function isToday(value: string) {
   );
 }
 
-function statusLabel(value: string, t: UsageTranslation) {
-  if (value === "success") return t.success;
-  if (value === "failed") return t.failedStatus;
-  if (value === "pending") return t.pending;
-  return formatValue(value);
+function getCreditsLeft(balance: CreditBalanceRow | null) {
+  if (!balance) return null;
+
+  return Math.max(
+    0,
+    Number(balance.plan_credits || 0) +
+      Number(balance.purchased_credits || 0) -
+      Number(balance.used_credits || 0)
+  );
+}
+
+function getOptionValues(defaultValues: string[], events: UsageEventRow[], key: "channel" | "event_type") {
+  return Array.from(
+    new Set([
+      ...defaultValues,
+      ...events.map((event) => event[key]).filter(Boolean),
+    ])
+  );
+}
+
+function getOptions(values: string[], labelFormatter: (value: string) => string): Option[] {
+  return values.map((value) => ({
+    value,
+    label: labelFormatter(value),
+  }));
 }
 
 function sumByKey(rows: UsageEventRow[], key: "channel" | "event_type") {
-  const result = new Map<string, number>();
+  const result = new Map<string, { count: number; credits: number }>();
 
   rows.forEach((row) => {
-    const current = result.get(row[key]) || 0;
-    result.set(row[key], current + (row.event_count || 1));
+    const current = result.get(row[key]) || { count: 0, credits: 0 };
+
+    result.set(row[key], {
+      count: current.count + Number(row.event_count || 1),
+      credits: current.credits + Number(row.credits_used || 0),
+    });
   });
 
   return Array.from(result.entries())
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count)
+    .map(([name, value]) => ({
+      name,
+      count: value.count,
+      credits: value.credits,
+    }))
+    .sort((a, b) => b.credits - a.credits || b.count - a.count)
     .slice(0, 8);
 }
 
-function formatValue(value: unknown) {
-  return String(value || "")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function getFriendlyMetadata(
-  metadata: Record<string, unknown> | null,
-  t: UsageTranslation
-) {
+function getMetadataDetails(metadata: Record<string, unknown> | null) {
   if (!metadata || Object.keys(metadata).length === 0) {
     return [];
   }
 
   const details: { label: string; value: string }[] = [];
 
-  if (
-    metadata.knowledge_count !== undefined &&
-    metadata.knowledge_count !== null
-  ) {
-    details.push({
-      label: t.knowledgeUsed,
-      value: String(metadata.knowledge_count),
-    });
-  }
+  const fieldMap: Array<[string, string]> = [
+    ["knowledge_count", "Knowledge Used"],
+    ["model", "AI Model"],
+    ["fallback", "Fallback"],
+    ["selected_test_channel", "Test Style"],
+    ["brain_channel", "Brain Channel"],
+    ["customer_channel", "Customer Channel"],
+    ["reason", "Reason"],
+    ["credit_rule", "Credit Rule"],
+    ["content_type", "Content Type"],
+    ["content_purpose", "Purpose"],
+    ["platform", "Platform"],
+    ["test_mode", "Test Mode"],
+    ["manual_review_mode", "Manual Review"],
+    ["website_chat_active", "Website Chat Active"],
+    ["ai_enabled", "AI Support"],
+    ["auto_reply_enabled", "Auto-Reply"],
+    ["handover_enabled", "Human Handover"],
+  ];
 
-  if (metadata.content_type) {
-    details.push({
-      label: t.contentType,
-      value: formatValue(metadata.content_type),
-    });
-  }
+  fieldMap.forEach(([key, label]) => {
+    const value = metadata[key];
 
-  if (metadata.content_purpose) {
-    details.push({
-      label: t.purpose,
-      value: formatValue(metadata.content_purpose),
-    });
-  }
+    if (value !== undefined && value !== null && value !== "") {
+      details.push({
+        label,
+        value:
+          typeof value === "boolean"
+            ? value
+              ? "Yes"
+              : "No"
+            : formatValue(value),
+      });
+    }
+  });
 
-  if (metadata.platform) {
-    details.push({
-      label: t.platform,
-      value: formatValue(metadata.platform),
-    });
-  }
-
-  return details;
+  return details.slice(0, 8);
 }
 
-function getActivitySentence(event: UsageEventRow, t: UsageTranslation) {
-  return `${getEventLabel(event.event_type, t)} ${t.activityIn} ${getChannelLabel(
-    event.channel,
-    t
-  )}`;
-}
-
-function localizePlanName(
-  planName: string | null | undefined,
-  fallback: string,
-  t: UsageTranslation
-) {
-  if (!planName) return fallback;
-
-  const key = planName.toLowerCase();
-  return t.planNames[key] || t.planNames[planName] || planName || fallback;
+function getActivitySentence(event: UsageEventRow) {
+  return `${eventLabel(event.event_type)} in ${channelLabel(event.channel)}`;
 }
 
 export default function UsagePage() {
-  const { language } = useKolkapLanguage();
-  const activeLanguage = getSupportedLanguage(language);
-  const t = translations[activeLanguage];
-
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
@@ -728,21 +304,11 @@ export default function UsagePage() {
   const [selectedChannel, setSelectedChannel] = useState("all");
   const [selectedEventType, setSelectedEventType] = useState("all");
 
-  const channelOptions = useMemo(
-    () => getOptions(channelValues, t.channelLabels),
-    [t.channelLabels]
-  );
-
-  const eventTypeOptions = useMemo(
-    () => getOptions(eventTypeValues, t.eventTypeLabels),
-    [t.eventTypeLabels]
-  );
-
   useEffect(() => {
     let isMounted = true;
 
     async function loadUsage() {
-      if (!workspace) return;
+      if (!workspace?.id) return;
 
       setIsLoading(true);
       setPageError("");
@@ -788,26 +354,35 @@ export default function UsagePage() {
     return () => {
       isMounted = false;
     };
-  }, [workspace, reloadKey]);
+  }, [workspace?.id, reloadKey]);
+
+  const channelOptions = useMemo(() => {
+    return getOptions(
+      getOptionValues(DEFAULT_CHANNELS, usageEvents, "channel"),
+      channelLabel
+    );
+  }, [usageEvents]);
+
+  const eventTypeOptions = useMemo(() => {
+    return getOptions(
+      getOptionValues(DEFAULT_EVENT_TYPES, usageEvents, "event_type"),
+      eventLabel
+    );
+  }, [usageEvents]);
 
   const filteredEvents = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
 
     return usageEvents.filter((event) => {
-      const eventLabel = getEventLabel(event.event_type, t).toLowerCase();
-      const channelLabel = getChannelLabel(event.channel, t).toLowerCase();
-
-      const friendlyMetadata = getFriendlyMetadata(event.metadata, t)
-        .map((item) => `${item.label} ${item.value}`)
-        .join(" ")
-        .toLowerCase();
+      const metadataText = JSON.stringify(event.metadata || {}).toLowerCase();
 
       const matchesSearch =
         !search ||
-        eventLabel.includes(search) ||
-        channelLabel.includes(search) ||
-        event.status.toLowerCase().includes(search) ||
-        friendlyMetadata.includes(search);
+        eventLabel(event.event_type).toLowerCase().includes(search) ||
+        channelLabel(event.channel).toLowerCase().includes(search) ||
+        statusLabel(event.status).toLowerCase().includes(search) ||
+        event.source_page?.toLowerCase().includes(search) ||
+        metadataText.includes(search);
 
       const matchesChannel =
         selectedChannel === "all" || event.channel === selectedChannel;
@@ -817,19 +392,19 @@ export default function UsagePage() {
 
       return matchesSearch && matchesChannel && matchesEventType;
     });
-  }, [usageEvents, searchTerm, selectedChannel, selectedEventType, t]);
+  }, [usageEvents, searchTerm, selectedChannel, selectedEventType]);
 
   const totalEvents = usageEvents.reduce(
-    (sum, event) => sum + (event.event_count || 1),
+    (sum, event) => sum + Number(event.event_count || 1),
     0
   );
 
   const todayEvents = usageEvents
     .filter((event) => isToday(event.created_at))
-    .reduce((sum, event) => sum + (event.event_count || 1), 0);
+    .reduce((sum, event) => sum + Number(event.event_count || 1), 0);
 
   const totalCreditsUsedFromEvents = usageEvents.reduce(
-    (sum, event) => sum + (event.credits_used || 0),
+    (sum, event) => sum + Number(event.credits_used || 0),
     0
   );
 
@@ -838,97 +413,103 @@ export default function UsagePage() {
   const usedCredits = Number(
     creditBalance?.used_credits ?? totalCreditsUsedFromEvents
   );
-  const creditsLeft = Math.max(0, planCredits + purchasedCredits - usedCredits);
+  const creditsLeft = getCreditsLeft(creditBalance);
 
   const aiActions = usageEvents
     .filter((event) =>
       [
         "ai_reply_generated",
-        "ai_reply_sent",
+        "website_chat_ai_reply_generated",
         "content_generated",
         "test_ai_generated",
       ].includes(event.event_type)
     )
-    .reduce((sum, event) => sum + (event.event_count || 1), 0);
+    .reduce((sum, event) => sum + Number(event.event_count || 1), 0);
 
   const messageActions = usageEvents
     .filter((event) =>
       [
         "customer_message_received",
+        "website_chat_message_received",
+        "website_chat_ai_reply_generated",
+        "website_chat_auto_reply_skipped",
         "human_reply_sent",
         "ai_reply_sent",
         "whatsapp_message_received",
         "whatsapp_message_sent",
-        "website_chat_message_received",
         "email_sent",
       ].includes(event.event_type)
     )
-    .reduce((sum, event) => sum + (event.event_count || 1), 0);
+    .reduce((sum, event) => sum + Number(event.event_count || 1), 0);
+
+  const skippedAutoReplies = usageEvents
+    .filter((event) => event.event_type === "website_chat_auto_reply_skipped")
+    .reduce((sum, event) => sum + Number(event.event_count || 1), 0);
 
   const channelBreakdown = sumByKey(usageEvents, "channel");
   const eventBreakdown = sumByKey(usageEvents, "event_type");
 
-  const currentPlanLabel = localizePlanName(
-    creditBalance?.plan_name,
-    currentPlan.name,
-    t
-  );
+  const currentPlanLabel = creditBalance?.plan_name
+    ? formatValue(creditBalance.plan_name)
+    : currentPlan.name;
 
   const summaryCards = [
     {
-      label: t.currentPlan,
+      label: "Current Plan",
       value: currentPlanLabel,
       note: currentPlan.priceLabel,
-      icon: WalletCards,
+      icon: <WalletCards className="h-7 w-7" />,
     },
     {
-      label: t.creditsLeft,
-      value: creditBalance ? creditsLeft.toLocaleString() : "—",
-      note: creditBalance ? t.trackedCredits : t.noCreditBalance,
-      icon: CreditCard,
+      label: "Credits Left",
+      value: creditsLeft === null ? "—" : creditsLeft.toLocaleString(),
+      note: creditBalance
+        ? "Available credits after tracked usage."
+        : "Credit balance has not been created yet.",
+      icon: <CreditCard className="h-7 w-7" />,
       important: true,
     },
     {
-      label: t.creditsUsed,
+      label: "Credits Used",
       value: usedCredits.toLocaleString(),
-      note: t.trackedCredits,
-      icon: Zap,
+      note: "Tracked deducted credits.",
+      icon: <Zap className="h-7 w-7" />,
     },
     {
-      label: t.planCredits,
+      label: "Plan Credits",
       value: planCredits.toLocaleString(),
-      note: t.includedInPlan,
-      icon: Sparkles,
+      note: "Included in the current plan.",
+      icon: <Sparkles className="h-7 w-7" />,
     },
     {
-      label: t.purchasedCredits,
+      label: "Top-Up Credits",
       value: purchasedCredits.toLocaleString(),
-      note: t.extraCredits,
-      icon: CreditCard,
+      note: "Purchased extra credits.",
+      icon: <CreditCard className="h-7 w-7" />,
     },
     {
-      label: t.totalActivity,
+      label: "Total Activity",
       value: `${totalEvents}`,
-      note: `${filteredEvents.length} ${t.shown}`,
-      icon: BarChart3,
+      note: `${filteredEvents.length} event(s) shown.`,
+      icon: <BarChart3 className="h-7 w-7" />,
     },
     {
-      label: t.today,
+      label: "Today",
       value: `${todayEvents}`,
-      note: t.recentActivity,
-      icon: Clock3,
+      note: "Activity recorded today.",
+      icon: <Clock3 className="h-7 w-7" />,
     },
     {
-      label: t.aiActions,
+      label: "AI Actions",
       value: `${aiActions}`,
-      note: t.aiGenerations,
-      icon: Bot,
+      note: "AI generations, tests, and replies.",
+      icon: <Bot className="h-7 w-7" />,
     },
     {
-      label: t.messageActions,
+      label: "Messages",
       value: `${messageActions}`,
-      note: t.messageVolume,
-      icon: MessageCircle,
+      note: `${skippedAutoReplies} auto-reply skipped event(s).`,
+      icon: <MessageCircle className="h-7 w-7" />,
     },
   ];
 
@@ -937,7 +518,7 @@ export default function UsagePage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
-            {t.loading}
+            Loading usage...
           </div>
         </section>
       </main>
@@ -949,7 +530,7 @@ export default function UsagePage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
-            <p className="text-xl font-black">{t.failed}</p>
+            <p className="text-xl font-black">Usage page could not load.</p>
             <p className="mt-2 text-base font-semibold">
               {workspaceState.error}
             </p>
@@ -960,7 +541,7 @@ export default function UsagePage() {
   }
 
   return (
-    <main className="bg-[#F7F9FA] text-[#07111F]">
+    <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
       <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8 lg:py-14">
         <div className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9 lg:p-10">
           <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -969,7 +550,7 @@ export default function UsagePage() {
               className="inline-flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
             >
               <ArrowLeft className="h-5 w-5" />
-              {t.back}
+              Back to Dashboard
             </Link>
 
             <button
@@ -978,69 +559,37 @@ export default function UsagePage() {
               className="inline-flex w-fit items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10"
             >
               <RefreshCcw className="h-5 w-5" />
-              {t.refresh}
+              Refresh
             </button>
           </div>
 
           <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
             <Sparkles className="h-5 w-5" />
-            {t.badge}
+            Usage
           </div>
 
           <h1 className="max-w-5xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-            {t.title}
+            Track workspace activity and credits.
           </h1>
 
           <p className="mt-6 max-w-4xl text-xl font-semibold leading-9 text-slate-300">
-            {t.subtitle}
+            See credits left, credits used, Test AI activity, Inbox AI
+            suggestions, Website Chat auto-replies, skipped replies, messages,
+            and other workspace events.
           </p>
         </div>
 
         <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {summaryCards.map((card) => {
-            const Icon = card.icon;
-
-            return (
-              <div
-                key={card.label}
-                className={`rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 ${
-                  card.important
-                    ? "border-[#7CFF3D] bg-[#07111F] text-white"
-                    : "border-slate-200 bg-white"
-                }`}
-              >
-                <div
-                  className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
-                    card.important
-                      ? "bg-[#7CFF3D] text-[#07111F]"
-                      : "bg-[#07111F] text-[#7CFF3D]"
-                  }`}
-                >
-                  <Icon className="h-7 w-7" />
-                </div>
-
-                <p
-                  className={`text-base font-black ${
-                    card.important ? "text-slate-300" : "text-slate-500"
-                  }`}
-                >
-                  {card.label}
-                </p>
-
-                <p className="mt-2 break-words text-3xl font-black tracking-[-0.04em]">
-                  {card.value}
-                </p>
-
-                <p
-                  className={`mt-2 text-sm font-semibold leading-6 ${
-                    card.important ? "text-slate-300" : "text-slate-600"
-                  }`}
-                >
-                  {card.note}
-                </p>
-              </div>
-            );
-          })}
+          {summaryCards.map((card) => (
+            <SummaryCard
+              key={card.label}
+              icon={card.icon}
+              label={card.label}
+              value={card.value}
+              note={card.note}
+              important={card.important}
+            />
+          ))}
         </div>
 
         <section className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
@@ -1051,37 +600,56 @@ export default function UsagePage() {
 
             <div>
               <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                {t.overviewTitle}
+                Usage Overview
               </p>
 
               <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
-                {t.overviewText}
+                Every successful AI action creates a usage event. Credits are
+                deducted through the credit system, and this page shows the
+                activity trail behind the balance.
               </h2>
 
               {creditBalance ? (
                 <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
-                  {t.billingPeriod}:{" "}
-                  {formatDate(creditBalance.billing_period_start)} —{" "}
+                  Billing period: {formatDate(creditBalance.billing_period_start)} —{" "}
                   {formatDate(creditBalance.billing_period_end)}
                 </p>
               ) : null}
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/dashboard/top-up"
+                  className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-6 py-4 text-base font-black text-[#07111F]"
+                >
+                  Top Up Credits
+                  <ArrowRight className="h-5 w-5" />
+                </Link>
+
+                <Link
+                  href="/dashboard/billing"
+                  className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-4 text-base font-black text-white"
+                >
+                  Open Billing
+                  <ArrowRight className="h-5 w-5" />
+                </Link>
+              </div>
             </div>
           </div>
         </section>
 
         <div className="mb-8 grid gap-8 lg:grid-cols-2">
           <BreakdownCard
-            title={t.topChannels}
+            title="Usage by Channel"
             rows={channelBreakdown}
-            labelFormatter={(value) => getChannelLabel(value, t)}
-            noDataText={t.noDataYet}
+            labelFormatter={channelLabel}
+            noDataText="No channel usage yet."
           />
 
           <BreakdownCard
-            title={t.topEvents}
+            title="Usage by Action"
             rows={eventBreakdown}
-            labelFormatter={(value) => getEventLabel(value, t)}
-            noDataText={t.noDataYet}
+            labelFormatter={eventLabel}
+            noDataText="No action usage yet."
           />
         </div>
 
@@ -1092,18 +660,24 @@ export default function UsagePage() {
             </div>
 
             <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              {t.historyTitle}
+              Usage History
             </p>
 
             <h2 className="mt-3 max-w-4xl text-4xl font-black tracking-[-0.05em]">
-              {t.historyText}
+              Review recent usage events from connected tools.
             </h2>
+
+            <p className="mt-4 max-w-4xl text-lg font-semibold leading-8 text-slate-600">
+              This includes Content Studio, Test AI, Inbox suggestions, Website
+              Chat, WhatsApp, billing events, team actions, and system events
+              when they are logged.
+            </p>
           </div>
 
           <div className="mb-6 grid gap-4 lg:grid-cols-3">
             <label className="grid gap-2">
               <span className="text-base font-black text-slate-700">
-                {t.search}
+                Search
               </span>
 
               <div className="flex h-14 items-center gap-3 rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5">
@@ -1112,21 +686,21 @@ export default function UsagePage() {
                 <input
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder={t.searchPlaceholder}
+                  placeholder="Search usage history..."
                   className="h-full w-full bg-transparent text-lg font-semibold outline-none"
                 />
               </div>
             </label>
 
             <SelectInput
-              label={t.channel}
+              label="Channel"
               value={selectedChannel}
               onChange={setSelectedChannel}
               options={channelOptions}
             />
 
             <SelectInput
-              label={t.eventType}
+              label="Event Type"
               value={selectedEventType}
               onChange={setSelectedEventType}
               options={eventTypeOptions}
@@ -1141,26 +715,14 @@ export default function UsagePage() {
 
           {isLoading ? (
             <div className="rounded-3xl border border-slate-200 bg-[#F7F9FA] p-6 text-lg font-black">
-              {t.loading}
+              Loading usage...
             </div>
           ) : filteredEvents.length === 0 ? (
-            <div className="rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-8">
-              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-[#07111F]">
-                <FileText className="h-8 w-8" />
-              </div>
-
-              <h3 className="text-4xl font-black tracking-[-0.05em]">
-                {t.noUsage}
-              </h3>
-
-              <p className="mt-4 max-w-3xl text-lg font-semibold leading-8 text-slate-600">
-                {t.noUsageText}
-              </p>
-            </div>
+            <EmptyUsageState />
           ) : (
             <div className="grid gap-4">
               {filteredEvents.map((event) => {
-                const details = getFriendlyMetadata(event.metadata, t);
+                const details = getMetadataDetails(event.metadata);
 
                 return (
                   <div
@@ -1170,17 +732,17 @@ export default function UsagePage() {
                     <div className="grid gap-5 xl:grid-cols-[1fr_auto] xl:items-start">
                       <div>
                         <div className="flex flex-wrap gap-2">
-                          <Badge text={getEventLabel(event.event_type, t)} />
-                          <Badge text={getChannelLabel(event.channel, t)} />
-                          <Badge text={statusLabel(event.status, t)} />
+                          <Badge text={eventLabel(event.event_type)} />
+                          <Badge text={channelLabel(event.channel)} />
+                          <Badge text={statusLabel(event.status)} />
                         </div>
 
                         <h3 className="mt-4 text-2xl font-black tracking-[-0.04em]">
-                          {getActivitySentence(event, t)}
+                          {getActivitySentence(event)}
                         </h3>
 
                         <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
-                          {t.businessAction}
+                          Source: {event.source_page || "Workspace activity"}
                         </p>
 
                         {details.length > 0 ? (
@@ -1194,7 +756,7 @@ export default function UsagePage() {
                                   {detail.label}
                                 </p>
 
-                                <p className="mt-2 text-lg font-black text-[#07111F]">
+                                <p className="mt-2 break-words text-lg font-black text-[#07111F]">
                                   {detail.value}
                                 </p>
                               </div>
@@ -1202,22 +764,22 @@ export default function UsagePage() {
                           </div>
                         ) : (
                           <p className="mt-4 rounded-2xl bg-white p-4 text-sm font-bold text-slate-500">
-                            {t.noExtraDetails}
+                            No extra details.
                           </p>
                         )}
                       </div>
 
                       <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[360px]">
                         <MiniMetric
-                          label={t.credits}
+                          label="Credits"
                           value={`${event.credits_used}`}
                         />
                         <MiniMetric
-                          label={t.count}
+                          label="Count"
                           value={`${event.event_count}`}
                         />
                         <MiniMetric
-                          label={t.date}
+                          label="Date"
                           value={formatDate(event.created_at)}
                           small
                         />
@@ -1231,6 +793,60 @@ export default function UsagePage() {
         </section>
       </section>
     </main>
+  );
+}
+
+function SummaryCard({
+  icon,
+  label,
+  value,
+  note,
+  important = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  note: string;
+  important?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 ${
+        important
+          ? "border-[#7CFF3D] bg-[#07111F] text-white"
+          : "border-slate-200 bg-white text-[#07111F]"
+      }`}
+    >
+      <div
+        className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
+          important
+            ? "bg-[#7CFF3D] text-[#07111F]"
+            : "bg-[#07111F] text-[#7CFF3D]"
+        }`}
+      >
+        {icon}
+      </div>
+
+      <p
+        className={`text-base font-black ${
+          important ? "text-slate-300" : "text-slate-500"
+        }`}
+      >
+        {label}
+      </p>
+
+      <p className="mt-2 break-words text-3xl font-black tracking-[-0.04em]">
+        {value}
+      </p>
+
+      <p
+        className={`mt-2 text-sm font-semibold leading-6 ${
+          important ? "text-slate-300" : "text-slate-600"
+        }`}
+      >
+        {note}
+      </p>
+    </div>
   );
 }
 
@@ -1275,11 +891,13 @@ function BreakdownCard({
   noDataText,
 }: {
   title: string;
-  rows: { name: string; count: number }[];
+  rows: { name: string; count: number; credits: number }[];
   labelFormatter: (value: string) => string;
   noDataText: string;
 }) {
-  const max = Math.max(...rows.map((row) => row.count), 1);
+  const max = rows.length
+    ? Math.max(...rows.map((row) => Math.max(row.credits, row.count)), 1)
+    : 1;
 
   return (
     <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
@@ -1295,26 +913,32 @@ function BreakdownCard({
         </p>
       ) : (
         <div className="mt-6 grid gap-4">
-          {rows.map((row) => (
-            <div key={row.name} className="grid gap-2">
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-base font-black text-[#07111F]">
-                  {labelFormatter(row.name)}
-                </p>
+          {rows.map((row) => {
+            const score = Math.max(row.credits, row.count);
 
-                <p className="text-base font-black text-slate-500">
-                  {row.count}
-                </p>
-              </div>
+            return (
+              <div key={row.name} className="grid gap-2">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-base font-black text-[#07111F]">
+                    {labelFormatter(row.name)}
+                  </p>
 
-              <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-[#7CFF3D]"
-                  style={{ width: `${Math.max(8, (row.count / max) * 100)}%` }}
-                />
+                  <p className="text-base font-black text-slate-500">
+                    {row.credits} credits • {row.count} event(s)
+                  </p>
+                </div>
+
+                <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-[#7CFF3D]"
+                    style={{
+                      width: `${Math.max(8, (score / max) * 100)}%`,
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
@@ -1348,5 +972,25 @@ function SelectInput({
         ))}
       </select>
     </label>
+  );
+}
+
+function EmptyUsageState() {
+  return (
+    <div className="rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-8">
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-[#07111F]">
+        <FileText className="h-8 w-8" />
+      </div>
+
+      <h3 className="text-4xl font-black tracking-[-0.05em]">
+        No usage recorded yet.
+      </h3>
+
+      <p className="mt-4 max-w-3xl text-lg font-semibold leading-8 text-slate-600">
+        Usage will appear after Test AI, Inbox AI suggestions, Website Chat
+        messages, auto-replies, Content Studio generations, WhatsApp activity,
+        or other connected workspace actions.
+      </p>
+    </div>
   );
 }

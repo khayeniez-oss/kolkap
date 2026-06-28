@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createClient } from "@supabase/supabase-js";
 
 type UsageStatus = "success" | "failed" | "pending";
@@ -30,6 +32,26 @@ function getAdminSupabase() {
   });
 }
 
+function safeNumber(value: unknown, fallback = 0) {
+  const numberValue = Number(value);
+
+  if (!Number.isFinite(numberValue) || numberValue < 0) {
+    return fallback;
+  }
+
+  return numberValue;
+}
+
+function safeEventCount(value: unknown) {
+  const numberValue = Number(value);
+
+  if (!Number.isFinite(numberValue) || numberValue < 1) {
+    return 1;
+  }
+
+  return Math.floor(numberValue);
+}
+
 export async function logWorkspaceUsage(input: LogWorkspaceUsageInput) {
   try {
     if (!input.workspaceId) return;
@@ -47,8 +69,13 @@ export async function logWorkspaceUsage(input: LogWorkspaceUsageInput) {
         workspaceId: input.workspaceId,
         error: workspaceError?.message,
       });
+
       return;
     }
+
+    const creditsUsed = safeNumber(input.creditsUsed, 0);
+    const eventCount = safeEventCount(input.eventCount);
+    const status = input.status || "success";
 
     const { error } = await supabase.from("workspace_usage_events").insert({
       workspace_id: input.workspaceId,
@@ -57,9 +84,9 @@ export async function logWorkspaceUsage(input: LogWorkspaceUsageInput) {
       event_type: input.eventType,
       channel: input.channel,
       source_page: input.sourcePage,
-      credits_used: input.creditsUsed ?? 0,
-      event_count: input.eventCount ?? 1,
-      status: input.status || "success",
+      credits_used: creditsUsed,
+      event_count: eventCount,
+      status,
       metadata: input.metadata || {},
     });
 

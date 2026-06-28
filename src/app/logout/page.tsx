@@ -3,40 +3,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, ShieldCheck } from "lucide-react";
-import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
-
-const translations = {
-  en: {
-    title: "Logging you out...",
-    subtitle: "Please wait while Kolkap safely signs you out.",
-    safety: "Your business workspace session is being closed securely.",
-  },
-
-  id: {
-    title: "Sedang logout...",
-    subtitle: "Mohon tunggu sebentar saat Kolkap mengeluarkan Anda dengan aman.",
-    safety: "Session business workspace Anda sedang ditutup dengan aman.",
-  },
-
-  zh: {
-    title: "正在登出...",
-    subtitle: "请稍等，Kolkap 正在安全地退出您的账户。",
-    safety: "您的 business workspace session 正在安全关闭。",
-  },
-
-  ms: {
-    title: "Sedang logout...",
-    subtitle: "Sila tunggu sebentar sementara Kolkap logout akaun anda dengan selamat.",
-    safety: "Session business workspace anda sedang ditutup dengan selamat.",
-  },
-};
 
 export default function LogoutPage() {
   const router = useRouter();
-  const { language } = useKolkapLanguage();
-  const t =
-    translations[language as keyof typeof translations] || translations.en;
 
   useEffect(() => {
     async function logout() {
@@ -59,11 +29,11 @@ export default function LogoutPage() {
         </div>
 
         <h1 className="text-4xl font-black tracking-[-0.05em] sm:text-5xl">
-          {t.title}
+          Logging you out...
         </h1>
 
         <p className="mt-4 text-xl font-semibold leading-8 text-slate-600">
-          {t.subtitle}
+          Please wait while Kolkap safely signs you out.
         </p>
 
         <div className="mt-7 rounded-3xl border border-blue-100 bg-blue-50 p-5">
@@ -71,7 +41,7 @@ export default function LogoutPage() {
             <ShieldCheck className="mt-1 h-7 w-7 shrink-0 text-blue-700" />
 
             <p className="text-lg font-black leading-8 text-blue-950">
-              {t.safety}
+              Your business workspace session is being closed securely.
             </p>
           </div>
         </div>

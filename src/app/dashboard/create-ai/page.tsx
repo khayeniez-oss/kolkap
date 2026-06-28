@@ -16,7 +16,6 @@ import {
   WalletCards,
   Zap,
 } from "lucide-react";
-import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import {
   getKolkapPlan,
@@ -57,22 +56,63 @@ type CreditBalanceRow = {
   updated_at: string;
 };
 
-type SupportedLanguage = "en" | "id" | "zh" | "ms";
+const channelOptions = [
+  "Website Chat",
+  "WhatsApp",
+  "Inbox / Manual Reply",
+  "General Business Support",
+];
 
-const supportedLanguages: SupportedLanguage[] = ["en", "id", "zh", "ms"];
+const replyLanguageOptions = [
+  "Auto-detect customer language",
+  "English only",
+  "Use business preference",
+];
 
-function getSupportedLanguage(language: string): SupportedLanguage {
-  return supportedLanguages.includes(language as SupportedLanguage)
-    ? (language as SupportedLanguage)
-    : "en";
+const replyToneOptions = [
+  "Friendly Professional",
+  "Warm",
+  "Formal",
+  "Direct",
+  "Sales-focused",
+  "Luxury",
+  "Supportive",
+  "Casual",
+];
+
+const roleOptions = [
+  "AI Customer Support Assistant",
+  "AI Website Chat Assistant",
+  "AI WhatsApp Responder",
+  "AI Sales Follow-up Assistant",
+  "AI Receptionist",
+  "AI Booking Assistant",
+  "AI Lead Qualifier",
+  "AI Content Assistant",
+];
+
+const statusLabels: Record<string, string> = {
+  draft: "Draft",
+  testing: "Testing",
+  live: "Live",
+  inactive: "Inactive",
+  connected: "Connected",
+  not_connected: "Not connected",
+  pending: "Pending",
+};
+
+function statusLabel(value: string | null | undefined) {
+  if (!value) return "Draft";
+
+  return statusLabels[value] || value;
 }
 
 function getAIStaffLimit(
   planKey: KolkapPlanKey,
   plan: { aiStaffLimit?: number | "custom" }
-) {
+): number | "custom" {
   if (typeof plan.aiStaffLimit === "number") return plan.aiStaffLimit;
-  if (plan.aiStaffLimit === "custom") return 20;
+  if (plan.aiStaffLimit === "custom") return "custom";
 
   if (planKey === "free_trial") return 1;
   if (planKey === "starter") return 1;
@@ -81,7 +121,7 @@ function getAIStaffLimit(
   if (planKey === "professional") return 5;
   if (planKey === "business") return 10;
 
-  return 20;
+  return "custom";
 }
 
 function getCreditsLeft(balance: CreditBalanceRow | null) {
@@ -98,331 +138,13 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
 function getCreditsTotal(balance: CreditBalanceRow | null) {
   if (!balance) return null;
 
-  return Number(balance.plan_credits || 0) + Number(balance.purchased_credits || 0);
+  return (
+    Number(balance.plan_credits || 0) + Number(balance.purchased_credits || 0)
+  );
 }
-
-function localizePlanLabel(label: string, language: SupportedLanguage) {
-  if (language === "zh") {
-    return label
-      .replace("Custom credits", "定制 credits")
-      .replace("trial credits", "试用 credits")
-      .replace("credits/month", "credits/月")
-      .replace("AI staff", "AI 员工")
-      .replace("Custom", "定制");
-  }
-
-  if (language === "id") {
-    return label
-      .replace("Custom credits", "Custom credits")
-      .replace("trial credits", "trial credits")
-      .replace("credits/month", "credits/bulan")
-      .replace("Custom AI staff", "Custom AI staff");
-  }
-
-  if (language === "ms") {
-    return label
-      .replace("Custom credits", "Custom credits")
-      .replace("trial credits", "trial credits")
-      .replace("credits/month", "credits/bulan")
-      .replace("Custom AI staff", "Custom AI staff");
-  }
-
-  return label;
-}
-
-const translations = {
-  en: {
-    badge: "Create AI",
-    title: "Create your AI staff for your business team.",
-    subtitle:
-      "Set the AI role, channel, tone, language, business knowledge, and instruction. After saving, you can test the AI right away.",
-    loading: "Loading your AI setup...",
-    failed: "Create AI page could not load.",
-    back: "Back to Dashboard",
-    refresh: "Refresh Credits",
-    currentPlan: "Current Plan",
-    aiStaffUsage: "AI Staff Usage",
-    credits: "Credits",
-    creditsLeft: "Credits Left",
-    creditsUsed: "Credits Used",
-    creditBalanceMissing: "Credit balance has not been created yet.",
-    goLiveStatus: "Go Live Status",
-    saveAndTest: "Save & Test AI",
-    saving: "Saving AI...",
-    saved: "AI staff saved successfully.",
-    saveFailed: "AI staff could not be saved.",
-    limitReached: "Your current plan has reached the AI staff limit.",
-    existingAI: "Your AI Staff",
-    existingAIText:
-      "These are the AI staff already connected to your Kolkap workspace.",
-    aiSetup: "AI Staff Setup",
-    aiSetupText:
-      "Choose what this AI should do for your business and how it should reply.",
-    name: "AI staff name",
-    namePlaceholder: "Example: AI WhatsApp Responder",
-    role: "AI role",
-    channel: "Main channel",
-    language: "Reply language",
-    tone: "Reply tone",
-    knowledge: "Business knowledge",
-    knowledgePlaceholder:
-      "Add your services, pricing, FAQs, opening hours, location, policies, and important customer information.",
-    instruction: "AI instruction",
-    instructionPlaceholder:
-      "Tell this AI how to reply, what to ask, what to avoid, and when to ask a human to take over.",
-    emptyError: "Please add AI name, role, and instruction.",
-    noAIYet: "No AI staff created yet.",
-    testAI: "Test AI",
-    draft: "Draft",
-    saveNote:
-      "Saving an AI staff does not use credits. Testing the AI after saving starts from 3 credits.",
-    setupNoteTitle: "Before you test",
-    setupNoteText:
-      "Give this AI clear business knowledge and instructions. Better setup means better replies when you test it or connect it to customer conversations.",
-    channels: ["WhatsApp", "Website Chat", "Email", "Social Media"],
-    languages: ["Auto-detect", "English", "中文", "Bahasa Indonesia", "Malay"],
-    tones: [
-      "Friendly Professional",
-      "Warm",
-      "Formal",
-      "Direct",
-      "Salesy",
-      "Luxury",
-      "Supportive",
-      "Casual",
-    ],
-    roles: [
-      "AI WhatsApp Responder",
-      "AI Customer Support",
-      "AI Sales Follow-up Assistant",
-      "AI Receptionist",
-      "AI Social Media Caption Generator",
-      "AI Content Assistant",
-      "AI Booking Assistant",
-      "AI Lead Qualifier",
-    ],
-  },
-
-  id: {
-    badge: "Create AI",
-    title: "Buat AI staff untuk team bisnis Anda.",
-    subtitle:
-      "Atur role AI, channel, tone, bahasa, business knowledge, dan instruksi. Setelah disimpan, Anda bisa langsung test AI.",
-    loading: "Memuat setup AI Anda...",
-    failed: "Halaman Create AI gagal dimuat.",
-    back: "Kembali ke Dashboard",
-    refresh: "Refresh Credits",
-    currentPlan: "Paket Saat Ini",
-    aiStaffUsage: "Pemakaian AI Staff",
-    credits: "Credits",
-    creditsLeft: "Sisa Credits",
-    creditsUsed: "Credits Terpakai",
-    creditBalanceMissing: "Credit balance belum dibuat.",
-    goLiveStatus: "Status Go Live",
-    saveAndTest: "Simpan & Test AI",
-    saving: "Menyimpan AI...",
-    saved: "AI staff berhasil disimpan.",
-    saveFailed: "AI staff gagal disimpan.",
-    limitReached: "Paket Anda saat ini sudah mencapai limit AI staff.",
-    existingAI: "AI Staff Anda",
-    existingAIText:
-      "Ini adalah AI staff yang sudah terhubung dengan workspace Kolkap Anda.",
-    aiSetup: "Setup AI Staff",
-    aiSetupText:
-      "Pilih tugas AI untuk bisnis Anda dan bagaimana AI harus membalas pelanggan.",
-    name: "Nama AI staff",
-    namePlaceholder: "Contoh: AI WhatsApp Responder",
-    role: "Role AI",
-    channel: "Channel utama",
-    language: "Bahasa balasan",
-    tone: "Tone balasan",
-    knowledge: "Business knowledge",
-    knowledgePlaceholder:
-      "Tambahkan layanan, harga, FAQ, jam operasional, lokasi, policy, dan informasi penting pelanggan.",
-    instruction: "Instruksi AI",
-    instructionPlaceholder:
-      "Beritahu AI bagaimana harus membalas, apa yang harus ditanyakan, apa yang harus dihindari, dan kapan harus meminta human takeover.",
-    emptyError: "Mohon isi nama AI, role, dan instruksi.",
-    noAIYet: "Belum ada AI staff dibuat.",
-    testAI: "Test AI",
-    draft: "Draft",
-    saveNote:
-      "Menyimpan AI staff tidak memakai credits. Test AI setelah disimpan mulai dari 3 credits.",
-    setupNoteTitle: "Sebelum test",
-    setupNoteText:
-      "Berikan business knowledge dan instruksi yang jelas. Setup yang lebih baik akan menghasilkan balasan yang lebih baik saat AI dites atau disambungkan ke percakapan customer.",
-    channels: ["WhatsApp", "Website Chat", "Email", "Social Media"],
-    languages: ["Auto-detect", "English", "中文", "Bahasa Indonesia", "Malay"],
-    tones: [
-      "Friendly Professional",
-      "Warm",
-      "Formal",
-      "Direct",
-      "Salesy",
-      "Luxury",
-      "Supportive",
-      "Casual",
-    ],
-    roles: [
-      "AI WhatsApp Responder",
-      "AI Customer Support",
-      "AI Sales Follow-up Assistant",
-      "AI Receptionist",
-      "AI Social Media Caption Generator",
-      "AI Content Assistant",
-      "AI Booking Assistant",
-      "AI Lead Qualifier",
-    ],
-  },
-
-  zh: {
-    badge: "创建 AI",
-    title: "为您的企业团队创建 AI 员工。",
-    subtitle:
-      "设置 AI 角色、渠道、语气、语言、企业知识和指令。保存后可以马上测试 AI。",
-    loading: "正在加载 AI 设置...",
-    failed: "创建 AI 页面加载失败。",
-    back: "返回 Dashboard",
-    refresh: "刷新 Credits",
-    currentPlan: "当前方案",
-    aiStaffUsage: "AI 员工使用情况",
-    credits: "Credits",
-    creditsLeft: "剩余 Credits",
-    creditsUsed: "已使用 Credits",
-    creditBalanceMissing: "Credit balance 尚未创建。",
-    goLiveStatus: "上线状态",
-    saveAndTest: "保存并测试 AI",
-    saving: "正在保存 AI...",
-    saved: "AI 员工已成功保存。",
-    saveFailed: "AI 员工保存失败。",
-    limitReached: "您的当前方案已达到 AI 员工数量限制。",
-    existingAI: "您的 AI 员工",
-    existingAIText: "这些是已经连接到您的 Kolkap workspace 的 AI 员工。",
-    aiSetup: "AI 员工设置",
-    aiSetupText: "选择这个 AI 要为企业做什么，以及它应该如何回复客户。",
-    name: "AI 员工名称",
-    namePlaceholder: "示例：AI WhatsApp 回复员",
-    role: "AI 角色",
-    channel: "主要渠道",
-    language: "回复语言",
-    tone: "回复语气",
-    knowledge: "企业知识",
-    knowledgePlaceholder:
-      "添加服务、价格、FAQ、营业时间、地点、政策和重要客户信息。",
-    instruction: "AI 指令",
-    instructionPlaceholder:
-      "告诉 AI 如何回复、需要询问什么、避免什么，以及何时请求人工接手。",
-    emptyError: "请填写 AI 名称、角色和指令。",
-    noAIYet: "尚未创建 AI 员工。",
-    testAI: "测试 AI",
-    draft: "草稿",
-    saveNote:
-      "保存 AI 员工不会使用 credits。保存后测试 AI 从 3 credits 开始。",
-    setupNoteTitle: "测试前",
-    setupNoteText:
-      "请给 AI 清楚的业务知识和指令。设置越清楚，测试或连接客户对话时回复质量越好。",
-    channels: ["WhatsApp", "Website Chat", "Email", "Social Media"],
-    languages: ["Auto-detect", "English", "中文", "Bahasa Indonesia", "Malay"],
-    tones: [
-      "Friendly Professional",
-      "Warm",
-      "Formal",
-      "Direct",
-      "Salesy",
-      "Luxury",
-      "Supportive",
-      "Casual",
-    ],
-    roles: [
-      "AI WhatsApp Responder",
-      "AI Customer Support",
-      "AI Sales Follow-up Assistant",
-      "AI Receptionist",
-      "AI Social Media Caption Generator",
-      "AI Content Assistant",
-      "AI Booking Assistant",
-      "AI Lead Qualifier",
-    ],
-  },
-
-  ms: {
-    badge: "Create AI",
-    title: "Cipta AI staff untuk team bisnes anda.",
-    subtitle:
-      "Tetapkan role AI, channel, tone, bahasa, business knowledge, dan arahan. Selepas disimpan, anda boleh terus test AI.",
-    loading: "Memuat setup AI anda...",
-    failed: "Halaman Create AI gagal dimuat.",
-    back: "Kembali ke Dashboard",
-    refresh: "Refresh Credits",
-    currentPlan: "Pakej Semasa",
-    aiStaffUsage: "Penggunaan AI Staff",
-    credits: "Credits",
-    creditsLeft: "Baki Credits",
-    creditsUsed: "Credits Digunakan",
-    creditBalanceMissing: "Credit balance belum dibuat.",
-    goLiveStatus: "Status Go Live",
-    saveAndTest: "Simpan & Test AI",
-    saving: "Menyimpan AI...",
-    saved: "AI staff berjaya disimpan.",
-    saveFailed: "AI staff gagal disimpan.",
-    limitReached: "Pakej anda sekarang sudah mencapai limit AI staff.",
-    existingAI: "AI Staff Anda",
-    existingAIText:
-      "Ini ialah AI staff yang sudah disambungkan dengan workspace Kolkap anda.",
-    aiSetup: "Setup AI Staff",
-    aiSetupText:
-      "Pilih tugas AI untuk bisnes anda dan bagaimana AI perlu membalas pelanggan.",
-    name: "Nama AI staff",
-    namePlaceholder: "Contoh: AI WhatsApp Responder",
-    role: "Role AI",
-    channel: "Channel utama",
-    language: "Bahasa balasan",
-    tone: "Tone balasan",
-    knowledge: "Business knowledge",
-    knowledgePlaceholder:
-      "Tambah servis, harga, FAQ, waktu operasi, lokasi, polisi, dan maklumat penting pelanggan.",
-    instruction: "Arahan AI",
-    instructionPlaceholder:
-      "Beritahu AI bagaimana perlu membalas, apa yang perlu ditanya, apa yang perlu dielak, dan bila perlu minta human takeover.",
-    emptyError: "Sila isi nama AI, role, dan arahan.",
-    noAIYet: "Belum ada AI staff dicipta.",
-    testAI: "Test AI",
-    draft: "Draft",
-    saveNote:
-      "Menyimpan AI staff tidak menggunakan credits. Test AI selepas disimpan bermula daripada 3 credits.",
-    setupNoteTitle: "Sebelum test",
-    setupNoteText:
-      "Berikan business knowledge dan arahan yang jelas. Setup yang lebih baik akan menghasilkan balasan yang lebih baik apabila AI diuji atau disambungkan kepada perbualan pelanggan.",
-    channels: ["WhatsApp", "Website Chat", "Email", "Social Media"],
-    languages: ["Auto-detect", "English", "中文", "Bahasa Indonesia", "Malay"],
-    tones: [
-      "Friendly Professional",
-      "Warm",
-      "Formal",
-      "Direct",
-      "Salesy",
-      "Luxury",
-      "Supportive",
-      "Casual",
-    ],
-    roles: [
-      "AI WhatsApp Responder",
-      "AI Customer Support",
-      "AI Sales Follow-up Assistant",
-      "AI Receptionist",
-      "AI Social Media Caption Generator",
-      "AI Content Assistant",
-      "AI Booking Assistant",
-      "AI Lead Qualifier",
-    ],
-  },
-};
 
 export default function CreateAIPage() {
   const router = useRouter();
-  const { language } = useKolkapLanguage();
-  const lang = getSupportedLanguage(language);
-  const t = translations[lang];
 
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
@@ -440,10 +162,10 @@ export default function CreateAIPage() {
   const [creditError, setCreditError] = useState("");
 
   const [name, setName] = useState("");
-  const [role, setRole] = useState(t.roles[0]);
-  const [channel, setChannel] = useState(t.channels[0]);
-  const [replyLanguage, setReplyLanguage] = useState("Auto-detect");
-  const [replyTone, setReplyTone] = useState("Friendly Professional");
+  const [role, setRole] = useState(roleOptions[0]);
+  const [channel, setChannel] = useState(channelOptions[0]);
+  const [replyLanguage, setReplyLanguage] = useState(replyLanguageOptions[0]);
+  const [replyTone, setReplyTone] = useState(replyToneOptions[0]);
   const [businessKnowledge, setBusinessKnowledge] = useState("");
   const [aiInstruction, setAiInstruction] = useState("");
 
@@ -451,7 +173,7 @@ export default function CreateAIPage() {
   const [saveError, setSaveError] = useState("");
 
   const aiStaffUsed = aiStaffRows.length;
-  const hasReachedLimit = aiStaffUsed >= aiLimit;
+  const hasReachedLimit = aiLimit !== "custom" && aiStaffUsed >= aiLimit;
 
   const creditsLeft = getCreditsLeft(creditBalance);
   const creditsTotal = getCreditsTotal(creditBalance);
@@ -482,16 +204,10 @@ export default function CreateAIPage() {
   }
 
   useEffect(() => {
-    setRole(t.roles[0]);
-    setChannel(t.channels[0]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang]);
-
-  useEffect(() => {
     if (!workspace) return;
 
-    setReplyLanguage(workspace.ai_reply_language ?? "Auto-detect");
-    setReplyTone(workspace.ai_reply_tone ?? "Friendly Professional");
+    setReplyLanguage(workspace.ai_reply_language ?? replyLanguageOptions[0]);
+    setReplyTone(workspace.ai_reply_tone ?? replyToneOptions[0]);
 
     setBusinessKnowledge(
       [
@@ -503,7 +219,9 @@ export default function CreateAIPage() {
           : "",
         workspace.business_email ? `Email: ${workspace.business_email}` : "",
         workspace.business_phone ? `Phone: ${workspace.business_phone}` : "",
-        workspace.whatsapp_number ? `WhatsApp: ${workspace.whatsapp_number}` : "",
+        workspace.whatsapp_number
+          ? `WhatsApp: ${workspace.whatsapp_number}`
+          : "",
         workspace.business_address
           ? `Address: ${workspace.business_address}`
           : "",
@@ -514,7 +232,7 @@ export default function CreateAIPage() {
 
     setAiInstruction(
       workspace.ai_instruction ??
-        "Reply clearly, collect customer details, and ask the team to take over when the customer requests human support."
+        "Reply clearly, answer based on business knowledge, collect customer details when useful, and ask the team to take over when the customer needs human support."
     );
   }, [workspace]);
 
@@ -522,7 +240,10 @@ export default function CreateAIPage() {
     let isMounted = true;
 
     async function loadAIStaff() {
-      if (!workspace) return;
+      if (!workspace?.id) {
+        setIsLoadingAI(false);
+        return;
+      }
 
       setIsLoadingAI(true);
       setAiListError("");
@@ -565,17 +286,17 @@ export default function CreateAIPage() {
     setSaveError("");
 
     if (!workspace) {
-      setSaveError(t.saveFailed);
+      setSaveError("AI staff could not be saved.");
       return;
     }
 
     if (!name.trim() || !role.trim() || !aiInstruction.trim()) {
-      setSaveError(t.emptyError);
+      setSaveError("Please add an AI staff name, role, and instruction.");
       return;
     }
 
     if (hasReachedLimit) {
-      setSaveError(t.limitReached);
+      setSaveError("Your current plan has reached the AI staff limit.");
       return;
     }
 
@@ -601,7 +322,7 @@ export default function CreateAIPage() {
       .single();
 
     if (error) {
-      setSaveError(error.message || t.saveFailed);
+      setSaveError(error.message || "AI staff could not be saved.");
       setIsSaving(false);
       return;
     }
@@ -620,44 +341,50 @@ export default function CreateAIPage() {
     router.push(`/dashboard/test-ai?ai=${savedAiStaff.id}`);
   }
 
+  const aiLimitValue =
+    aiLimit === "custom" ? `${aiStaffUsed}/Custom` : `${aiStaffUsed}/${aiLimit}`;
+
+  const aiLimitNote =
+    aiLimit === "custom"
+      ? "Custom AI staff limit"
+      : getPlanAIStaffLabel(currentPlan);
+
   const summaryCards = useMemo(
     () => [
       {
-        label: t.currentPlan,
+        label: "Current Plan",
         value: currentPlan.name,
         note: currentPlan.priceLabel,
         icon: WalletCards,
       },
       {
-        label: t.aiStaffUsage,
-        value: `${aiStaffUsed}/${aiLimit}`,
-        note: localizePlanLabel(getPlanAIStaffLabel(currentPlan), lang),
+        label: "AI Staff Usage",
+        value: aiLimitValue,
+        note: aiLimitNote,
         icon: Bot,
       },
       {
-        label: t.credits,
+        label: "Credits",
         value:
           creditsLeft === null || creditsTotal === null
             ? "—"
             : `${creditsLeft.toLocaleString()}/${creditsTotal.toLocaleString()}`,
         note: creditBalance
-          ? `${creditsUsed.toLocaleString()} ${t.creditsUsed}`
-          : t.creditBalanceMissing,
+          ? `${creditsUsed.toLocaleString()} credits used`
+          : "Credit balance has not been created yet.",
         icon: Zap,
       },
       {
-        label: t.goLiveStatus,
-        value: workspaceState.goLiveStatus,
-        note: workspaceState.whatsappStatus,
+        label: "Go Live Status",
+        value: statusLabel(workspaceState.goLiveStatus),
+        note: `Channel status: ${statusLabel(workspaceState.whatsappStatus)}`,
         icon: ShieldCheck,
       },
     ],
     [
-      t,
       currentPlan,
-      aiStaffUsed,
-      aiLimit,
-      lang,
+      aiLimitValue,
+      aiLimitNote,
       creditsLeft,
       creditsTotal,
       creditsUsed,
@@ -672,7 +399,7 @@ export default function CreateAIPage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
-            {t.loading}
+            Loading your AI staff setup...
           </div>
         </section>
       </main>
@@ -684,7 +411,9 @@ export default function CreateAIPage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
-            <p className="text-xl font-black">{t.failed}</p>
+            <p className="text-xl font-black">
+              Create AI Staff page could not load.
+            </p>
             <p className="mt-2 text-base font-semibold">
               {workspaceState.error}
             </p>
@@ -704,7 +433,7 @@ export default function CreateAIPage() {
               className="inline-flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
             >
               <ArrowLeft className="h-5 w-5" />
-              {t.back}
+              Back to Dashboard
             </Link>
 
             <button
@@ -714,21 +443,22 @@ export default function CreateAIPage() {
               className="inline-flex w-fit items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10 disabled:opacity-50"
             >
               <RefreshCcw className="h-5 w-5" />
-              {isLoadingCredits ? t.loading : t.refresh}
+              {isLoadingCredits ? "Loading credits..." : "Refresh Credits"}
             </button>
           </div>
 
           <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
             <Sparkles className="h-5 w-5" />
-            {t.badge}
+            Create AI Staff
           </div>
 
           <h1 className="max-w-4xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-            {t.title}
+            Create AI staff for customer replies and business support.
           </h1>
 
           <p className="mt-6 max-w-3xl text-xl font-semibold leading-9 text-slate-300">
-            {t.subtitle}
+            Set the AI staff name, role, channel, tone, and instructions. After
+            saving, you can test how it replies before going live.
           </p>
         </div>
 
@@ -775,15 +505,23 @@ export default function CreateAIPage() {
 
             <div>
               <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                {t.setupNoteTitle}
+                Before you test
               </p>
 
               <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
-                {t.setupNoteText}
+                Give this AI staff clear instructions. Better setup means better
+                replies when you test it or connect it to customer
+                conversations.
               </h2>
 
               <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
-                {t.saveNote}
+                Saving AI staff does not use credits. Testing AI after saving
+                starts from 3 credits.
+              </p>
+
+              <p className="mt-3 text-base font-semibold leading-7 text-slate-300">
+                For full company-wide knowledge, use the Business Knowledge page
+                after creating your AI staff.
               </p>
             </div>
           </div>
@@ -796,17 +534,17 @@ export default function CreateAIPage() {
             </div>
 
             <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              {t.existingAI}
+              Your AI Staff
             </p>
 
             <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-              {t.existingAIText}
+              Manage the AI staff already created for this workspace.
             </h2>
 
             <div className="mt-8 grid gap-4">
               {isLoadingAI ? (
                 <div className="rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 text-lg font-black">
-                  {t.loading}
+                  Loading AI staff...
                 </div>
               ) : aiListError ? (
                 <div className="rounded-3xl border border-red-200 bg-red-50 p-5 text-lg font-black text-red-700">
@@ -814,7 +552,7 @@ export default function CreateAIPage() {
                 </div>
               ) : aiStaffRows.length === 0 ? (
                 <div className="rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 text-lg font-black text-slate-600">
-                  {t.noAIYet}
+                  No AI staff created yet.
                 </div>
               ) : (
                 aiStaffRows.map((staff) => (
@@ -838,14 +576,14 @@ export default function CreateAIPage() {
 
                       <div className="flex flex-col gap-3 sm:items-end">
                         <span className="rounded-full bg-white px-5 py-3 text-sm font-black text-[#07111F]">
-                          {staff.status || t.draft}
+                          {statusLabel(staff.status)}
                         </span>
 
                         <Link
                           href={`/dashboard/test-ai?ai=${staff.id}`}
                           className="inline-flex items-center justify-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-sm font-black text-white"
                         >
-                          {t.testAI}
+                          Test AI
                           <ArrowRight className="h-4 w-4" />
                         </Link>
                       </div>
@@ -862,85 +600,87 @@ export default function CreateAIPage() {
             </div>
 
             <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              {t.aiSetup}
+              AI Staff Setup
             </p>
 
             <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-              {t.aiSetupText}
+              Choose what this AI staff should do and how it should reply.
             </h2>
 
             <form onSubmit={handleSaveAndTest} className="mt-8 grid gap-5">
               {hasReachedLimit ? (
                 <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-800">
-                  <p className="text-base font-black">{t.limitReached}</p>
+                  <p className="text-base font-black">
+                    Your current plan has reached the AI staff limit.
+                  </p>
                 </div>
               ) : null}
 
               <label className="grid gap-2">
                 <span className="text-base font-black text-slate-700">
-                  {t.name}
+                  AI staff name
                 </span>
                 <input
                   type="text"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder={t.namePlaceholder}
+                  placeholder="Example: Website Chat Assistant"
                   className="h-14 w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
                 />
               </label>
 
               <div className="grid gap-5 2xl:grid-cols-2">
                 <SelectInput
-                  label={t.role}
+                  label="AI role"
                   value={role}
                   onChange={setRole}
-                  options={t.roles}
+                  options={roleOptions}
                 />
                 <SelectInput
-                  label={t.channel}
+                  label="Main channel"
                   value={channel}
                   onChange={setChannel}
-                  options={t.channels}
+                  options={channelOptions}
                 />
               </div>
 
               <div className="grid gap-5 2xl:grid-cols-2">
                 <SelectInput
-                  label={t.language}
+                  label="Reply language"
                   value={replyLanguage}
                   onChange={setReplyLanguage}
-                  options={t.languages}
+                  options={replyLanguageOptions}
                 />
                 <SelectInput
-                  label={t.tone}
+                  label="Reply tone"
                   value={replyTone}
                   onChange={setReplyTone}
-                  options={t.tones}
+                  options={replyToneOptions}
                 />
               </div>
 
               <label className="grid gap-2">
                 <span className="text-base font-black text-slate-700">
-                  {t.knowledge}
+                  AI-specific knowledge
                 </span>
                 <textarea
                   rows={6}
                   value={businessKnowledge}
                   onChange={(event) => setBusinessKnowledge(event.target.value)}
-                  placeholder={t.knowledgePlaceholder}
+                  placeholder="Add extra details this AI staff should know, such as services, prices, FAQs, opening hours, booking rules, location details, and customer support notes."
                   className="w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
                 />
               </label>
 
               <label className="grid gap-2">
                 <span className="text-base font-black text-slate-700">
-                  {t.instruction}
+                  AI instruction
                 </span>
                 <textarea
                   rows={6}
                   value={aiInstruction}
                   onChange={(event) => setAiInstruction(event.target.value)}
-                  placeholder={t.instructionPlaceholder}
+                  placeholder="Tell this AI staff how to reply, what to ask, what to avoid, when to collect customer details, and when to ask a human to take over."
                   className="w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
                 />
               </label>
@@ -957,12 +697,17 @@ export default function CreateAIPage() {
                 className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Save className="h-6 w-6" />
-                {isSaving ? t.saving : t.saveAndTest}
+                {isSaving ? "Saving AI staff..." : "Save & Test AI"}
                 <ArrowRight className="h-6 w-6" />
               </button>
 
               <p className="text-center text-sm font-black leading-6 text-slate-500">
-                {t.saveNote}
+                Saving AI staff does not use credits. Testing AI after saving
+                starts from 3 credits.
+              </p>
+
+              <p className="text-center text-sm font-bold leading-6 text-slate-500">
+                Plan includes {getPlanCreditLabel(currentPlan)}.
               </p>
             </form>
           </section>

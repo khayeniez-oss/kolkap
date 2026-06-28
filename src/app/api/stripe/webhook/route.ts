@@ -16,6 +16,14 @@ type WorkspaceRow = {
   owner_user_id: string;
 };
 
+type CreditTopupResultRow = {
+  topup_id: string;
+  workspace_id: string;
+  owner_user_id: string;
+  credits_added: number;
+  already_processed: boolean;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -184,6 +192,10 @@ function getSubscriptionCancelledAt(subscription: Stripe.Subscription) {
   return getNumber(subscription.canceled_at);
 }
 
+function isCreditTopupCheckout(session: Stripe.Checkout.Session) {
+  return session.metadata?.type === "credit_topup";
+}
+
 async function findWorkspaceById(workspaceId: string) {
   const supabase = getAdminSupabase();
 
@@ -277,6 +289,104 @@ async function syncWorkspaceCreditBalance(input: {
   if (insertError) {
     throw insertError;
   }
+}
+
+async function completeCreditTopupFromCheckout(session: Stripe.Checkout.Session) {
+  const supabase = getAdminSupabase();
+
+  const topupId = session.metadata?.topup_id || null;
+  const workspaceId = session.metadata?.workspace_id || null;
+  const paymentIntentId = getStringId(session.payment_intent);
+  const customerId = getStringId(session.customer);
+
+  if (!topupId) {
+    console.log("Stripe credit top-up skipped. Missing topup_id.", {
+      sessionId: session.id,
+      metadata: session.metadata,
+    });
+
+    return;
+  }
+
+  const { data, error } = await supabase.rpc("complete_workspace_credit_topup", {
+    p_topup_id: topupId,
+    p_stripe_checkout_session_id: session.id,
+    p_stripe_payment_intent_id: paymentIntentId,
+    p_stripe_customer_id: customerId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const resultRows = (data ?? []) as CreditTopupResultRow[];
+  const result = resultRows[0];
+
+  await supabase.from("workspace_usage_events").insert({
+    workspace_id: result?.workspace_id || workspaceId,
+    owner_user_id: result?.owner_user_id || session.metadata?.owner_user_id,
+    user_id: result?.owner_user_id || session.metadata?.owner_user_id,
+    event_type: "credit_topup_completed",
+    channel: "billing",
+    source_page: "/dashboard/top-up",
+    credits_used: 0,
+    event_count: 1,
+    status: "success",
+    metadata: {
+      type: "credit_topup",
+      topup_id: topupId,
+      checkout_session_id: session.id,
+      payment_intent_id: paymentIntentId,
+      customer_id: customerId,
+      package_id: session.metadata?.package_id || null,
+      credits_added: result?.credits_added || 0,
+      already_processed: Boolean(result?.already_processed),
+    },
+  });
+
+  console.log("Kolkap credit top-up completed from Stripe checkout.", {
+    sessionId: session.id,
+    topupId,
+    workspaceId: result?.workspace_id || workspaceId,
+    creditsAdded: result?.credits_added || 0,
+    alreadyProcessed: Boolean(result?.already_processed),
+  });
+}
+
+async function markCreditTopupCancelledFromCheckout(session: Stripe.Checkout.Session) {
+  const supabase = getAdminSupabase();
+
+  const topupId = session.metadata?.topup_id || null;
+
+  if (!topupId) {
+    console.log("Stripe credit top-up cancellation skipped. Missing topup_id.", {
+      sessionId: session.id,
+      metadata: session.metadata,
+    });
+
+    return;
+  }
+
+  const now = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("workspace_credit_topups")
+    .update({
+      status: "cancelled",
+      cancelled_at: now,
+      updated_at: now,
+    })
+    .eq("id", topupId)
+    .neq("status", "paid");
+
+  if (error) {
+    throw error;
+  }
+
+  console.log("Kolkap credit top-up checkout expired/cancelled.", {
+    sessionId: session.id,
+    topupId,
+  });
 }
 
 async function activateWorkspaceFromCheckout(
@@ -383,7 +493,8 @@ async function updateWorkspaceFromSubscription(subscription: Stripe.Subscription
   const workspaceIdFromMetadata = subscription.metadata?.workspace_id || null;
   const priceId = getSubscriptionPriceId(subscription);
   const planKey =
-    normalizePlanKey(subscription.metadata?.plan_key) || getPlanKeyFromPriceId(priceId);
+    normalizePlanKey(subscription.metadata?.plan_key) ||
+    getPlanKeyFromPriceId(priceId);
 
   let workspace: WorkspaceRow | null = null;
 
@@ -565,6 +676,12 @@ export async function POST(request: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        if (isCreditTopupCheckout(session)) {
+          await completeCreditTopupFromCheckout(session);
+          break;
+        }
+
         const subscriptionId = getStringId(session.subscription);
 
         const subscription = subscriptionId
@@ -572,6 +689,16 @@ export async function POST(request: Request) {
           : null;
 
         await activateWorkspaceFromCheckout(session, subscription);
+        break;
+      }
+
+      case "checkout.session.expired": {
+        const session = event.data.object as Stripe.Checkout.Session;
+
+        if (isCreditTopupCheckout(session)) {
+          await markCreditTopupCancelledFromCheckout(session);
+        }
+
         break;
       }
 

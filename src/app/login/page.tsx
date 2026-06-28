@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { ensureKolkapWorkspace } from "@/lib/kolkapWorkspace";
 
@@ -40,132 +39,6 @@ const BLOCKED_STATUSES = new Set([
   "incomplete_expired",
   "expired",
 ]);
-
-const translations = {
-  en: {
-    badge: "Welcome Back",
-    title: "Continue managing your AI staff.",
-    subtitle:
-      "Log in to manage your AI staff, customer replies, credits, usage, inbox, leads, billing, and business settings.",
-    email: "Email address",
-    emailPlaceholder: "you@business.com",
-    password: "Password",
-    passwordPlaceholder: "Enter your password",
-    login: "Log In",
-    loggingIn: "Logging in...",
-    checkingPlan: "Checking your trial...",
-    forgotPassword: "Forgot password?",
-    noAccount: "Don’t have an account?",
-    signUp: "Start Free Trial",
-    errorTitle: "Login failed",
-    emptyError: "Please enter your email and password.",
-    success: "Login successful. Redirecting...",
-    noteTitle: "Your AI staff workspace",
-    noteText:
-      "Your dashboard helps you create AI staff, add business knowledge, test replies, track usage, monitor credits, manage inbox conversations, and go live when ready.",
-    point1: "Manage AI staff",
-    point2: "Track credits and usage",
-    point3: "Review inbox replies",
-    secureTitle: "Private business dashboard",
-    secureText:
-      "Only logged-in business owners and team members can access this workspace.",
-    loading: "Loading login...",
-    togglePassword: "Toggle password visibility",
-  },
-
-  id: {
-    badge: "Selamat Datang Kembali",
-    title: "Lanjutkan mengelola AI staff Anda.",
-    subtitle:
-      "Login untuk mengelola AI staff, balasan pelanggan, credits, usage, inbox, leads, billing, dan pengaturan bisnis.",
-    email: "Alamat email",
-    emailPlaceholder: "anda@bisnis.com",
-    password: "Password",
-    passwordPlaceholder: "Masukkan password Anda",
-    login: "Login",
-    loggingIn: "Sedang login...",
-    checkingPlan: "Memeriksa trial Anda...",
-    forgotPassword: "Lupa password?",
-    noAccount: "Belum punya akun?",
-    signUp: "Mulai Free Trial",
-    errorTitle: "Login gagal",
-    emptyError: "Masukkan email dan password Anda.",
-    success: "Login berhasil. Mengarahkan...",
-    noteTitle: "Workspace AI staff Anda",
-    noteText:
-      "Dashboard Anda membantu membuat AI staff, menambahkan business knowledge, test replies, track usage, monitor credits, mengelola inbox conversations, dan go live saat sudah siap.",
-    point1: "Kelola AI staff",
-    point2: "Pantau credits dan usage",
-    point3: "Review balasan inbox",
-    secureTitle: "Dashboard bisnis pribadi",
-    secureText:
-      "Hanya business owner dan team member yang sudah login yang bisa mengakses workspace ini.",
-    loading: "Memuat login...",
-    togglePassword: "Tampilkan atau sembunyikan password",
-  },
-
-  zh: {
-    badge: "欢迎回来",
-    title: "继续管理您的 AI 员工。",
-    subtitle:
-      "登录以管理 AI 员工、客户回复、credits、usage、inbox、leads、账单和业务设置。",
-    email: "邮箱地址",
-    emailPlaceholder: "you@business.com",
-    password: "密码",
-    passwordPlaceholder: "请输入您的密码",
-    login: "登录",
-    loggingIn: "正在登录...",
-    checkingPlan: "正在检查您的试用...",
-    forgotPassword: "忘记密码？",
-    noAccount: "还没有账户？",
-    signUp: "开始免费试用",
-    errorTitle: "登录失败",
-    emptyError: "请输入邮箱和密码。",
-    success: "登录成功。正在跳转...",
-    noteTitle: "您的 AI 员工工作区",
-    noteText:
-      "您的 dashboard 可帮助您创建 AI 员工、添加业务知识、测试回复、追踪 usage、管理 credits、查看 inbox conversations，并在准备好后 go live。",
-    point1: "管理 AI 员工",
-    point2: "追踪 credits 和 usage",
-    point3: "查看 inbox 回复",
-    secureTitle: "私人业务 dashboard",
-    secureText:
-      "只有已登录的 business owner 和 team member 可以访问此 workspace。",
-    loading: "正在加载登录页面...",
-    togglePassword: "显示或隐藏密码",
-  },
-
-  ms: {
-    badge: "Selamat Kembali",
-    title: "Teruskan mengurus AI staff anda.",
-    subtitle:
-      "Login untuk mengurus AI staff, balasan pelanggan, credits, usage, inbox, leads, billing, dan tetapan bisnes.",
-    email: "Alamat email",
-    emailPlaceholder: "anda@bisnes.com",
-    password: "Kata laluan",
-    passwordPlaceholder: "Masukkan kata laluan anda",
-    login: "Login",
-    loggingIn: "Sedang login...",
-    checkingPlan: "Memeriksa trial anda...",
-    forgotPassword: "Lupa kata laluan?",
-    noAccount: "Belum ada akaun?",
-    signUp: "Mulakan Free Trial",
-    errorTitle: "Login gagal",
-    emptyError: "Masukkan email dan kata laluan anda.",
-    success: "Login berjaya. Mengarahkan...",
-    noteTitle: "Workspace AI staff anda",
-    noteText:
-      "Dashboard anda membantu mencipta AI staff, tambah business knowledge, test replies, track usage, monitor credits, urus inbox conversations, dan go live apabila sudah bersedia.",
-    point1: "Urus AI staff",
-    point2: "Pantau credits dan usage",
-    point3: "Review balasan inbox",
-    secureTitle: "Dashboard bisnes peribadi",
-    secureText:
-      "Hanya business owner dan team member yang sudah login boleh mengakses workspace ini.",
-    loading: "Memuat login...",
-    togglePassword: "Tunjuk atau sembunyikan kata laluan",
-  },
-};
 
 function normalizeStatus(value: unknown) {
   return String(value || "")
@@ -217,33 +90,17 @@ function isSafeNextPath(path: string) {
   return path.startsWith("/") && !path.startsWith("//");
 }
 
-async function findWorkspaceAfterLogin({
+async function findActiveTeamWorkspace({
   supabase,
-  userId,
   userEmail,
 }: {
   supabase: SupabaseClientType;
-  userId: string;
   userEmail?: string | null;
 }) {
+  if (!userEmail) return null;
+
   const selectFields =
     "id, plan_key, plan_status, billing_status, stripe_subscription_id, trial_activated_at, billing_started_at, subscription_cancel_at, subscription_cancelled_at";
-
-  const { data: ownedWorkspace } = await supabase
-    .from("business_workspaces")
-    .select(selectFields)
-    .eq("owner_user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (ownedWorkspace?.id) {
-    return ownedWorkspace as WorkspaceLoginRow;
-  }
-
-  if (!userEmail) {
-    return null;
-  }
 
   const { data: teamMember } = await supabase
     .from("workspace_team_members")
@@ -267,12 +124,52 @@ async function findWorkspaceAfterLogin({
   return (teamWorkspace ?? null) as WorkspaceLoginRow | null;
 }
 
+async function findWorkspaceAfterLogin({
+  supabase,
+  userId,
+  userEmail,
+}: {
+  supabase: SupabaseClientType;
+  userId: string;
+  userEmail?: string | null;
+}) {
+  const selectFields =
+    "id, plan_key, plan_status, billing_status, stripe_subscription_id, trial_activated_at, billing_started_at, subscription_cancel_at, subscription_cancelled_at";
+
+  const { data: ownedWorkspaces } = await supabase
+    .from("business_workspaces")
+    .select(selectFields)
+    .eq("owner_user_id", userId)
+    .order("created_at", { ascending: false });
+
+  const ownedRows = (ownedWorkspaces ?? []) as WorkspaceLoginRow[];
+  const activeOwnedWorkspace = ownedRows.find((workspace) =>
+    hasActiveTrialOrPlan(workspace)
+  );
+
+  if (activeOwnedWorkspace?.id) {
+    return activeOwnedWorkspace;
+  }
+
+  const teamWorkspace = await findActiveTeamWorkspace({
+    supabase,
+    userEmail,
+  });
+
+  if (teamWorkspace?.id && hasActiveTrialOrPlan(teamWorkspace)) {
+    return teamWorkspace;
+  }
+
+  if (ownedRows[0]?.id) {
+    return ownedRows[0];
+  }
+
+  return teamWorkspace;
+}
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { language } = useKolkapLanguage();
-  const t =
-    translations[language as keyof typeof translations] || translations.en;
 
   const rawNextPath = searchParams.get("next") || "/dashboard";
   const nextPath = isSafeNextPath(rawNextPath) ? rawNextPath : "/dashboard";
@@ -292,7 +189,7 @@ function LoginContent() {
     setError("");
 
     if (!email.trim() || !password.trim()) {
-      setError(t.emptyError);
+      setError("Please enter your email and password.");
       return;
     }
 
@@ -324,13 +221,21 @@ function LoginContent() {
 
       setIsCheckingPlan(true);
 
-      await ensureKolkapWorkspace(supabase);
-
-      const workspace = await findWorkspaceAfterLogin({
+      let workspace = await findWorkspaceAfterLogin({
         supabase,
         userId: user.id,
         userEmail: user.email,
       });
+
+      if (!workspace?.id) {
+        await ensureKolkapWorkspace(supabase);
+
+        workspace = await findWorkspaceAfterLogin({
+          supabase,
+          userId: user.id,
+          userEmail: user.email,
+        });
+      }
 
       const planKey = normalizePlanKey(workspace?.plan_key);
       const hasAccess = hasActiveTrialOrPlan(workspace);
@@ -339,7 +244,7 @@ function LoginContent() {
         ? nextPath
         : `/dashboard/activate-trial?plan=${planKey}`;
 
-      setMessage(t.success);
+      setMessage("Login successful. Redirecting...");
       router.replace(redirectPath);
       router.refresh();
     } catch (loginError) {
@@ -354,10 +259,10 @@ function LoginContent() {
   }
 
   const buttonText = isCheckingPlan
-    ? t.checkingPlan
+    ? "Checking your trial..."
     : isSubmitting
-      ? t.loggingIn
-      : t.login;
+      ? "Logging in..."
+      : "Log In";
 
   return (
     <main className="bg-[#F7F9FA] text-[#07111F]">
@@ -365,15 +270,16 @@ function LoginContent() {
         <div className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9 lg:p-10">
           <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
             <Sparkles className="h-5 w-5" />
-            {t.badge}
+            Welcome Back
           </div>
 
           <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-            {t.title}
+            Continue managing your AI staff.
           </h1>
 
           <p className="mt-6 max-w-2xl text-xl font-semibold leading-9 text-slate-300">
-            {t.subtitle}
+            Log in to manage your AI staff, customer replies, credits, usage,
+            inbox, leads, billing, and business settings.
           </p>
 
           <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/5 p-6">
@@ -381,26 +287,28 @@ function LoginContent() {
               <Bot className="h-7 w-7" />
             </div>
 
-            <h2 className="text-2xl font-black">{t.noteTitle}</h2>
+            <h2 className="text-2xl font-black">Your AI staff workspace</h2>
 
             <p className="mt-3 text-lg font-semibold leading-8 text-slate-300">
-              {t.noteText}
+              Your dashboard helps you create AI staff, add business knowledge,
+              test replies, track usage, monitor credits, manage inbox
+              conversations, and go live when ready.
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               <FeaturePoint
                 icon={<Bot className="h-5 w-5" />}
-                text={t.point1}
+                text="Manage AI staff"
               />
 
               <FeaturePoint
                 icon={<BarChart3 className="h-5 w-5" />}
-                text={t.point2}
+                text="Track credits and usage"
               />
 
               <FeaturePoint
                 icon={<Inbox className="h-5 w-5" />}
-                text={t.point3}
+                text="Review inbox replies"
               />
             </div>
           </div>
@@ -410,10 +318,13 @@ function LoginContent() {
               <ShieldCheck className="h-7 w-7" />
             </div>
 
-            <h2 className="text-2xl font-black">{t.secureTitle}</h2>
+            <h2 className="text-2xl font-black">
+              Private business dashboard
+            </h2>
 
             <p className="mt-3 text-lg font-semibold leading-8 text-slate-300">
-              {t.secureText}
+              Only logged-in business owners and team members can access this
+              workspace.
             </p>
           </div>
         </div>
@@ -422,29 +333,30 @@ function LoginContent() {
           <form onSubmit={handleLogin} className="grid gap-5">
             <div className="mb-2">
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                {t.badge}
+                Welcome Back
               </p>
 
               <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
-                {t.login}
+                Log In
               </h2>
 
               <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
-                {t.subtitle}
+                Log in to manage your AI staff, customer replies, credits,
+                usage, inbox, leads, billing, and business settings.
               </p>
             </div>
 
             <label className="grid gap-2">
               <span className="flex items-center gap-2 text-base font-black text-slate-700">
                 <Mail className="h-5 w-5 text-slate-400" />
-                {t.email}
+                Email address
               </span>
 
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder={t.emailPlaceholder}
+                placeholder="you@business.com"
                 autoComplete="email"
                 className="h-14 rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
               />
@@ -453,7 +365,7 @@ function LoginContent() {
             <label className="grid gap-2">
               <span className="flex items-center gap-2 text-base font-black text-slate-700">
                 <LockKeyhole className="h-5 w-5 text-slate-400" />
-                {t.password}
+                Password
               </span>
 
               <div className="flex h-14 items-center rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 transition focus-within:border-blue-500 focus-within:bg-white">
@@ -461,7 +373,7 @@ function LoginContent() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder={t.passwordPlaceholder}
+                  placeholder="Enter your password"
                   autoComplete="current-password"
                   className="w-full bg-transparent text-lg font-semibold outline-none"
                 />
@@ -470,7 +382,7 @@ function LoginContent() {
                   type="button"
                   onClick={() => setShowPassword((value) => !value)}
                   className="ml-3 text-slate-500"
-                  aria-label={t.togglePassword}
+                  aria-label="Toggle password visibility"
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5" />
@@ -483,7 +395,7 @@ function LoginContent() {
 
             {error ? (
               <div className="rounded-3xl border border-red-200 bg-red-50 p-5 text-red-700">
-                <p className="text-base font-black">{t.errorTitle}</p>
+                <p className="text-base font-black">Login failed</p>
                 <p className="mt-1 text-base font-semibold leading-7">
                   {error}
                 </p>
@@ -507,13 +419,13 @@ function LoginContent() {
 
             <div className="flex flex-col gap-3 text-center text-base font-black text-slate-600 sm:flex-row sm:items-center sm:justify-between">
               <Link href="/forgot-password" className="text-blue-600">
-                {t.forgotPassword}
+                Forgot password?
               </Link>
 
               <p>
-                {t.noAccount}{" "}
+                Don’t have an account?{" "}
                 <Link href="/signup?plan=starter" className="text-blue-600">
-                  {t.signUp}
+                  Start Free Trial
                 </Link>
               </p>
             </div>

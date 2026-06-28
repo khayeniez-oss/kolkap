@@ -14,47 +14,14 @@ import {
   Sparkles,
   WalletCards,
 } from "lucide-react";
-import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import {
   getKolkapPlan,
   getPlanAIStaffLabel,
   getPlanCreditLabel,
   getPlanTeamMemberLabel,
+  KOLKAP_PRICE_NOTE,
   type KolkapPlanKey,
 } from "@/lib/kolkapPlan";
-
-type SupportedLanguage = "en" | "id" | "zh" | "ms";
-
-type ActivateTrialTranslation = {
-  badge: string;
-  title: string;
-  subtitle: string;
-  back: string;
-  choosePlan: string;
-  choosePlanText: string;
-  selectedPlan: string;
-  trialTitle: string;
-  trialText: string;
-  billingText: string;
-  noChargeToday: string;
-  paymentNeeded: string;
-  cancelBeforeTrial: string;
-  creditsIncluded: string;
-  aiStaffIncluded: string;
-  teamIncluded: string;
-  activateButton: string;
-  activatingButton: string;
-  secureSetup: string;
-  secureSetupText: string;
-  flowSteps: string[];
-  enterpriseNote: string;
-  contactUs: string;
-  loading: string;
-  errorTitle: string;
-  errorText: string;
-};
-
-const supportedLanguages: SupportedLanguage[] = ["en", "id", "zh", "ms"];
 
 const planKeys: KolkapPlanKey[] = [
   "starter",
@@ -64,227 +31,23 @@ const planKeys: KolkapPlanKey[] = [
   "enterprise",
 ];
 
-const translations: Record<SupportedLanguage, ActivateTrialTranslation> = {
-  en: {
-    badge: "Activate Trial",
-    title: "Start your 7-day free trial.",
-    subtitle:
-      "Add a payment method to activate your trial. You won’t be charged today. Monthly billing starts after your 7-day trial unless cancelled.",
-    back: "Back to Dashboard",
-    choosePlan: "Select Your Trial Plan",
-    choosePlanText:
-      "Choose the AI staff plan you want to start with. You can upgrade later as your business grows.",
-    selectedPlan: "Selected Plan",
-    trialTitle: "7-Day Free Trial",
-    trialText:
-      "Payment method needed to activate your trial. You won’t be charged today.",
-    billingText:
-      "Monthly billing starts after your 7-day trial unless cancelled before the trial ends.",
-    noChargeToday: "No charge today",
-    paymentNeeded: "Payment method needed",
-    cancelBeforeTrial: "Cancel before trial ends",
-    creditsIncluded: "Credits included",
-    aiStaffIncluded: "AI staff included",
-    teamIncluded: "Team access included",
-    activateButton: "Activate Free Trial — No Charge Today",
-    activatingButton: "Opening secure trial setup...",
-    secureSetup: "Secure trial setup",
-    secureSetupText:
-      "Kolkap will open a secure payment-method step. Once your payment method is confirmed, your trial and credits will be activated automatically.",
-    flowSteps: [
-      "Select your trial plan",
-      "Add payment method",
-      "No charge today",
-      "Use Kolkap for 7 days",
-      "Monthly billing starts after trial unless cancelled",
-    ],
-    enterpriseNote:
-      "Enterprise requires a custom setup. Contact us instead of starting automatic trial activation.",
-    contactUs: "Contact Us",
-    loading: "Loading trial activation...",
-    errorTitle: "Trial setup could not start",
-    errorText:
-      "Please try again. If this keeps happening, contact Kolkap support.",
-  },
-
-  id: {
-    badge: "Aktifkan Trial",
-    title: "Mulai 7-day free trial Anda.",
-    subtitle:
-      "Tambahkan metode pembayaran untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini. Tagihan bulanan berjalan setelah 7-day trial kecuali dibatalkan.",
-    back: "Kembali ke Dashboard",
-    choosePlan: "Pilih Trial Plan Anda",
-    choosePlanText:
-      "Pilih paket AI staff yang ingin Anda mulai. Anda bisa upgrade nanti saat bisnis berkembang.",
-    selectedPlan: "Paket Terpilih",
-    trialTitle: "7-Day Free Trial",
-    trialText:
-      "Metode pembayaran diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan biaya hari ini.",
-    billingText:
-      "Tagihan bulanan berjalan setelah 7-day trial kecuali dibatalkan sebelum trial selesai.",
-    noChargeToday: "Tidak dikenakan biaya hari ini",
-    paymentNeeded: "Metode pembayaran diperlukan",
-    cancelBeforeTrial: "Batalkan sebelum trial selesai",
-    creditsIncluded: "Credits termasuk",
-    aiStaffIncluded: "AI staff termasuk",
-    teamIncluded: "Akses team termasuk",
-    activateButton: "Aktifkan Free Trial — Tidak Ditagih Hari Ini",
-    activatingButton: "Membuka setup trial aman...",
-    secureSetup: "Setup trial aman",
-    secureSetupText:
-      "Kolkap akan membuka langkah metode pembayaran yang aman. Setelah metode pembayaran dikonfirmasi, trial dan credits Anda akan aktif otomatis.",
-    flowSteps: [
-      "Pilih trial plan",
-      "Tambahkan metode pembayaran",
-      "Tidak dikenakan biaya hari ini",
-      "Gunakan Kolkap selama 7 hari",
-      "Tagihan bulanan berjalan setelah trial kecuali dibatalkan",
-    ],
-    enterpriseNote:
-      "Enterprise membutuhkan custom setup. Hubungi kami, bukan automatic trial activation.",
-    contactUs: "Hubungi Kami",
-    loading: "Memuat aktivasi trial...",
-    errorTitle: "Trial setup tidak bisa dimulai",
-    errorText:
-      "Silakan coba lagi. Jika masih terjadi, hubungi Kolkap support.",
-  },
-
-  zh: {
-    badge: "激活试用",
-    title: "开始您的 7 天免费试用。",
-    subtitle:
-      "添加付款方式来激活试用。今天不会收费。7 天试用结束后将按月计费，除非提前取消。",
-    back: "返回 Dashboard",
-    choosePlan: "选择您的试用方案",
-    choosePlanText:
-      "选择您想开始使用的 AI 员工方案。之后可根据业务增长升级。",
-    selectedPlan: "已选择方案",
-    trialTitle: "7 天免费试用",
-    trialText: "需要添加付款方式来激活试用。今天不会收费。",
-    billingText:
-      "7 天试用结束后将开始按月计费，除非您在试用结束前取消。",
-    noChargeToday: "今天不会收费",
-    paymentNeeded: "需要付款方式",
-    cancelBeforeTrial: "试用结束前可取消",
-    creditsIncluded: "包含 credits",
-    aiStaffIncluded: "包含 AI 员工",
-    teamIncluded: "包含团队权限",
-    activateButton: "激活免费试用 — 今天不收费",
-    activatingButton: "正在打开安全试用设置...",
-    secureSetup: "安全试用设置",
-    secureSetupText:
-      "Kolkap 将打开安全的付款方式步骤。付款方式确认后，您的试用和 credits 会自动激活。",
-    flowSteps: [
-      "选择试用方案",
-      "添加付款方式",
-      "今天不会收费",
-      "使用 Kolkap 7 天",
-      "试用结束后按月计费，除非提前取消",
-    ],
-    enterpriseNote: "Enterprise 需要定制设置。请联系我们，而不是使用自动试用激活。",
-    contactUs: "联系我们",
-    loading: "正在加载试用激活...",
-    errorTitle: "无法开始试用设置",
-    errorText: "请重试。如果问题持续，请联系 Kolkap support。",
-  },
-
-  ms: {
-    badge: "Aktifkan Trial",
-    title: "Mulakan 7-day free trial anda.",
-    subtitle:
-      "Tambah kaedah pembayaran untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini. Bil bulanan bermula selepas 7-day trial kecuali dibatalkan.",
-    back: "Kembali ke Dashboard",
-    choosePlan: "Pilih Trial Plan Anda",
-    choosePlanText:
-      "Pilih pakej AI staff yang anda mahu mulakan. Anda boleh upgrade kemudian apabila bisnes berkembang.",
-    selectedPlan: "Pakej Dipilih",
-    trialTitle: "7-Day Free Trial",
-    trialText:
-      "Kaedah pembayaran diperlukan untuk mengaktifkan trial. Anda tidak akan dikenakan caj hari ini.",
-    billingText:
-      "Bil bulanan bermula selepas 7-day trial kecuali dibatalkan sebelum trial tamat.",
-    noChargeToday: "Tiada caj hari ini",
-    paymentNeeded: "Kaedah pembayaran diperlukan",
-    cancelBeforeTrial: "Batal sebelum trial tamat",
-    creditsIncluded: "Credits termasuk",
-    aiStaffIncluded: "AI staff termasuk",
-    teamIncluded: "Akses team termasuk",
-    activateButton: "Aktifkan Free Trial — Tiada Caj Hari Ini",
-    activatingButton: "Membuka setup trial selamat...",
-    secureSetup: "Setup trial selamat",
-    secureSetupText:
-      "Kolkap akan membuka langkah kaedah pembayaran yang selamat. Selepas kaedah pembayaran disahkan, trial dan credits anda akan aktif secara automatik.",
-    flowSteps: [
-      "Pilih trial plan",
-      "Tambah kaedah pembayaran",
-      "Tiada caj hari ini",
-      "Gunakan Kolkap selama 7 hari",
-      "Bil bulanan bermula selepas trial kecuali dibatalkan",
-    ],
-    enterpriseNote:
-      "Enterprise memerlukan custom setup. Hubungi kami, bukan automatic trial activation.",
-    contactUs: "Hubungi Kami",
-    loading: "Memuat trial activation...",
-    errorTitle: "Trial setup tidak dapat dimulakan",
-    errorText:
-      "Sila cuba lagi. Jika masih berlaku, hubungi Kolkap support.",
-  },
-};
-
-function getSupportedLanguage(language: string): SupportedLanguage {
-  return supportedLanguages.includes(language as SupportedLanguage)
-    ? (language as SupportedLanguage)
-    : "en";
-}
-
 function isValidPlanKey(value: string | null): value is KolkapPlanKey {
   return Boolean(value && planKeys.includes(value as KolkapPlanKey));
 }
 
-function localizePlanLabel(label: string, language: SupportedLanguage) {
-  if (language === "zh") {
-    return label
-      .replace("Custom credits", "定制 credits")
-      .replace("trial credits", "试用 credits")
-      .replace("credits/month", "credits/月")
-      .replace("AI staff", "AI 员工")
-      .replace("Custom team members", "定制团队成员")
-      .replace("team members", "团队成员")
-      .replace("team member", "团队成员")
-      .replace("Custom", "定制");
+function getPlanPriceLine(planKey: KolkapPlanKey) {
+  const plan = getKolkapPlan(planKey);
+
+  if (plan.monthlyPriceAud === null) {
+    return "Custom pricing";
   }
 
-  if (language === "id") {
-    return label
-      .replace("Custom credits", "Custom credits")
-      .replace("trial credits", "trial credits")
-      .replace("credits/month", "credits/bulan")
-      .replace("Custom AI staff", "Custom AI staff")
-      .replace("Custom team members", "Custom team members")
-      .replace("team members", "team member")
-      .replace("team member", "team member");
-  }
-
-  if (language === "ms") {
-    return label
-      .replace("Custom credits", "Custom credits")
-      .replace("trial credits", "trial credits")
-      .replace("credits/month", "credits/bulan")
-      .replace("Custom AI staff", "Custom AI staff")
-      .replace("Custom team members", "Custom team members")
-      .replace("team members", "team member")
-      .replace("team member", "team member");
-  }
-
-  return label;
+  return `A$${plan.monthlyPriceAud}/month incl. GST`;
 }
 
 function ActivateTrialContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { language } = useKolkapLanguage();
-  const lang = getSupportedLanguage(language);
-  const t = translations[lang];
 
   const requestedPlan = searchParams.get("plan");
   const initialPlanKey = isValidPlanKey(requestedPlan)
@@ -330,12 +93,19 @@ function ActivateTrialContent() {
       };
 
       if (!response.ok || !result.url) {
-        throw new Error(result.error || t.errorText);
+        throw new Error(
+          result.error ||
+            "Please try again. If this keeps happening, contact Kolkap support."
+        );
       }
 
       window.location.href = result.url;
     } catch (error) {
-      setSetupError(error instanceof Error ? error.message : t.errorText);
+      setSetupError(
+        error instanceof Error
+          ? error.message
+          : "Please try again. If this keeps happening, contact Kolkap support."
+      );
       setIsStartingTrial(false);
     }
   }
@@ -350,27 +120,30 @@ function ActivateTrialContent() {
               className="inline-flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
             >
               <ArrowLeft className="h-5 w-5" />
-              {t.back}
+              Back to Dashboard
             </Link>
           </div>
 
           <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
             <Sparkles className="h-5 w-5" />
-            {t.badge}
+            Activate Trial
           </div>
 
           <h1 className="max-w-5xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-            {t.title}
+            Start your 7-day free trial.
           </h1>
 
           <p className="mt-6 max-w-4xl text-xl font-semibold leading-9 text-slate-300">
-            {t.subtitle}
+            Add a payment method to activate your trial. You will not be charged
+            today. Monthly billing starts automatically after your trial unless
+            cancelled before the trial ends.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3">
-            <TrialPill text={t.noChargeToday} />
-            <TrialPill text={t.paymentNeeded} />
-            <TrialPill text={t.cancelBeforeTrial} />
+            <TrialPill text="No charge today" />
+            <TrialPill text="Payment method needed" />
+            <TrialPill text="Cancel before trial ends" />
+            <TrialPill text="AUD pricing incl. GST" />
           </div>
         </div>
 
@@ -382,12 +155,17 @@ function ActivateTrialContent() {
               </div>
 
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                {t.choosePlan}
+                Select Your Trial Plan
               </p>
 
               <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                {t.choosePlanText}
+                Choose the AI staff plan you want to start with. You can upgrade
+                later as your business grows.
               </h2>
+
+              <p className="mt-4 text-base font-bold leading-7 text-slate-600">
+                {KOLKAP_PRICE_NOTE}
+              </p>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-2">
@@ -430,7 +208,7 @@ function ActivateTrialContent() {
                             selected ? "text-[#7CFF3D]" : "text-blue-600"
                           }`}
                         >
-                          {plan.priceLabel}
+                          {getPlanPriceLine(plan.key)}
                         </p>
                       </div>
 
@@ -450,21 +228,15 @@ function ActivateTrialContent() {
                     <div className="mt-6 grid gap-3">
                       <FeatureLine
                         selected={selected}
-                        text={localizePlanLabel(getPlanCreditLabel(plan), lang)}
+                        text={getPlanCreditLabel(plan)}
                       />
                       <FeatureLine
                         selected={selected}
-                        text={localizePlanLabel(
-                          getPlanAIStaffLabel(plan),
-                          lang
-                        )}
+                        text={getPlanAIStaffLabel(plan)}
                       />
                       <FeatureLine
                         selected={selected}
-                        text={localizePlanLabel(
-                          getPlanTeamMemberLabel(plan),
-                          lang
-                        )}
+                        text={getPlanTeamMemberLabel(plan)}
                       />
                     </div>
                   </button>
@@ -480,7 +252,7 @@ function ActivateTrialContent() {
               </div>
 
               <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                {t.selectedPlan}
+                Selected Plan
               </p>
 
               <h2 className="mt-3 text-5xl font-black tracking-[-0.06em]">
@@ -488,7 +260,7 @@ function ActivateTrialContent() {
               </h2>
 
               <p className="mt-3 text-3xl font-black text-[#7CFF3D]">
-                {selectedPlan.priceLabel}
+                {getPlanPriceLine(selectedPlan.key)}
               </p>
 
               <p className="mt-5 text-lg font-semibold leading-8 text-slate-300">
@@ -497,37 +269,31 @@ function ActivateTrialContent() {
 
               <div className="mt-7 grid gap-3 rounded-3xl border border-white/10 bg-white/5 p-5">
                 <SummaryRow
-                  label={t.creditsIncluded}
-                  value={localizePlanLabel(
-                    getPlanCreditLabel(selectedPlan),
-                    lang
-                  )}
+                  label="Credits included"
+                  value={getPlanCreditLabel(selectedPlan)}
                 />
                 <SummaryRow
-                  label={t.aiStaffIncluded}
-                  value={localizePlanLabel(
-                    getPlanAIStaffLabel(selectedPlan),
-                    lang
-                  )}
+                  label="AI staff included"
+                  value={getPlanAIStaffLabel(selectedPlan)}
                 />
                 <SummaryRow
-                  label={t.teamIncluded}
-                  value={localizePlanLabel(
-                    getPlanTeamMemberLabel(selectedPlan),
-                    lang
-                  )}
+                  label="Team access included"
+                  value={getPlanTeamMemberLabel(selectedPlan)}
                 />
               </div>
 
               {isEnterprise ? (
                 <p className="mt-5 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-base font-black leading-7 text-amber-800">
-                  {t.enterpriseNote}
+                  Enterprise requires a custom setup. Contact us instead of
+                  starting automatic trial activation.
                 </p>
               ) : null}
 
               {setupError ? (
                 <div className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5 text-red-900">
-                  <p className="text-base font-black">{t.errorTitle}</p>
+                  <p className="text-base font-black">
+                    Trial setup could not start
+                  </p>
                   <p className="mt-2 text-sm font-bold leading-6">
                     {setupError}
                   </p>
@@ -541,15 +307,17 @@ function ActivateTrialContent() {
                 className="mt-7 inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
               >
                 {isEnterprise
-                  ? t.contactUs
+                  ? "Contact Us"
                   : isStartingTrial
-                    ? t.activatingButton
-                    : t.activateButton}
+                    ? "Opening secure trial setup..."
+                    : "Activate Free Trial — No Charge Today"}
                 <ArrowRight className="h-6 w-6" />
               </button>
 
               <p className="mt-4 text-center text-sm font-bold leading-6 text-slate-400">
-                {isEnterprise ? t.enterpriseNote : t.secureSetup}
+                {isEnterprise
+                  ? "Enterprise requires a custom setup."
+                  : "Secure trial setup"}
               </p>
             </div>
 
@@ -559,19 +327,27 @@ function ActivateTrialContent() {
               </div>
 
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                {t.trialTitle}
+                7-Day Free Trial
               </p>
 
               <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                {t.trialText}
+                Payment method needed to activate your trial. You will not be
+                charged today.
               </h2>
 
               <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
-                {t.billingText}
+                Monthly billing starts automatically after your trial unless
+                cancelled before the trial ends.
               </p>
 
               <div className="mt-7 grid gap-3">
-                {t.flowSteps.map((step, index) => (
+                {[
+                  "Select your trial plan",
+                  "Add payment method",
+                  "No charge today",
+                  "Use Kolkap for 7 days",
+                  "Monthly billing starts after trial unless cancelled",
+                ].map((step, index) => (
                   <div
                     key={step}
                     className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5"
@@ -596,11 +372,13 @@ function ActivateTrialContent() {
 
             <div>
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-700">
-                {t.secureSetup}
+                Secure trial setup
               </p>
 
               <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em] text-blue-950">
-                {t.secureSetupText}
+                Kolkap will open a secure payment-method step. Once your payment
+                method is confirmed, your trial and credits will be activated
+                automatically.
               </h2>
             </div>
           </div>

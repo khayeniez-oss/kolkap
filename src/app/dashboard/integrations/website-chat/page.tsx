@@ -1,255 +1,409 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  Bot,
   CheckCircle2,
   ClipboardCheck,
   Copy,
   Globe2,
   Inbox,
+  MessageCircle,
+  RefreshCcw,
   Rocket,
+  Save,
   ShieldCheck,
   Sparkles,
   TestTube2,
+  ToggleRight,
+  UserRound,
 } from "lucide-react";
-import { useKolkapLanguage } from "@/app/context/LanguageContext";
+import { createClient } from "@/lib/supabase/client";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
-type SupportedLanguage = "en" | "id" | "zh" | "ms";
+type ActiveTab = "overview" | "widget" | "logs" | "settings";
 
-type Translation = {
-  loading: string;
-  failed: string;
-  back: string;
-  badge: string;
-  title: string;
-  subtitle: string;
-  workspace: string;
-  workspaceFallback: string;
-  statusTitle: string;
-  statusReady: string;
-  statusText: string;
-  copySetup: string;
-  copySetupTitle: string;
-  copySetupText: string;
-  widgetCode: string;
-  copyCode: string;
-  copied: string;
-  nextStepNotice: string;
-  installTitle: string;
-  installText: string;
-  installSteps: string[];
-  testTitle: string;
-  testText: string;
-  openTestAI: string;
-  openInbox: string;
-  goLiveTitle: string;
-  goLiveText: string;
-  continueGoLive: string;
+type AiStaffRow = {
+  id: string;
+  name: string;
+  role: string;
+  status: string;
 };
 
-const translations: Record<SupportedLanguage, Translation> = {
-  en: {
-    loading: "Loading website chat setup...",
-    failed: "Website Chat page could not load.",
-    back: "Back to Customer Channels",
-    badge: "Website Chat",
-    title: "Add Kolkap website chat to your website.",
-    subtitle:
-      "Let website visitors message your business, receive AI-assisted replies, and have conversations saved inside Kolkap Inbox and Leads.",
-    workspace: "Workspace",
-    workspaceFallback: "Your business",
-    statusTitle: "Connection Status",
-    statusReady: "Website chat backend is ready",
-    statusText:
-      "Kolkap can receive website chat messages, match them to this workspace, generate AI replies, save conversations, and record credit usage.",
-    copySetup: "Widget Setup",
-    copySetupTitle: "Copy your website chat code.",
-    copySetupText:
-      "Paste this code into your website before the closing body tag. Once the public widget script is live, this will show the Kolkap chat bubble on your website.",
-    widgetCode: "Widget Code",
-    copyCode: "Copy Code",
-    copied: "Copied",
-    nextStepNotice:
-      "Next development step: publish the public widget script so this code can show the chat bubble on any website.",
-    installTitle: "Simple Setup",
-    installText: "Add Kolkap chat to your website in five simple steps.",
-    installSteps: [
-      "Copy the website chat code.",
-      "Paste it before the closing body tag on your website.",
-      "Open your website and check the chat bubble.",
-      "Send a test message.",
-      "Review the conversation in Kolkap Inbox.",
-    ],
-    testTitle: "Test before going live",
-    testText:
-      "Before showing the widget to real visitors, test your AI staff and make sure your business knowledge gives the right answers.",
-    openTestAI: "Open Test AI",
-    openInbox: "Open Inbox",
-    goLiveTitle: "Ready to activate?",
-    goLiveText:
-      "Make sure your AI staff, Knowledge Base, active trial or plan, and credits are ready before using website chat with real visitors.",
-    continueGoLive: "Continue to Go Live",
-  },
-
-  id: {
-    loading: "Memuat setup website chat...",
-    failed: "Halaman Website Chat tidak dapat dimuat.",
-    back: "Kembali ke Customer Channels",
-    badge: "Website Chat",
-    title: "Tambahkan Kolkap website chat ke website Anda.",
-    subtitle:
-      "Biarkan visitor website mengirim pesan ke bisnis Anda, menerima balasan dengan bantuan AI, dan percakapan tersimpan di Kolkap Inbox dan Leads.",
-    workspace: "Workspace",
-    workspaceFallback: "Bisnis Anda",
-    statusTitle: "Status Koneksi",
-    statusReady: "Backend website chat sudah siap",
-    statusText:
-      "Kolkap dapat menerima pesan website chat, mencocokkannya ke workspace ini, membuat balasan AI, menyimpan percakapan, dan mencatat penggunaan credits.",
-    copySetup: "Setup Widget",
-    copySetupTitle: "Copy kode website chat Anda.",
-    copySetupText:
-      "Paste kode ini ke website Anda sebelum closing body tag. Setelah public widget script live, kode ini akan menampilkan Kolkap chat bubble di website Anda.",
-    widgetCode: "Kode Widget",
-    copyCode: "Copy Kode",
-    copied: "Copied",
-    nextStepNotice:
-      "Langkah development berikutnya: publish public widget script agar kode ini bisa menampilkan chat bubble di website mana pun.",
-    installTitle: "Setup Sederhana",
-    installText: "Tambahkan Kolkap chat ke website Anda dalam lima langkah mudah.",
-    installSteps: [
-      "Copy kode website chat.",
-      "Paste sebelum closing body tag di website Anda.",
-      "Buka website dan cek chat bubble.",
-      "Kirim pesan test.",
-      "Review percakapan di Kolkap Inbox.",
-    ],
-    testTitle: "Test sebelum go live",
-    testText:
-      "Sebelum widget ditampilkan ke visitor asli, test AI staff Anda dan pastikan business knowledge memberi jawaban yang benar.",
-    openTestAI: "Buka Test AI",
-    openInbox: "Buka Inbox",
-    goLiveTitle: "Siap diaktifkan?",
-    goLiveText:
-      "Pastikan AI staff, Knowledge Base, trial atau plan aktif, dan credits sudah siap sebelum website chat digunakan dengan visitor asli.",
-    continueGoLive: "Lanjut ke Go Live",
-  },
-
-  zh: {
-    loading: "正在加载 website chat 设置...",
-    failed: "Website Chat 页面无法加载。",
-    back: "返回 Customer Channels",
-    badge: "Website Chat",
-    title: "将 Kolkap website chat 添加到您的网站。",
-    subtitle:
-      "让 website 访客向您的企业发送消息、收到 AI-assisted replies，并将对话保存到 Kolkap Inbox 和 Leads。",
-    workspace: "Workspace",
-    workspaceFallback: "您的业务",
-    statusTitle: "连接状态",
-    statusReady: "Website chat backend 已准备好",
-    statusText:
-      "Kolkap 可以接收 website chat 消息、匹配到此 workspace、生成 AI 回复、保存对话并记录 credits 使用。",
-    copySetup: "Widget 设置",
-    copySetupTitle: "复制您的 website chat code。",
-    copySetupText:
-      "将此代码粘贴到 website 的 closing body tag 前。Public widget script 上线后，此代码会在您的 website 显示 Kolkap chat bubble。",
-    widgetCode: "Widget Code",
-    copyCode: "复制代码",
-    copied: "已复制",
-    nextStepNotice:
-      "下一步开发：发布 public widget script，让此代码可以在任何 website 显示 chat bubble。",
-    installTitle: "简单设置",
-    installText: "用五个简单步骤将 Kolkap chat 添加到您的 website。",
-    installSteps: [
-      "复制 website chat code。",
-      "粘贴到 website 的 closing body tag 前。",
-      "打开 website 并检查 chat bubble。",
-      "发送测试消息。",
-      "在 Kolkap Inbox 查看对话。",
-    ],
-    testTitle: "Go live 前先测试",
-    testText:
-      "在向真实访客显示 widget 前，请测试您的 AI staff，并确认 business knowledge 能给出正确答案。",
-    openTestAI: "打开 Test AI",
-    openInbox: "打开 Inbox",
-    goLiveTitle: "准备启用了吗？",
-    goLiveText:
-      "使用 website chat 面向真实访客前，请确认 AI staff、Knowledge Base、有效 trial 或 plan，以及 credits 都已准备好。",
-    continueGoLive: "继续到 Go Live",
-  },
-
-  ms: {
-    loading: "Memuat setup website chat...",
-    failed: "Halaman Website Chat tidak dapat dimuatkan.",
-    back: "Kembali ke Customer Channels",
-    badge: "Website Chat",
-    title: "Tambah Kolkap website chat ke website anda.",
-    subtitle:
-      "Biarkan visitor website mesej bisnes anda, menerima AI-assisted replies, dan perbualan disimpan dalam Kolkap Inbox dan Leads.",
-    workspace: "Workspace",
-    workspaceFallback: "Bisnes anda",
-    statusTitle: "Status Sambungan",
-    statusReady: "Backend website chat sudah siap",
-    statusText:
-      "Kolkap boleh menerima mesej website chat, padankan dengan workspace ini, jana balasan AI, simpan perbualan, dan rekod penggunaan credits.",
-    copySetup: "Setup Widget",
-    copySetupTitle: "Copy kod website chat anda.",
-    copySetupText:
-      "Paste kod ini ke website anda sebelum closing body tag. Selepas public widget script live, kod ini akan memaparkan Kolkap chat bubble di website anda.",
-    widgetCode: "Kod Widget",
-    copyCode: "Copy Kod",
-    copied: "Copied",
-    nextStepNotice:
-      "Langkah development seterusnya: publish public widget script supaya kod ini boleh memaparkan chat bubble di mana-mana website.",
-    installTitle: "Setup Mudah",
-    installText: "Tambah Kolkap chat ke website anda dalam lima langkah mudah.",
-    installSteps: [
-      "Copy kod website chat.",
-      "Paste sebelum closing body tag di website anda.",
-      "Buka website dan semak chat bubble.",
-      "Hantar mesej test.",
-      "Review perbualan di Kolkap Inbox.",
-    ],
-    testTitle: "Test sebelum go live",
-    testText:
-      "Sebelum widget ditunjukkan kepada visitor sebenar, test AI staff anda dan pastikan business knowledge memberi jawapan yang betul.",
-    openTestAI: "Buka Test AI",
-    openInbox: "Buka Inbox",
-    goLiveTitle: "Sedia untuk aktifkan?",
-    goLiveText:
-      "Pastikan AI staff, Knowledge Base, trial atau plan aktif, dan credits sudah siap sebelum website chat digunakan dengan visitor sebenar.",
-    continueGoLive: "Terus ke Go Live",
-  },
+type WebsiteChatSettingsRow = {
+  id: string;
+  workspace_id: string;
+  owner_user_id: string;
+  selected_ai_staff_id: string | null;
+  widget_title: string;
+  widget_subtitle: string;
+  welcome_message: string;
+  is_active: boolean;
+  ai_enabled: boolean;
+  auto_reply_enabled: boolean;
+  handover_enabled: boolean;
+  allowed_domains: string[];
+  created_at: string;
+  updated_at: string;
 };
 
-function getSupportedLanguage(language: string): SupportedLanguage {
-  if (language === "id" || language === "zh" || language === "ms") {
-    return language;
+type WebsiteChatForm = {
+  selected_ai_staff_id: string;
+  widget_title: string;
+  widget_subtitle: string;
+  welcome_message: string;
+  is_active: boolean;
+  ai_enabled: boolean;
+  auto_reply_enabled: boolean;
+  handover_enabled: boolean;
+  allowed_domains_text: string;
+};
+
+type WebsiteChatMessageRow = {
+  id: string;
+  conversation_id: string;
+  workspace_id: string;
+  owner_user_id: string;
+  ai_staff_id: string | null;
+  sender_type: string;
+  message_text: string | null;
+  created_at: string;
+};
+
+type WebsiteChatConversationRow = {
+  id: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_channel: string | null;
+  status: string | null;
+  lead_status: string | null;
+  handover_requested: boolean | null;
+  last_message: string | null;
+  last_message_at: string | null;
+  ai_staff_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const tabs: { id: ActiveTab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "widget", label: "Website Widget" },
+  { id: "logs", label: "Message Logs" },
+  { id: "settings", label: "Settings" },
+];
+
+const defaultForm: WebsiteChatForm = {
+  selected_ai_staff_id: "",
+  widget_title: "Chat with us",
+  widget_subtitle: "Ask a question and our AI assistant will help.",
+  welcome_message: "Hi, how can we help you today?",
+  is_active: false,
+  ai_enabled: true,
+  auto_reply_enabled: false,
+  handover_enabled: true,
+  allowed_domains_text: "",
+};
+
+function escapeAttribute(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function parseAllowedDomains(value: string) {
+  return value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function formatAllowedDomains(value: string[] | null | undefined) {
+  if (!value?.length) return "";
+  return value.join("\n");
+}
+
+function statusLabel(value: string | null | undefined) {
+  if (!value) return "Draft";
+  if (value === "draft") return "Draft";
+  if (value === "testing") return "Testing";
+  if (value === "live") return "Live";
+  if (value === "inactive") return "Inactive";
+  if (value === "open") return "Open";
+  if (value === "closed") return "Closed";
+  return value;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Not available";
+
+  try {
+    return new Intl.DateTimeFormat("en-AU", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return value;
   }
+}
 
-  return "en";
+function senderLabel(value: string | null | undefined) {
+  if (value === "customer") return "Visitor";
+  if (value === "ai") return "AI Reply";
+  if (value === "team") return "Team";
+  return value || "Message";
 }
 
 export default function WebsiteChatIntegrationPage() {
-  const { language } = useKolkapLanguage();
-  const t = translations[getSupportedLanguage(language)];
-
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
 
+  const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
+  const [aiStaffRows, setAiStaffRows] = useState<AiStaffRow[]>([]);
+  const [settings, setSettings] = useState<WebsiteChatSettingsRow | null>(null);
+  const [form, setForm] = useState<WebsiteChatForm>(defaultForm);
+
+  const [messages, setMessages] = useState<WebsiteChatMessageRow[]>([]);
+  const [conversations, setConversations] = useState<
+    WebsiteChatConversationRow[]
+  >([]);
+
+  const [isLoadingSetup, setIsLoadingSetup] = useState(true);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const workspaceId = workspace?.id || "YOUR_WORKSPACE_ID";
+
+  const selectedAiStaff = useMemo(() => {
+    return aiStaffRows.find((item) => item.id === form.selected_ai_staff_id);
+  }, [aiStaffRows, form.selected_ai_staff_id]);
+
+  const aiStaffById = useMemo(() => {
+    return new Map(aiStaffRows.map((item) => [item.id, item]));
+  }, [aiStaffRows]);
 
   const widgetCode = useMemo(() => {
     return `<script
   src="https://www.kolkap.com/widget.js"
-  data-workspace-id="${workspaceId}">
+  data-workspace-id="${escapeAttribute(workspaceId)}"
+  data-title="${escapeAttribute(form.widget_title)}"
+  data-subtitle="${escapeAttribute(form.widget_subtitle)}"
+  data-welcome-message="${escapeAttribute(form.welcome_message)}">
 </script>`;
-  }, [workspaceId]);
+  }, [
+    workspaceId,
+    form.widget_title,
+    form.widget_subtitle,
+    form.welcome_message,
+  ]);
+
+  async function loadWebsiteChatSetup() {
+    if (!workspace?.id) {
+      setIsLoadingSetup(false);
+      return;
+    }
+
+    setIsLoadingSetup(true);
+    setActionError("");
+
+    const supabase = createClient();
+
+    const [{ data: staffData }, { data: settingsData, error: settingsError }] =
+      await Promise.all([
+        supabase
+          .from("ai_staff")
+          .select("id,name,role,status")
+          .eq("workspace_id", workspace.id)
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("workspace_website_chat_settings")
+          .select("*")
+          .eq("workspace_id", workspace.id)
+          .maybeSingle(),
+      ]);
+
+    const staffRows = (staffData ?? []) as AiStaffRow[];
+    setAiStaffRows(staffRows);
+
+    if (settingsError) {
+      setActionError(
+        settingsError.message || "Website Chat settings could not load."
+      );
+      setIsLoadingSetup(false);
+      return;
+    }
+
+    const loadedSettings = (settingsData ??
+      null) as WebsiteChatSettingsRow | null;
+    setSettings(loadedSettings);
+
+    if (loadedSettings) {
+      setForm({
+        selected_ai_staff_id: loadedSettings.selected_ai_staff_id || "",
+        widget_title: loadedSettings.widget_title || defaultForm.widget_title,
+        widget_subtitle:
+          loadedSettings.widget_subtitle || defaultForm.widget_subtitle,
+        welcome_message:
+          loadedSettings.welcome_message || defaultForm.welcome_message,
+        is_active: Boolean(loadedSettings.is_active),
+        ai_enabled: Boolean(loadedSettings.ai_enabled),
+        auto_reply_enabled: Boolean(loadedSettings.auto_reply_enabled),
+        handover_enabled: Boolean(loadedSettings.handover_enabled),
+        allowed_domains_text: formatAllowedDomains(
+          loadedSettings.allowed_domains
+        ),
+      });
+    } else {
+      setForm({
+        ...defaultForm,
+        selected_ai_staff_id: staffRows[0]?.id || "",
+      });
+    }
+
+    setIsLoadingSetup(false);
+  }
+
+  async function loadWebsiteChatLogs() {
+    if (!workspace?.id) return;
+
+    setIsLoadingLogs(true);
+
+    const supabase = createClient();
+
+    const [{ data: messageData }, { data: conversationData }] =
+      await Promise.all([
+        supabase
+          .from("customer_messages")
+          .select(
+            "id,conversation_id,workspace_id,owner_user_id,ai_staff_id,sender_type,message_text,created_at"
+          )
+          .eq("workspace_id", workspace.id)
+          .order("created_at", { ascending: false })
+          .limit(50),
+
+        supabase
+          .from("customer_conversations")
+          .select(
+            "id,customer_name,customer_phone,customer_channel,status,lead_status,handover_requested,last_message,last_message_at,ai_staff_id,created_at,updated_at"
+          )
+          .eq("workspace_id", workspace.id)
+          .eq("customer_channel", "website_chat")
+          .order("last_message_at", { ascending: false })
+          .limit(30),
+      ]);
+
+    setMessages((messageData ?? []) as WebsiteChatMessageRow[]);
+    setConversations(
+      (conversationData ?? []) as WebsiteChatConversationRow[]
+    );
+    setIsLoadingLogs(false);
+  }
+
+  useEffect(() => {
+    loadWebsiteChatSetup();
+    loadWebsiteChatLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspace?.id]);
+
+  function updateForm<Key extends keyof WebsiteChatForm>(
+    key: Key,
+    value: WebsiteChatForm[Key]
+  ) {
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  async function saveSettings() {
+    if (!workspace?.id) {
+      setActionError("Workspace is not ready yet.");
+      return;
+    }
+
+    if (!form.widget_title.trim()) {
+      setActionError("Please add a widget title.");
+      return;
+    }
+
+    if (!form.widget_subtitle.trim()) {
+      setActionError("Please add a widget subtitle.");
+      return;
+    }
+
+    if (!form.welcome_message.trim()) {
+      setActionError("Please add a welcome message.");
+      return;
+    }
+
+    setIsSaving(true);
+    setActionMessage("");
+    setActionError("");
+
+    try {
+      const supabase = createClient();
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user?.id) {
+        throw new Error(
+          "Please log in again before saving Website Chat settings."
+        );
+      }
+
+      const payload = {
+        workspace_id: workspace.id,
+        owner_user_id: user.id,
+        selected_ai_staff_id: form.selected_ai_staff_id || null,
+        widget_title: form.widget_title.trim(),
+        widget_subtitle: form.widget_subtitle.trim(),
+        welcome_message: form.welcome_message.trim(),
+        is_active: form.is_active,
+        ai_enabled: form.ai_enabled,
+        auto_reply_enabled: form.auto_reply_enabled,
+        handover_enabled: form.handover_enabled,
+        allowed_domains: parseAllowedDomains(form.allowed_domains_text),
+      };
+
+      const { data, error } = await supabase
+        .from("workspace_website_chat_settings")
+        .upsert(payload, { onConflict: "workspace_id" })
+        .select("*")
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      setSettings(data as WebsiteChatSettingsRow);
+      setActionMessage("Website Chat settings saved.");
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Website Chat settings could not be saved."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   async function copyWidgetCode() {
     try {
@@ -269,7 +423,7 @@ export default function WebsiteChatIntegrationPage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
-            {t.loading}
+            Loading website chat setup...
           </div>
         </section>
       </main>
@@ -281,7 +435,9 @@ export default function WebsiteChatIntegrationPage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
-            <p className="text-xl font-black">{t.failed}</p>
+            <p className="text-xl font-black">
+              Website Chat page could not load.
+            </p>
             <p className="mt-2 text-base font-semibold">
               {workspaceState.error}
             </p>
@@ -301,20 +457,22 @@ export default function WebsiteChatIntegrationPage() {
               className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
             >
               <ArrowLeft className="h-5 w-5" />
-              {t.back}
+              Back to Customer Channels
             </Link>
 
             <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
               <span className="h-3 w-3 rounded-full bg-[#7CFF3D] shadow-[0_0_14px_rgba(124,255,61,0.7)]" />
-              {t.badge}
+              Website Chat
             </div>
 
             <h1 className="max-w-4xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-              {t.title}
+              Manage Website Chat for customer replies.
             </h1>
 
             <p className="mt-6 max-w-3xl text-xl font-semibold leading-9 text-slate-300">
-              {t.subtitle}
+              Control your website widget, choose AI staff, manage auto-replies,
+              review website chat activity, and prepare your channel before Go
+              Live.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -323,7 +481,7 @@ export default function WebsiteChatIntegrationPage() {
                 className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-7 py-4 text-lg font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
               >
                 <TestTube2 className="h-6 w-6" />
-                {t.openTestAI}
+                Test AI
               </Link>
 
               <Link
@@ -331,7 +489,7 @@ export default function WebsiteChatIntegrationPage() {
                 className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-7 py-4 text-lg font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10"
               >
                 <Inbox className="h-6 w-6" />
-                {t.openInbox}
+                Open Inbox
               </Link>
             </div>
           </div>
@@ -342,57 +500,420 @@ export default function WebsiteChatIntegrationPage() {
             </div>
 
             <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              {t.statusTitle}
+              Website Chat Status
             </p>
 
             <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
-              {t.statusReady}
+              {form.is_active
+                ? "Website Chat is active."
+                : "Website Chat is paused."}
             </h2>
 
             <p className="mt-5 text-xl font-semibold leading-9 text-slate-600">
-              {t.statusText}
+              {form.is_active
+                ? "Your Website Chat can receive visitor messages once the widget code is installed."
+                : "Keep Website Chat paused until your AI staff, business knowledge, and settings are ready."}
             </p>
 
             <div className="mt-6 rounded-3xl border border-blue-100 bg-blue-50 p-5">
               <p className="text-base font-black uppercase tracking-[0.14em] text-blue-700">
-                {t.workspace}
+                Workspace
               </p>
               <p className="mt-2 break-all text-2xl font-black text-blue-950">
-                {workspace?.business_name || t.workspaceFallback}
+                {workspace?.business_name || "Your business"}
               </p>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-              <Globe2 className="h-8 w-8" />
-            </div>
-
-            <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              {t.copySetup}
+        {actionMessage ? (
+          <div className="rounded-3xl border border-green-200 bg-green-50 p-5 text-green-800">
+            <p className="flex items-center gap-3 text-base font-black">
+              <CheckCircle2 className="h-5 w-5" />
+              {actionMessage}
             </p>
+          </div>
+        ) : null}
 
-            <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
-              {t.copySetupTitle}
-            </h2>
+        {actionError ? (
+          <div className="rounded-3xl border border-red-200 bg-red-50 p-5 text-red-700">
+            <p className="text-base font-black">{actionError}</p>
+          </div>
+        ) : null}
 
-            <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
-              {t.copySetupText}
-            </p>
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-3 shadow-sm shadow-slate-900/5">
+          <div className="flex flex-wrap gap-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`rounded-full px-5 py-3 text-base font-black transition ${
+                  activeTab === tab.id
+                    ? "bg-[#07111F] text-white"
+                    : "bg-[#F7F9FA] text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </section>
 
-            <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5">
-              <p className="text-base font-black leading-7 text-amber-800">
-                {t.nextStepNotice}
+        {activeTab === "overview" ? (
+          <OverviewTab
+            form={form}
+            selectedAiStaff={selectedAiStaff}
+            settings={settings}
+            conversations={conversations}
+            messages={messages}
+            setActiveTab={setActiveTab}
+          />
+        ) : null}
+
+        {activeTab === "widget" ? (
+          <WidgetTab
+            form={form}
+            updateForm={updateForm}
+            widgetCode={widgetCode}
+            copied={copied}
+            copyWidgetCode={copyWidgetCode}
+            saveSettings={saveSettings}
+            isSaving={isSaving}
+          />
+        ) : null}
+
+        {activeTab === "logs" ? (
+          <MessageLogsTab
+            isLoadingLogs={isLoadingLogs}
+            messages={messages}
+            conversations={conversations}
+            aiStaffById={aiStaffById}
+            loadWebsiteChatLogs={loadWebsiteChatLogs}
+          />
+        ) : null}
+
+        {activeTab === "settings" ? (
+          <SettingsTab
+            form={form}
+            updateForm={updateForm}
+            aiStaffRows={aiStaffRows}
+            isLoadingSetup={isLoadingSetup}
+            saveSettings={saveSettings}
+            isSaving={isSaving}
+          />
+        ) : null}
+
+        <section className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
+          <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+            <div>
+              <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
+                Ready to activate?
               </p>
+
+              <h2 className="mt-3 text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl">
+                Continue to Go Live when your AI staff, business knowledge,
+                plan, credits, and Website Chat settings are ready.
+              </h2>
             </div>
+
+            <Link
+              href="/dashboard/go-live"
+              className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
+            >
+              Continue to Go Live
+              <Rocket className="h-6 w-6" />
+            </Link>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function OverviewTab({
+  form,
+  selectedAiStaff,
+  settings,
+  conversations,
+  messages,
+  setActiveTab,
+}: {
+  form: WebsiteChatForm;
+  selectedAiStaff?: AiStaffRow;
+  settings: WebsiteChatSettingsRow | null;
+  conversations: WebsiteChatConversationRow[];
+  messages: WebsiteChatMessageRow[];
+  setActiveTab: (tab: ActiveTab) => void;
+}) {
+  return (
+    <div className="grid gap-8">
+      <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <StatusCard
+          icon={<Globe2 className="h-7 w-7" />}
+          label="Website Chat"
+          value={form.is_active ? "Active" : "Paused"}
+          note="Main website chat status"
+        />
+
+        <StatusCard
+          icon={<Bot className="h-7 w-7" />}
+          label="AI Staff"
+          value={selectedAiStaff?.name || "Not selected"}
+          note={selectedAiStaff?.role || "Choose who should help reply"}
+        />
+
+        <StatusCard
+          icon={<ToggleRight className="h-7 w-7" />}
+          label="Auto-Reply"
+          value={form.auto_reply_enabled ? "On" : "Off"}
+          note="Controls automatic visitor replies"
+        />
+
+        <StatusCard
+          icon={<UserRound className="h-7 w-7" />}
+          label="Human Handover"
+          value={form.handover_enabled ? "On" : "Off"}
+          note="Allows your team to take over"
+        />
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
+          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+            <ShieldCheck className="h-8 w-8" />
           </div>
 
-          <div className="rounded-[2.2rem] bg-[#07111F] p-6 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
+          <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+            Overview
+          </p>
+
+          <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
+            Website Chat setup summary.
+          </h2>
+
+          <div className="mt-7 grid gap-4">
+            <SummaryRow label="AI support" value={form.ai_enabled ? "On" : "Off"} />
+            <SummaryRow
+              label="Auto-reply"
+              value={form.auto_reply_enabled ? "On" : "Off"}
+            />
+            <SummaryRow
+              label="Selected AI staff"
+              value={selectedAiStaff?.name || "Not selected"}
+            />
+            <SummaryRow
+              label="Allowed domains"
+              value={
+                form.allowed_domains_text.trim()
+                  ? `${parseAllowedDomains(form.allowed_domains_text).length} domain(s)`
+                  : "Not restricted"
+              }
+            />
+            <SummaryRow
+              label="Last saved"
+              value={settings?.updated_at ? formatDate(settings.updated_at) : "Not saved yet"}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
+          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+            <MessageCircle className="h-8 w-8" />
+          </div>
+
+          <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+            Activity
+          </p>
+
+          <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
+            Website Chat activity.
+          </h2>
+
+          <div className="mt-7 grid gap-4 sm:grid-cols-2">
+            <MiniStat label="Conversations" value={`${conversations.length}`} />
+            <MiniStat label="Recent Messages" value={`${messages.length}`} />
+          </div>
+
+          <div className="mt-6 grid gap-3">
+            <button
+              type="button"
+              onClick={() => setActiveTab("widget")}
+              className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-7 py-4 text-base font-black text-white"
+            >
+              Open Website Widget
+              <ArrowRight className="h-5 w-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("settings")}
+              className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-7 py-4 text-base font-black text-[#07111F]"
+            >
+              Open Settings
+              <ArrowRight className="h-5 w-5" />
+            </button>
+
+            <Link
+              href="/dashboard/inbox"
+              className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-7 py-4 text-base font-black text-[#07111F]"
+            >
+              Open Inbox
+              <Inbox className="h-5 w-5" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-3">
+        <ActionCard
+          icon={<Sparkles className="h-7 w-7" />}
+          eyebrow="AI Staff"
+          title="Create and test AI staff before showing chat to visitors."
+          href="/dashboard/create-ai"
+          action="Create AI Staff"
+        />
+
+        <ActionCard
+          icon={<MessageCircle className="h-7 w-7" />}
+          eyebrow="Business Knowledge"
+          title="Add FAQs, prices, policies, and service details for better answers."
+          href="/dashboard/knowledge-base"
+          action="Add Business Knowledge"
+        />
+
+        <ActionCard
+          icon={<Inbox className="h-7 w-7" />}
+          eyebrow="Inbox"
+          title="Website chat messages will appear in your Kolkap Inbox."
+          href="/dashboard/inbox"
+          action="Open Inbox"
+        />
+      </section>
+    </div>
+  );
+}
+
+function WidgetTab({
+  form,
+  updateForm,
+  widgetCode,
+  copied,
+  copyWidgetCode,
+  saveSettings,
+  isSaving,
+}: {
+  form: WebsiteChatForm;
+  updateForm: <Key extends keyof WebsiteChatForm>(
+    key: Key,
+    value: WebsiteChatForm[Key]
+  ) => void;
+  widgetCode: string;
+  copied: boolean;
+  copyWidgetCode: () => void;
+  saveSettings: () => void;
+  isSaving: boolean;
+}) {
+  return (
+    <div className="grid gap-8">
+      <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
+          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+            <Sparkles className="h-8 w-8" />
+          </div>
+
+          <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+            Website Widget
+          </p>
+
+          <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
+            Customise what visitors see.
+          </h2>
+
+          <div className="mt-7 grid gap-5">
+            <TextInput
+              label="Widget Title"
+              value={form.widget_title}
+              placeholder="Chat with us"
+              onChange={(value) => updateForm("widget_title", value)}
+            />
+
+            <TextInput
+              label="Widget Subtitle"
+              value={form.widget_subtitle}
+              placeholder="Ask a question and our AI assistant will help."
+              onChange={(value) => updateForm("widget_subtitle", value)}
+            />
+
+            <label className="grid gap-2">
+              <span className="text-base font-black text-slate-700">
+                Welcome Message
+              </span>
+
+              <textarea
+                value={form.welcome_message}
+                onChange={(event) =>
+                  updateForm("welcome_message", event.target.value)
+                }
+                rows={4}
+                placeholder="Hi, how can we help you today?"
+                className="rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-base font-black text-slate-700">
+                Allowed Website Domains
+              </span>
+
+              <textarea
+                value={form.allowed_domains_text}
+                onChange={(event) =>
+                  updateForm("allowed_domains_text", event.target.value)
+                }
+                rows={4}
+                placeholder={`example.com\nwww.example.com`}
+                className="rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
+              />
+
+              <span className="text-sm font-bold text-slate-500">
+                Optional. Add one domain per line. Leave empty while testing.
+              </span>
+            </label>
+
+            <button
+              type="button"
+              onClick={saveSettings}
+              disabled={isSaving}
+              className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Save className="h-6 w-6" />
+              {isSaving ? "Saving..." : "Save Widget Settings"}
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
+          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+            <Globe2 className="h-8 w-8" />
+          </div>
+
+          <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+            Install Code
+          </p>
+
+          <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
+            Copy this code and add it to your website.
+          </h2>
+
+          <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
+            Paste the code before the closing body tag on your website.
+          </p>
+
+          <div className="mt-7 rounded-[2.2rem] bg-[#07111F] p-6 text-white shadow-2xl shadow-slate-900/20">
             <div className="mb-5 flex items-center justify-between gap-4">
               <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                {t.widgetCode}
+                Widget Code
               </p>
 
               <button
@@ -405,7 +926,7 @@ export default function WebsiteChatIntegrationPage() {
                 ) : (
                   <Copy className="h-5 w-5" />
                 )}
-                {copied ? t.copied : t.copyCode}
+                {copied ? "Copied" : "Copy Code"}
               </button>
             </div>
 
@@ -413,93 +934,450 @@ export default function WebsiteChatIntegrationPage() {
               {widgetCode}
             </pre>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
-          <div className="mb-7">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-
-            <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              {t.installTitle}
-            </p>
-
-            <h2 className="mt-2 max-w-4xl text-4xl font-black tracking-[-0.05em]">
-              {t.installText}
-            </h2>
+      <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
+        <div className="mb-7">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+            <CheckCircle2 className="h-8 w-8" />
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
-            {t.installSteps.map((step, index) => (
-              <div
-                key={step}
-                className="rounded-[1.7rem] border border-slate-200 bg-[#F7F9FA] p-5"
-              >
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#07111F] text-lg font-black text-[#7CFF3D]">
-                  {index + 1}
-                </div>
+          <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+            Simple Setup
+          </p>
 
-                <p className="text-lg font-black leading-7">{step}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+          <h2 className="mt-2 max-w-4xl text-4xl font-black tracking-[-0.05em]">
+            Add Kolkap chat to your website in five simple steps.
+          </h2>
+        </div>
 
-        <section className="rounded-[2.2rem] border border-blue-100 bg-blue-50 p-7 shadow-sm shadow-blue-900/5 sm:p-9">
-          <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-            <div>
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-700">
-                {t.testTitle}
-              </p>
-
-              <h2 className="mt-3 text-4xl font-black leading-tight tracking-[-0.05em] text-blue-950 sm:text-5xl">
-                {t.testText}
-              </h2>
-            </div>
-
-            <div className="grid gap-4">
-              <Link
-                href="/dashboard/test-ai"
-                className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white shadow-xl shadow-slate-900/15 transition hover:-translate-y-0.5"
-              >
-                {t.openTestAI}
-                <ArrowRight className="h-6 w-6" />
-              </Link>
-
-              <Link
-                href="/dashboard/inbox"
-                className="inline-flex items-center justify-center gap-3 rounded-full bg-white px-8 py-5 text-xl font-black text-[#07111F] shadow-sm transition hover:-translate-y-0.5"
-              >
-                {t.openInbox}
-                <Inbox className="h-6 w-6" />
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
-          <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-            <div>
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                {t.goLiveTitle}
-              </p>
-
-              <h2 className="mt-3 text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl">
-                {t.goLiveText}
-              </h2>
-            </div>
-
-            <Link
-              href="/dashboard/go-live"
-              className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
+          {[
+            "Choose AI staff and save Website Chat settings.",
+            "Copy the Website Chat install code.",
+            "Paste it before the closing body tag on your website.",
+            "Send a test message from the widget.",
+            "Review the conversation in Kolkap Inbox.",
+          ].map((step, index) => (
+            <div
+              key={step}
+              className="rounded-[1.7rem] border border-slate-200 bg-[#F7F9FA] p-5"
             >
-              {t.continueGoLive}
-              <Rocket className="h-6 w-6" />
-            </Link>
-          </div>
-        </section>
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#07111F] text-lg font-black text-[#7CFF3D]">
+                {index + 1}
+              </div>
+
+              <p className="text-lg font-black leading-7">{step}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MessageLogsTab({
+  isLoadingLogs,
+  messages,
+  conversations,
+  aiStaffById,
+  loadWebsiteChatLogs,
+}: {
+  isLoadingLogs: boolean;
+  messages: WebsiteChatMessageRow[];
+  conversations: WebsiteChatConversationRow[];
+  aiStaffById: Map<string, AiStaffRow>;
+  loadWebsiteChatLogs: () => void;
+}) {
+  const conversationById = useMemo(() => {
+    return new Map(conversations.map((item) => [item.id, item]));
+  }, [conversations]);
+
+  return (
+    <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
+      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+            Message Logs
+          </p>
+
+          <h2 className="mt-2 text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl">
+            Website Chat activity.
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          onClick={loadWebsiteChatLogs}
+          disabled={isLoadingLogs}
+          className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-base font-black text-white transition hover:-translate-y-0.5 disabled:opacity-60"
+        >
+          <RefreshCcw className="h-5 w-5" />
+          {isLoadingLogs ? "Refreshing..." : "Refresh Logs"}
+        </button>
       </div>
-    </main>
+
+      {messages.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-[#F7F9FA] p-8 text-center">
+          <MessageCircle className="mx-auto h-10 w-10 text-slate-400" />
+
+          <h3 className="mt-4 text-2xl font-black">
+            No Website Chat messages yet.
+          </h3>
+
+          <p className="mx-auto mt-3 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
+            Once visitors send messages from your website widget, recent
+            activity will appear here.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-3xl border border-slate-200">
+          <div className="min-w-[1040px]">
+            <div className="grid grid-cols-[1.15fr_0.85fr_1fr_1fr_2fr_0.9fr_0.9fr] border-b border-slate-200 bg-[#F7F9FA] px-5 py-4 text-sm font-black uppercase tracking-[0.12em] text-slate-500">
+              <p>Date</p>
+              <p>Sender</p>
+              <p>Visitor</p>
+              <p>AI Staff</p>
+              <p>Message</p>
+              <p>Status</p>
+              <p>Inbox</p>
+            </div>
+
+            {messages.map((message) => {
+              const conversation = conversationById.get(
+                message.conversation_id
+              );
+              const aiStaff = message.ai_staff_id
+                ? aiStaffById.get(message.ai_staff_id)
+                : null;
+
+              return (
+                <div
+                  key={message.id}
+                  className="grid grid-cols-[1.15fr_0.85fr_1fr_1fr_2fr_0.9fr_0.9fr] border-b border-slate-200 px-5 py-5 text-base font-semibold text-slate-700 last:border-b-0"
+                >
+                  <p className="font-black text-blue-600">
+                    {formatDate(message.created_at)}
+                  </p>
+
+                  <p className="font-black">{senderLabel(message.sender_type)}</p>
+
+                  <p className="break-words">
+                    {conversation?.customer_name || "Website Visitor"}
+                  </p>
+
+                  <p>{aiStaff?.name || "Not assigned"}</p>
+
+                  <p className="overflow-hidden text-ellipsis whitespace-nowrap">
+                    {message.message_text || "No message preview"}
+                  </p>
+
+                  <p className="font-black">
+                    {statusLabel(conversation?.status)}
+                  </p>
+
+                  <Link
+                    href="/dashboard/inbox"
+                    className="font-black text-blue-600"
+                  >
+                    Open
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SettingsTab({
+  form,
+  updateForm,
+  aiStaffRows,
+  isLoadingSetup,
+  saveSettings,
+  isSaving,
+}: {
+  form: WebsiteChatForm;
+  updateForm: <Key extends keyof WebsiteChatForm>(
+    key: Key,
+    value: WebsiteChatForm[Key]
+  ) => void;
+  aiStaffRows: AiStaffRow[];
+  isLoadingSetup: boolean;
+  saveSettings: () => void;
+  isSaving: boolean;
+}) {
+  return (
+    <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+          <MessageCircle className="h-8 w-8" />
+        </div>
+
+        <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+          Settings
+        </p>
+
+        <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
+          Choose how Website Chat should behave.
+        </h2>
+
+        <div className="mt-7 grid gap-5">
+          <ToggleRow
+            title="Website Chat active"
+            text="Turn this on when you are ready for website visitors to use the chat widget."
+            checked={form.is_active}
+            onChange={(value) => updateForm("is_active", value)}
+          />
+
+          <ToggleRow
+            title="AI support"
+            text="Allow the selected AI staff to help with Website Chat messages."
+            checked={form.ai_enabled}
+            onChange={(value) => updateForm("ai_enabled", value)}
+          />
+
+          <ToggleRow
+            title="Auto-reply"
+            text="Allow AI to reply automatically when Website Chat is active."
+            checked={form.auto_reply_enabled}
+            onChange={(value) => updateForm("auto_reply_enabled", value)}
+          />
+
+          <ToggleRow
+            title="Human handover"
+            text="Keep human handover available when a visitor needs help from your team."
+            checked={form.handover_enabled}
+            onChange={(value) => updateForm("handover_enabled", value)}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
+        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+          <Bot className="h-8 w-8" />
+        </div>
+
+        <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+          AI Staff
+        </p>
+
+        <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
+          Choose who should reply.
+        </h2>
+
+        <div className="mt-7 grid gap-5">
+          <label className="grid gap-2">
+            <span className="text-base font-black text-slate-700">
+              Choose AI Staff
+            </span>
+
+            <select
+              value={form.selected_ai_staff_id}
+              onChange={(event) =>
+                updateForm("selected_ai_staff_id", event.target.value)
+              }
+              disabled={isLoadingSetup || !aiStaffRows.length}
+              className="h-14 rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white disabled:opacity-60"
+            >
+              {isLoadingSetup ? (
+                <option value="">Loading AI staff...</option>
+              ) : aiStaffRows.length ? (
+                <>
+                  <option value="">Select AI staff</option>
+                  {aiStaffRows.map((staff) => (
+                    <option key={staff.id} value={staff.id}>
+                      {staff.name} — {staff.role} — {statusLabel(staff.status)}
+                    </option>
+                  ))}
+                </>
+              ) : (
+                <option value="">No AI staff created yet</option>
+              )}
+            </select>
+          </label>
+
+          {!aiStaffRows.length && !isLoadingSetup ? (
+            <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
+              <p className="text-base font-black">
+                Create AI staff before activating Website Chat.
+              </p>
+
+              <Link
+                href="/dashboard/create-ai"
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-sm font-black text-white"
+              >
+                Create AI Staff
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={saveSettings}
+            disabled={isSaving}
+            className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Save className="h-6 w-6" />
+            {isSaving ? "Saving..." : "Save Website Chat Settings"}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StatusCard({
+  icon,
+  label,
+  value,
+  note,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  note: string;
+}) {
+  return (
+    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5">
+      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+        {icon}
+      </div>
+
+      <p className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-3 text-2xl font-black tracking-[-0.04em] text-[#07111F]">
+        {value}
+      </p>
+
+      <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
+        {note}
+      </p>
+    </div>
+  );
+}
+
+function ActionCard({
+  icon,
+  eyebrow,
+  title,
+  href,
+  action,
+}: {
+  icon: ReactNode;
+  eyebrow: string;
+  title: string;
+  href: string;
+  action: string;
+}) {
+  return (
+    <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-7">
+      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+        {icon}
+      </div>
+
+      <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+        {eyebrow}
+      </p>
+
+      <h3 className="mt-2 text-3xl font-black tracking-[-0.04em]">
+        {title}
+      </h3>
+
+      <Link
+        href={href}
+        className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-base font-black text-white"
+      >
+        {action}
+        <ArrowRight className="h-5 w-5" />
+      </Link>
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-[#F7F9FA] p-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500">
+        {label}
+      </p>
+      <p className="text-base font-black text-[#07111F]">{value}</p>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-[#F7F9FA] p-5">
+      <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-3xl font-black tracking-[-0.04em] text-[#07111F]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function TextInput({
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-base font-black text-slate-700">{label}</span>
+
+      <input
+        type="text"
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-14 rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
+      />
+    </label>
+  );
+}
+
+function ToggleRow({
+  title,
+  text,
+  checked,
+  onChange,
+}: {
+  title: string;
+  text: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-4 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-1 h-5 w-5 accent-[#07111F]"
+      />
+
+      <span>
+        <span className="block text-lg font-black text-[#07111F]">{title}</span>
+        <span className="mt-1 block text-base font-semibold leading-7 text-slate-600">
+          {text}
+        </span>
+      </span>
+    </label>
   );
 }

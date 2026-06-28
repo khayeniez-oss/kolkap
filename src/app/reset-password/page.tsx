@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -13,152 +13,20 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import KolkapLogo from "@/components/brand/KolkapLogo";
-import { useKolkapLanguage } from "@/app/context/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 
-const translations = {
-  en: {
-    badge: "Create a new password",
-    heroTitle: "Secure your Kolkap workspace.",
-    heroText:
-      "Choose a strong new password before returning to your AI staff, inbox, leads, and business dashboard.",
-    login: "Login",
-    backToLogin: "Back to login",
-    pageBadge: "Reset Password",
-    title: "Set a new password",
-    subtitle:
-      "Create a new password for your Kolkap account. After saving, you can log back in to your workspace.",
-    newPassword: "New password",
-    newPasswordPlaceholder: "Enter new password",
-    confirmPassword: "Confirm new password",
-    confirmPasswordPlaceholder: "Confirm new password",
-    save: "Save new password",
-    saving: "Saving password...",
-    success:
-      "Password updated successfully. You can now log in with your new password.",
-    errorTitle: "Password reset failed",
-    emptyError: "Please enter and confirm your new password.",
-    matchError: "Passwords do not match.",
-    passwordError: "Password must be at least 8 characters.",
-    loginQuestion: "Already updated your password?",
-    securityTitle: "Security note",
-    securityText:
-      "This page only works when opened from a valid password reset email link.",
-    passwordRules: [
-      "Use at least 8 characters",
-      "Include uppercase and lowercase letters",
-      "Include a number or symbol",
-      "Avoid using old or common passwords",
-    ],
-  },
-
-  id: {
-    badge: "Create a new password",
-    heroTitle: "Secure your Kolkap workspace.",
-    heroText:
-      "Buat password baru yang kuat sebelum kembali ke AI staff, inbox, leads, dan business dashboard Anda.",
-    login: "Login",
-    backToLogin: "Kembali ke login",
-    pageBadge: "Reset Password",
-    title: "Set a new password",
-    subtitle:
-      "Buat password baru untuk akun Kolkap Anda. Setelah disimpan, Anda bisa login kembali ke workspace.",
-    newPassword: "Password baru",
-    newPasswordPlaceholder: "Masukkan password baru",
-    confirmPassword: "Konfirmasi password baru",
-    confirmPasswordPlaceholder: "Konfirmasi password baru",
-    save: "Simpan password baru",
-    saving: "Menyimpan password...",
-    success:
-      "Password berhasil diperbarui. Anda sekarang bisa login dengan password baru.",
-    errorTitle: "Reset password gagal",
-    emptyError: "Mohon isi dan konfirmasi password baru Anda.",
-    matchError: "Password tidak sama.",
-    passwordError: "Password minimal 8 karakter.",
-    loginQuestion: "Password sudah diperbarui?",
-    securityTitle: "Security note",
-    securityText:
-      "Halaman ini hanya bekerja jika dibuka dari link reset password yang valid dari email.",
-    passwordRules: [
-      "Gunakan minimal 8 karakter",
-      "Gunakan huruf besar dan huruf kecil",
-      "Gunakan angka atau simbol",
-      "Hindari password lama atau password umum",
-    ],
-  },
-
-  zh: {
-    badge: "Create a new password",
-    heroTitle: "Secure your Kolkap workspace.",
-    heroText: "请创建一个强密码，然后返回您的 AI staff、inbox、leads 和 business dashboard。",
-    login: "登录",
-    backToLogin: "返回登录",
-    pageBadge: "Reset Password",
-    title: "Set a new password",
-    subtitle: "为您的 Kolkap 账户创建新密码。保存后，您可以用新密码登录 workspace。",
-    newPassword: "新密码",
-    newPasswordPlaceholder: "输入新密码",
-    confirmPassword: "确认新密码",
-    confirmPasswordPlaceholder: "确认新密码",
-    save: "保存新密码",
-    saving: "正在保存密码...",
-    success: "密码已成功更新。您现在可以使用新密码登录。",
-    errorTitle: "密码重置失败",
-    emptyError: "请输入并确认您的新密码。",
-    matchError: "两次输入的密码不一致。",
-    passwordError: "密码至少需要 8 个字符。",
-    loginQuestion: "已经更新密码？",
-    securityTitle: "Security note",
-    securityText: "此页面仅在通过有效的密码重置邮件链接打开时可用。",
-    passwordRules: [
-      "至少使用 8 个字符",
-      "包含大写和小写字母",
-      "包含数字或符号",
-      "避免使用旧密码或常见密码",
-    ],
-  },
-
-  ms: {
-    badge: "Create a new password",
-    heroTitle: "Secure your Kolkap workspace.",
-    heroText:
-      "Cipta password baru yang kuat sebelum kembali ke AI staff, inbox, leads, dan business dashboard anda.",
-    login: "Login",
-    backToLogin: "Kembali ke login",
-    pageBadge: "Reset Password",
-    title: "Set a new password",
-    subtitle:
-      "Cipta password baru untuk akaun Kolkap anda. Selepas disimpan, anda boleh login semula ke workspace.",
-    newPassword: "Password baru",
-    newPasswordPlaceholder: "Masukkan password baru",
-    confirmPassword: "Sahkan password baru",
-    confirmPasswordPlaceholder: "Sahkan password baru",
-    save: "Simpan password baru",
-    saving: "Menyimpan password...",
-    success:
-      "Password berjaya dikemaskini. Anda kini boleh login dengan password baru.",
-    errorTitle: "Reset password gagal",
-    emptyError: "Sila isi dan sahkan password baru anda.",
-    matchError: "Password tidak sama.",
-    passwordError: "Password mesti sekurang-kurangnya 8 karakter.",
-    loginQuestion: "Password sudah dikemaskini?",
-    securityTitle: "Security note",
-    securityText:
-      "Halaman ini hanya berfungsi jika dibuka dari link reset password yang sah dari email.",
-    passwordRules: [
-      "Gunakan sekurang-kurangnya 8 karakter",
-      "Gunakan huruf besar dan huruf kecil",
-      "Gunakan nombor atau simbol",
-      "Elakkan password lama atau password umum",
-    ],
-  },
-};
+const passwordRules = [
+  "Use at least 8 characters",
+  "Include uppercase and lowercase letters",
+  "Include a number or symbol",
+  "Avoid using old or common passwords",
+];
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const { language } = useKolkapLanguage();
-  const t =
-    translations[language as keyof typeof translations] || translations.en;
+
+  const [isCheckingLink, setIsCheckingLink] = useState(true);
+  const [linkError, setLinkError] = useState("");
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -168,24 +36,102 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function prepareResetSession() {
+      setIsCheckingLink(true);
+      setLinkError("");
+
+      const supabase = createClient();
+
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+
+      const hashParams = new URLSearchParams(
+        window.location.hash.replace("#", "")
+      );
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+
+      if (code) {
+        const { error: exchangeError } =
+          await supabase.auth.exchangeCodeForSession(code);
+
+        if (exchangeError) {
+          if (!isMounted) return;
+
+          setLinkError(exchangeError.message);
+          setIsCheckingLink(false);
+          return;
+        }
+
+        window.history.replaceState({}, document.title, "/reset-password");
+      }
+
+      if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (sessionError) {
+          if (!isMounted) return;
+
+          setLinkError(sessionError.message);
+          setIsCheckingLink(false);
+          return;
+        }
+
+        window.history.replaceState({}, document.title, "/reset-password");
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (!isMounted) return;
+
+      if (userError || !user) {
+        setLinkError(
+          "This reset link is not active. Please request a new password reset email and open the newest link."
+        );
+      }
+
+      setIsCheckingLink(false);
+    }
+
+    prepareResetSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   async function handleResetPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setMessage("");
     setError("");
 
+    if (linkError) {
+      setError(linkError);
+      return;
+    }
+
     if (!password.trim() || !confirmPassword.trim()) {
-      setError(t.emptyError);
+      setError("Please enter and confirm your new password.");
       return;
     }
 
     if (password.length < 8) {
-      setError(t.passwordError);
+      setError("Password must be at least 8 characters.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError(t.matchError);
+      setError("Passwords do not match.");
       return;
     }
 
@@ -204,7 +150,9 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      setMessage(t.success);
+      setMessage(
+        "Password updated successfully. You can now log in with your new password."
+      );
       setPassword("");
       setConfirmPassword("");
 
@@ -232,20 +180,21 @@ export default function ResetPasswordPage() {
 
             <div className="max-w-xl">
               <div className="mb-6 inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
-                {t.badge}
+                Create a new password
               </div>
 
               <h1 className="text-6xl font-black leading-[1.02] tracking-[-0.06em]">
-                {t.heroTitle}
+                Secure your Kolkap workspace.
               </h1>
 
               <p className="mt-7 text-2xl font-semibold leading-10 text-slate-300">
-                {t.heroText}
+                Choose a strong new password before returning to your AI staff,
+                inbox, leads, and business dashboard.
               </p>
             </div>
 
             <div className="grid gap-4">
-              {t.passwordRules.map((rule) => (
+              {passwordRules.map((rule) => (
                 <div
                   key={rule}
                   className="flex items-center gap-4 rounded-3xl border border-white/10 bg-white/5 p-5"
@@ -267,7 +216,7 @@ export default function ResetPasswordPage() {
                 href="/login"
                 className="rounded-full border border-slate-200 bg-white px-5 py-3 text-base font-black text-slate-700 shadow-sm"
               >
-                {t.login}
+                Login
               </Link>
             </div>
 
@@ -277,7 +226,7 @@ export default function ResetPasswordPage() {
                 className="mb-8 inline-flex items-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-3 text-base font-black text-slate-700 transition hover:border-blue-400 hover:bg-white"
               >
                 <ArrowLeft className="h-5 w-5" />
-                {t.backToLogin}
+                Back to login
               </Link>
 
               <div className="mb-8">
@@ -286,22 +235,46 @@ export default function ResetPasswordPage() {
                 </div>
 
                 <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                  {t.pageBadge}
+                  Reset Password
                 </p>
 
                 <h2 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[#07111F] sm:text-5xl">
-                  {t.title}
+                  Set a new password
                 </h2>
 
                 <p className="mt-4 text-xl font-semibold leading-8 text-slate-600">
-                  {t.subtitle}
+                  Create a new password for your Kolkap account. After saving,
+                  you can log back in to your workspace.
                 </p>
               </div>
+
+              {isCheckingLink ? (
+                <div className="mb-6 rounded-3xl border border-blue-100 bg-blue-50 p-5 text-blue-900">
+                  <p className="text-base font-black">
+                    Checking your reset link...
+                  </p>
+                  <p className="mt-1 text-base font-semibold leading-7">
+                    Please keep this page open while Kolkap verifies your secure
+                    reset session.
+                  </p>
+                </div>
+              ) : null}
+
+              {linkError ? (
+                <div className="mb-6 rounded-3xl border border-red-200 bg-red-50 p-5 text-red-700">
+                  <p className="text-base font-black">
+                    Reset link is not active
+                  </p>
+                  <p className="mt-1 text-base font-semibold leading-7">
+                    {linkError}
+                  </p>
+                </div>
+              ) : null}
 
               <form onSubmit={handleResetPassword} className="space-y-6">
                 <label className="grid gap-2">
                   <span className="text-base font-black text-slate-700">
-                    {t.newPassword}
+                    New password
                   </span>
 
                   <div className="relative">
@@ -311,9 +284,10 @@ export default function ResetPasswordPage() {
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
-                      placeholder={t.newPasswordPlaceholder}
+                      placeholder="Enter new password"
                       autoComplete="new-password"
-                      className="h-14 w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] pl-14 pr-14 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
+                      disabled={isCheckingLink || Boolean(linkError)}
+                      className="h-14 w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] pl-14 pr-14 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                     />
 
                     <button
@@ -333,7 +307,7 @@ export default function ResetPasswordPage() {
 
                 <label className="grid gap-2">
                   <span className="text-base font-black text-slate-700">
-                    {t.confirmPassword}
+                    Confirm new password
                   </span>
 
                   <div className="relative">
@@ -345,9 +319,10 @@ export default function ResetPasswordPage() {
                       onChange={(event) =>
                         setConfirmPassword(event.target.value)
                       }
-                      placeholder={t.confirmPasswordPlaceholder}
+                      placeholder="Confirm new password"
                       autoComplete="new-password"
-                      className="h-14 w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] pl-14 pr-14 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
+                      disabled={isCheckingLink || Boolean(linkError)}
+                      className="h-14 w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] pl-14 pr-14 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                     />
 
                     <button
@@ -369,7 +344,7 @@ export default function ResetPasswordPage() {
 
                 {error ? (
                   <div className="rounded-3xl border border-red-200 bg-red-50 p-5 text-red-700">
-                    <p className="text-base font-black">{t.errorTitle}</p>
+                    <p className="text-base font-black">Password reset failed</p>
                     <p className="mt-1 text-base font-semibold leading-7">
                       {error}
                     </p>
@@ -384,11 +359,11 @@ export default function ResetPasswordPage() {
 
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={isSaving || isCheckingLink || Boolean(linkError)}
                   className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white shadow-xl shadow-slate-900/15 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <ShieldCheck className="h-6 w-6" />
-                  {isSaving ? t.saving : t.save}
+                  {isSaving ? "Saving password..." : "Save new password"}
                 </button>
               </form>
 
@@ -398,18 +373,19 @@ export default function ResetPasswordPage() {
 
                   <div>
                     <p className="text-xl font-black text-blue-950">
-                      {t.securityTitle}
+                      Security note
                     </p>
 
                     <p className="mt-2 text-lg font-semibold leading-8 text-blue-800">
-                      {t.securityText}
+                      This page only works when opened from a valid password
+                      reset email link.
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="mt-8 grid gap-4">
-                {t.passwordRules.map((rule) => (
+                {passwordRules.map((rule) => (
                   <div
                     key={rule}
                     className="flex items-start gap-4 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5"
@@ -422,9 +398,9 @@ export default function ResetPasswordPage() {
               </div>
 
               <p className="mt-7 text-center text-lg font-semibold text-slate-600">
-                {t.loginQuestion}{" "}
+                Already updated your password?{" "}
                 <Link href="/login" className="font-black text-blue-600">
-                  {t.login}
+                  Login
                 </Link>
               </p>
             </div>

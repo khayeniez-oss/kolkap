@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
-import { KOLKAP_AI_GENERATION_MIN_CREDITS } from "@/lib/kolkapPlan";
+import { KOLKAP_WEBSITE_CHAT_REPLY_MIN_CREDITS } from "@/lib/kolkapPlan";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const WEBSITE_CHAT_REPLY_CREDIT_COST = KOLKAP_AI_GENERATION_MIN_CREDITS;
+const WEBSITE_CHAT_REPLY_CREDIT_COST = KOLKAP_WEBSITE_CHAT_REPLY_MIN_CREDITS;
 
 type WebsiteChatBody = {
   workspace_id?: string;
@@ -41,6 +41,26 @@ type CreditBalanceRow = {
   purchased_credits: number;
   used_credits: number;
   status: string;
+};
+
+type WebsiteChatSettingsRow = {
+  id: string | null;
+  workspace_id: string;
+  owner_user_id: string | null;
+  selected_ai_staff_id: string | null;
+  widget_title: string;
+  widget_subtitle: string;
+  welcome_message: string;
+  is_active: boolean;
+  ai_enabled: boolean;
+  auto_reply_enabled: boolean;
+  handover_enabled: boolean;
+  allowed_domains: string[];
+};
+
+type ConversationRow = {
+  id: string;
+  ai_staff_id: string | null;
 };
 
 const corsHeaders = {
@@ -122,6 +142,82 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
   );
 }
 
+function normalizeDomain(value: string) {
+  const cleaned = cleanText(value)
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "");
+
+  return cleaned.split("/")[0].split(":")[0];
+}
+
+function getHostFromUrl(value: string) {
+  try {
+    return normalizeDomain(new URL(value).hostname);
+  } catch {
+    return normalizeDomain(value);
+  }
+}
+
+function isDomainAllowed(pageUrl: string, allowedDomains: string[]) {
+  if (!allowedDomains.length) return true;
+
+  const pageHost = getHostFromUrl(pageUrl);
+
+  if (!pageHost) return false;
+
+  return allowedDomains.some((domain) => {
+    const allowedHost = normalizeDomain(domain);
+
+    if (!allowedHost) return false;
+
+    return pageHost === allowedHost || pageHost.endsWith(`.${allowedHost}`);
+  });
+}
+
+function getDefaultWebsiteChatSettings(
+  workspaceId: string
+): WebsiteChatSettingsRow {
+  return {
+    id: null,
+    workspace_id: workspaceId,
+    owner_user_id: null,
+    selected_ai_staff_id: null,
+    widget_title: "Chat with us",
+    widget_subtitle: "Ask a question and our AI assistant will help.",
+    welcome_message: "Hi, how can we help you today?",
+    is_active: false,
+    ai_enabled: true,
+    auto_reply_enabled: false,
+    handover_enabled: true,
+    allowed_domains: [],
+  };
+}
+
+function getVisitorFallbackReply(reason: string) {
+  if (reason === "website_chat_inactive") {
+    return "Thanks. Your message has been received. The team can follow up when they are available.";
+  }
+
+  if (reason === "ai_support_off") {
+    return "Thanks. Your message has been received. The team can review it and follow up.";
+  }
+
+  if (reason === "auto_reply_off") {
+    return "Thanks. Your message has been received. The team can follow up shortly.";
+  }
+
+  if (reason === "no_ai_staff_selected") {
+    return "Thanks. Your message has been received. The team can follow up when they are available.";
+  }
+
+  if (reason === "not_enough_credits") {
+    return "Thanks. Your message has been received. The team can follow up when they are available.";
+  }
+
+  return "Thanks. Your message has been received and the team can follow up.";
+}
+
 async function getWorkspace(workspaceId: string) {
   const supabase = getAdminSupabase();
 
@@ -138,6 +234,45 @@ async function getWorkspace(workspaceId: string) {
   }
 
   return (data ?? null) as BusinessWorkspaceRow | null;
+}
+
+async function getWebsiteChatSettings(workspaceId: string) {
+  const supabase = getAdminSupabase();
+
+  const { data, error } = await supabase
+    .from("workspace_website_chat_settings")
+    .select(
+      "id, workspace_id, owner_user_id, selected_ai_staff_id, widget_title, widget_subtitle, welcome_message, is_active, ai_enabled, auto_reply_enabled, handover_enabled, allowed_domains"
+    )
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return getDefaultWebsiteChatSettings(workspaceId);
+  }
+
+  return {
+    id: data.id,
+    workspace_id: data.workspace_id,
+    owner_user_id: data.owner_user_id,
+    selected_ai_staff_id: data.selected_ai_staff_id,
+    widget_title: data.widget_title || "Chat with us",
+    widget_subtitle:
+      data.widget_subtitle || "Ask a question and our AI assistant will help.",
+    welcome_message:
+      data.welcome_message || "Hi, how can we help you today?",
+    is_active: Boolean(data.is_active),
+    ai_enabled: Boolean(data.ai_enabled),
+    auto_reply_enabled: Boolean(data.auto_reply_enabled),
+    handover_enabled: Boolean(data.handover_enabled),
+    allowed_domains: Array.isArray(data.allowed_domains)
+      ? data.allowed_domains
+      : [],
+  } as WebsiteChatSettingsRow;
 }
 
 async function getCreditBalance(workspaceId: string) {
@@ -164,12 +299,16 @@ async function findOrCreateConversation({
   customerName,
   customerPhone,
   customerMessage,
+  aiStaffId,
+  handoverRequested,
 }: {
   workspace: BusinessWorkspaceRow;
   conversationId: string;
   customerName: string;
   customerPhone: string;
   customerMessage: string;
+  aiStaffId?: string | null;
+  handoverRequested: boolean;
 }) {
   const supabase = getAdminSupabase();
   const now = new Date().toISOString();
@@ -187,9 +326,14 @@ async function findOrCreateConversation({
     }
 
     if (existingConversation?.id) {
+      const nextAiStaffId =
+        aiStaffId || existingConversation.ai_staff_id || null;
+
       const { error: updateError } = await supabase
         .from("customer_conversations")
         .update({
+          ai_staff_id: nextAiStaffId,
+          handover_requested: handoverRequested,
           last_message: customerMessage,
           last_message_at: now,
           updated_at: now,
@@ -201,10 +345,10 @@ async function findOrCreateConversation({
         throw updateError;
       }
 
-      return existingConversation as {
-        id: string;
-        ai_staff_id: string | null;
-      };
+      return {
+        id: existingConversation.id,
+        ai_staff_id: nextAiStaffId,
+      } as ConversationRow;
     }
   }
 
@@ -213,13 +357,13 @@ async function findOrCreateConversation({
     .insert({
       workspace_id: workspace.id,
       owner_user_id: workspace.owner_user_id,
-      ai_staff_id: null,
+      ai_staff_id: aiStaffId || null,
       customer_name: customerName || null,
       customer_phone: customerPhone || null,
       customer_channel: "website_chat",
       status: "open",
       lead_status: "new",
-      handover_requested: false,
+      handover_requested: handoverRequested,
       last_message: customerMessage,
       last_message_at: now,
     })
@@ -230,10 +374,7 @@ async function findOrCreateConversation({
     throw insertError;
   }
 
-  return newConversation as {
-    id: string;
-    ai_staff_id: string | null;
-  };
+  return newConversation as ConversationRow;
 }
 
 async function saveMessage({
@@ -283,6 +424,7 @@ async function updateConversationAfterAiReply({
     .from("customer_conversations")
     .update({
       ai_staff_id: aiStaffId || null,
+      handover_requested: false,
       last_message: aiReply,
       last_message_at: now,
       updated_at: now,
@@ -293,6 +435,76 @@ async function updateConversationAfterAiReply({
   if (error) {
     throw error;
   }
+}
+
+async function logAutoReplySkipped({
+  workspace,
+  conversationId,
+  pageUrl,
+  visitorId,
+  reason,
+  settings,
+}: {
+  workspace: BusinessWorkspaceRow;
+  conversationId: string;
+  pageUrl: string;
+  visitorId: string;
+  reason: string;
+  settings: WebsiteChatSettingsRow;
+}) {
+  await logWorkspaceUsage({
+    workspaceId: workspace.id,
+    userId: workspace.owner_user_id,
+    eventType: "website_chat_auto_reply_skipped",
+    channel: "website_chat",
+    sourcePage: pageUrl || "website_chat",
+    creditsUsed: 0,
+    metadata: {
+      conversation_id: conversationId,
+      visitor_id: visitorId || null,
+      reason,
+      website_chat_active: settings.is_active,
+      ai_enabled: settings.ai_enabled,
+      auto_reply_enabled: settings.auto_reply_enabled,
+      handover_enabled: settings.handover_enabled,
+      selected_ai_staff_id: settings.selected_ai_staff_id || null,
+    },
+  });
+}
+
+async function returnWithoutAiReply({
+  workspace,
+  conversation,
+  pageUrl,
+  visitorId,
+  reason,
+  settings,
+}: {
+  workspace: BusinessWorkspaceRow;
+  conversation: ConversationRow;
+  pageUrl: string;
+  visitorId: string;
+  reason: string;
+  settings: WebsiteChatSettingsRow;
+}) {
+  await logAutoReplySkipped({
+    workspace,
+    conversationId: conversation.id,
+    pageUrl,
+    visitorId,
+    reason,
+    settings,
+  });
+
+  return jsonResponse({
+    reply: getVisitorFallbackReply(reason),
+    conversation_id: conversation.id,
+    workspace_id: workspace.id,
+    business_name: workspace.business_name || "Business",
+    ai_reply_generated: false,
+    auto_reply_skipped_reason: reason,
+    credits_used: 0,
+  });
 }
 
 export async function OPTIONS() {
@@ -336,6 +548,17 @@ export async function POST(request: Request) {
       return jsonResponse({ error: "Business workspace not found." }, 404);
     }
 
+    const settings = await getWebsiteChatSettings(workspace.id);
+
+    if (!isDomainAllowed(pageUrl, settings.allowed_domains)) {
+      return jsonResponse(
+        {
+          error: "This website is not allowed to use this Website Chat widget.",
+        },
+        403
+      );
+    }
+
     if (!hasActiveTrialOrPlan(workspace)) {
       return jsonResponse(
         {
@@ -346,20 +569,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const creditBalance = await getCreditBalance(workspace.id);
-    const creditsLeft = getCreditsLeft(creditBalance);
+    const selectedAiStaffId = settings.selected_ai_staff_id || null;
 
-    if (creditsLeft < WEBSITE_CHAT_REPLY_CREDIT_COST) {
-      return jsonResponse(
-        {
-          error:
-            "This business does not have enough credits for AI website chat replies.",
-          credits_left: creditsLeft,
-          credits_required: WEBSITE_CHAT_REPLY_CREDIT_COST,
-        },
-        402
-      );
-    }
+    const shouldGenerateAiReply = Boolean(
+      settings.is_active &&
+        settings.ai_enabled &&
+        settings.auto_reply_enabled &&
+        selectedAiStaffId
+    );
 
     const conversation = await findOrCreateConversation({
       workspace,
@@ -367,12 +584,14 @@ export async function POST(request: Request) {
       customerName,
       customerPhone,
       customerMessage,
+      aiStaffId: selectedAiStaffId,
+      handoverRequested: settings.handover_enabled && !shouldGenerateAiReply,
     });
 
     await saveMessage({
       conversationId: conversation.id,
       workspace,
-      aiStaffId: conversation.ai_staff_id,
+      aiStaffId: selectedAiStaffId || conversation.ai_staff_id || null,
       senderType: "customer",
       messageText: customerMessage,
     });
@@ -390,14 +609,77 @@ export async function POST(request: Request) {
         customer_name: customerName || null,
         has_customer_phone: Boolean(customerPhone),
         has_customer_email: Boolean(customerEmail),
+        website_chat_active: settings.is_active,
+        ai_enabled: settings.ai_enabled,
+        auto_reply_enabled: settings.auto_reply_enabled,
+        handover_enabled: settings.handover_enabled,
+        selected_ai_staff_id: selectedAiStaffId,
       },
     });
+
+    if (!settings.is_active) {
+      return returnWithoutAiReply({
+        workspace,
+        conversation,
+        pageUrl,
+        visitorId,
+        reason: "website_chat_inactive",
+        settings,
+      });
+    }
+
+    if (!settings.ai_enabled) {
+      return returnWithoutAiReply({
+        workspace,
+        conversation,
+        pageUrl,
+        visitorId,
+        reason: "ai_support_off",
+        settings,
+      });
+    }
+
+    if (!settings.auto_reply_enabled) {
+      return returnWithoutAiReply({
+        workspace,
+        conversation,
+        pageUrl,
+        visitorId,
+        reason: "auto_reply_off",
+        settings,
+      });
+    }
+
+    if (!selectedAiStaffId) {
+      return returnWithoutAiReply({
+        workspace,
+        conversation,
+        pageUrl,
+        visitorId,
+        reason: "no_ai_staff_selected",
+        settings,
+      });
+    }
+
+    const creditBalance = await getCreditBalance(workspace.id);
+    const creditsLeft = getCreditsLeft(creditBalance);
+
+    if (creditsLeft < WEBSITE_CHAT_REPLY_CREDIT_COST) {
+      return returnWithoutAiReply({
+        workspace,
+        conversation,
+        pageUrl,
+        visitorId,
+        reason: "not_enough_credits",
+        settings,
+      });
+    }
 
     const result = await runKolkapBrain({
       workspaceId: workspace.id,
       task: "customer_reply",
       channel: "website_chat",
-      aiStaffId: conversation.ai_staff_id || null,
+      aiStaffId: selectedAiStaffId,
       conversationId: conversation.id,
       customerName,
       customerPhone,
@@ -413,7 +695,7 @@ export async function POST(request: Request) {
     await saveMessage({
       conversationId: conversation.id,
       workspace,
-      aiStaffId: result.aiStaffId || conversation.ai_staff_id || null,
+      aiStaffId: result.aiStaffId || selectedAiStaffId,
       senderType: "ai",
       messageText: result.content,
     });
@@ -421,7 +703,7 @@ export async function POST(request: Request) {
     await updateConversationAfterAiReply({
       conversationId: conversation.id,
       workspaceId: workspace.id,
-      aiStaffId: result.aiStaffId || conversation.ai_staff_id || null,
+      aiStaffId: result.aiStaffId || selectedAiStaffId,
       aiReply: result.content,
     });
 
@@ -438,7 +720,8 @@ export async function POST(request: Request) {
         model: result.model,
         knowledge_count: result.knowledgeCount,
         fallback: result.fallback,
-        ai_staff_id: result.aiStaffId || conversation.ai_staff_id || null,
+        ai_staff_id: result.aiStaffId || selectedAiStaffId,
+        selected_ai_staff_id: selectedAiStaffId,
         credit_rule: "website_chat_ai_reply_minimum",
       },
     });
@@ -451,6 +734,7 @@ export async function POST(request: Request) {
       knowledge_count: result.knowledgeCount,
       model: result.model,
       fallback: result.fallback,
+      ai_reply_generated: true,
       credits_used: WEBSITE_CHAT_REPLY_CREDIT_COST,
       credits_left_before_reply: creditsLeft,
     });

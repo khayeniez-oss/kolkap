@@ -3,15 +3,105 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const allowedRoles = new Set([
+  "Admin",
+  "Manager",
+  "Inbox Agent",
+  "Sales Agent",
+  "Content Assistant",
+  "Viewer",
+]);
+
+const allowedPermissions = new Set([
+  "admin",
+  "manager",
+  "inbox",
+  "sales",
+  "content",
+  "viewer",
+]);
+
+function cleanText(value: unknown, fallback = "") {
+  return String(value || fallback).trim();
+}
+
+function cleanEmail(value: unknown) {
+  return cleanText(value).toLowerCase();
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function getBaseUrl() {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
+}
+
+function getAdminSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Missing Supabase server environment variables.");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+async function getUserSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing Supabase environment variables.");
+  }
+
+  const cookieStore = await cookies();
+
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          cookieStore.set(name, value, options);
+        });
+      },
+    },
+  });
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
 
-    const workspaceId = String(body.workspace_id || "");
-    const fullName = String(body.full_name || "").trim();
-    const email = String(body.email || "").trim().toLowerCase();
-    const role = String(body.role || "Inbox Agent");
-    const permissionLevel = String(body.permission_level || "inbox");
+    const workspaceId = cleanText(body.workspace_id);
+    const fullName = cleanText(body.full_name);
+    const email = cleanEmail(body.email);
+    const requestedRole = cleanText(body.role, "Inbox Agent");
+    const requestedPermission = cleanText(body.permission_level, "inbox");
+
+    const role = allowedRoles.has(requestedRole)
+      ? requestedRole
+      : "Inbox Agent";
+
+    const permissionLevel = allowedPermissions.has(requestedPermission)
+      ? requestedPermission
+      : "inbox";
 
     if (!workspaceId || !fullName || !email) {
       return NextResponse.json(
@@ -20,83 +110,59 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
-    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+    if (!isValidEmail(email)) {
       return NextResponse.json(
-        { error: "Missing Supabase environment variables." },
-        { status: 500 }
+        { error: "Please enter a valid email address." },
+        { status: 400 }
       );
     }
 
-    const cookieStore = await cookies();
-
-    const userSupabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        },
-      },
-    });
+    const userSupabase = await getUserSupabase();
 
     const {
       data: { user },
       error: userError,
     } = await userSupabase.auth.getUser();
 
-    if (userError || !user) {
+    if (userError || !user?.id) {
       return NextResponse.json(
         { error: "You must be logged in to invite a team member." },
         { status: 401 }
       );
     }
 
-    const adminSupabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    const adminSupabase = getAdminSupabase();
 
     const { data: workspace, error: workspaceError } = await adminSupabase
       .from("business_workspaces")
-      .select("id, owner_user_id")
+      .select("id, owner_user_id, business_name, business_email")
       .eq("id", workspaceId)
       .eq("owner_user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (workspaceError || !workspace) {
+    if (workspaceError) {
+      throw workspaceError;
+    }
+
+    if (!workspace?.id) {
       return NextResponse.json(
         { error: "Workspace not found or you do not have permission." },
         { status: 403 }
       );
     }
 
-    const { data: inviteData, error: inviteError } =
-      await adminSupabase.auth.admin.inviteUserByEmail(email, {
-        data: {
-          full_name: fullName,
-          workspace_id: workspaceId,
-          team_role: role,
-          permission_level: permissionLevel,
-        },
-        redirectTo: `${siteUrl}/team/accept`,
-      });
+    const { data: existingMember, error: existingError } = await adminSupabase
+      .from("workspace_team_members")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .eq("email", email)
+      .maybeSingle();
 
-    if (inviteError) {
-      return NextResponse.json(
-        { error: inviteError.message },
-        { status: 400 }
-      );
+    if (existingError) {
+      throw existingError;
     }
+
+    const now = new Date().toISOString();
 
     const memberPayload = {
       workspace_id: workspaceId,
@@ -106,18 +172,14 @@ export async function POST(request: Request) {
       role,
       permission_level: permissionLevel,
       status: "invited",
-      invited_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      invited_at: now,
+      accepted_at: null,
+      updated_at: now,
     };
 
-    const { data: existingMember } = await adminSupabase
-      .from("workspace_team_members")
-      .select("*")
-      .eq("workspace_id", workspaceId)
-      .eq("email", email)
-      .maybeSingle();
+    let savedMember;
 
-    if (existingMember) {
+    if (existingMember?.id) {
       const { data, error } = await adminSupabase
         .from("workspace_team_members")
         .update(memberPayload)
@@ -126,23 +188,63 @@ export async function POST(request: Request) {
         .single();
 
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 400 });
+        throw error;
       }
 
-      return NextResponse.json({ member: data, invited_user: inviteData.user });
+      savedMember = data;
+    } else {
+      const { data, error } = await adminSupabase
+        .from("workspace_team_members")
+        .insert(memberPayload)
+        .select("*")
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      savedMember = data;
     }
 
-    const { data, error } = await adminSupabase
-      .from("workspace_team_members")
-      .insert(memberPayload)
-      .select("*")
-      .single();
+    let invitedUser = null;
+    let inviteWarning = "";
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    try {
+      const inviteResult = await adminSupabase.auth.admin.inviteUserByEmail(
+        email,
+        {
+          data: {
+            full_name: fullName,
+            workspace_id: workspaceId,
+            workspace_name: workspace.business_name || null,
+            team_role: role,
+            permission_level: permissionLevel,
+            invited_by_user_id: user.id,
+          },
+          redirectTo: `${getBaseUrl()}/team/accept`,
+        }
+      );
+
+      if (inviteResult.error) {
+        inviteWarning = inviteResult.error.message;
+      } else {
+        invitedUser = inviteResult.data.user;
+      }
+    } catch (inviteError) {
+      inviteWarning =
+        inviteError instanceof Error
+          ? inviteError.message
+          : "Invitation email could not be sent.";
     }
 
-    return NextResponse.json({ member: data, invited_user: inviteData.user });
+    return NextResponse.json({
+      member: savedMember,
+      invited_user: invitedUser,
+      invite_warning: inviteWarning || null,
+      message: inviteWarning
+        ? "Team member was saved, but the invitation email could not be sent."
+        : "Team member saved and invitation email sent.",
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Invite could not be sent.";

@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createClient } from "@supabase/supabase-js";
 
 export type KolkapBrainTask =
@@ -19,16 +21,16 @@ export type KolkapBrainChannel =
 
 export type KolkapBrainInput = {
   /**
-   * Dashboard use:
-   * Use userId when the business owner/team member is logged in.
+   * Dashboard mode:
+   * Use userId/userEmail when the logged-in owner or team member uses Kolkap.
    */
   userId?: string | null;
   userEmail?: string | null;
 
   /**
-   * Channel use:
-   * Use workspaceId when a customer message comes from WhatsApp,
-   * website chat, or any future channel where the customer is not logged in.
+   * Channel mode:
+   * Use workspaceId when the customer is not logged in,
+   * for example Website Chat or WhatsApp.
    */
   workspaceId?: string | null;
 
@@ -52,6 +54,12 @@ export type KolkapBrainInput = {
   details?: string;
   extraInstructions?: string;
   uiLanguage?: string;
+
+  /**
+   * Optional pre-generation credit check.
+   * The API route should still log usage after successful generation.
+   */
+  minimumCreditsRequired?: number;
 };
 
 export type KolkapBrainResult = {
@@ -64,6 +72,25 @@ export type KolkapBrainResult = {
   channel: KolkapBrainChannel;
   aiStaffId?: string | null;
 };
+
+type OpenAIChatResponse = {
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
+const BLOCKED_WORKSPACE_STATUSES = new Set([
+  "cancelled",
+  "canceled",
+  "inactive",
+  "incomplete_expired",
+  "expired",
+]);
 
 const SENSITIVE_CONTEXT_KEYS = new Set([
   "id",
@@ -117,6 +144,7 @@ function label(value: string) {
 
 function truncate(value: string, limit: number) {
   if (value.length <= limit) return value;
+
   return `${value.slice(0, limit).trim()}...`;
 }
 
@@ -124,6 +152,10 @@ function normalize(value: unknown) {
   return cleanText(value)
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
+}
+
+function normalizeStatus(value: unknown) {
+  return cleanText(value).toLowerCase();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -178,6 +210,7 @@ function sanitizeRowForAi(row: Record<string, unknown>) {
     .filter(([key, value]) => !shouldExcludeContextKey(key) && value !== null)
     .map(([key, value]) => {
       const formatted = formatContextValue(value);
+
       return formatted ? `${label(key)}: ${formatted}` : "";
     })
     .filter(Boolean)
@@ -198,6 +231,36 @@ function getAdminSupabase() {
       persistSession: false,
     },
   });
+}
+
+function isWorkspaceBlocked(workspace: Record<string, unknown>) {
+  const planStatus = normalizeStatus(workspace.plan_status);
+  const billingStatus = normalizeStatus(workspace.billing_status);
+  const cancelledAt = cleanText(workspace.subscription_cancelled_at);
+
+  return (
+    BLOCKED_WORKSPACE_STATUSES.has(planStatus) ||
+    BLOCKED_WORKSPACE_STATUSES.has(billingStatus) ||
+    Boolean(cancelledAt)
+  );
+}
+
+function hasActivatedTrialOrBilling(workspace: Record<string, unknown>) {
+  return Boolean(
+    cleanText(workspace.stripe_subscription_id) ||
+      cleanText(workspace.trial_activated_at) ||
+      cleanText(workspace.billing_started_at)
+  );
+}
+
+function assertWorkspaceCanUseAi(workspace: Record<string, unknown>) {
+  if (isWorkspaceBlocked(workspace)) {
+    throw new Error("This workspace is not active.");
+  }
+
+  if (!hasActivatedTrialOrBilling(workspace)) {
+    throw new Error("Please activate a trial or subscription before using AI.");
+  }
 }
 
 async function getWorkspaceById(workspaceId: string) {
@@ -237,7 +300,11 @@ async function userCanAccessWorkspace({
     .eq("id", workspaceId)
     .maybeSingle();
 
-  if (!ownedError && ownedWorkspace?.owner_user_id === userId) {
+  if (ownedError) {
+    throw ownedError;
+  }
+
+  if (ownedWorkspace?.owner_user_id === userId) {
     return true;
   }
 
@@ -245,7 +312,7 @@ async function userCanAccessWorkspace({
     return false;
   }
 
-  const { data: teamMember } = await supabase
+  const { data: teamMember, error: teamError } = await supabase
     .from("workspace_team_members")
     .select("workspace_id")
     .eq("workspace_id", workspaceId)
@@ -253,37 +320,74 @@ async function userCanAccessWorkspace({
     .eq("status", "active")
     .maybeSingle();
 
+  if (teamError) {
+    throw teamError;
+  }
+
   return Boolean(teamMember?.workspace_id);
+}
+
+async function findTeamWorkspaceByEmail(userEmail?: string | null) {
+  const email = cleanText(userEmail).toLowerCase();
+
+  if (!email) {
+    return null;
+  }
+
+  const supabase = getAdminSupabase();
+
+  const { data: teamMember, error: teamError } = await supabase
+    .from("workspace_team_members")
+    .select("workspace_id")
+    .eq("email", email)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (teamError) {
+    throw teamError;
+  }
+
+  if (!teamMember?.workspace_id) {
+    return null;
+  }
+
+  return getWorkspaceById(String(teamMember.workspace_id));
 }
 
 async function findWorkspaceForUser(userId: string, userEmail?: string | null) {
   const supabase = getAdminSupabase();
 
-  const { data: ownedWorkspace, error: ownedError } = await supabase
+  const { data: ownedWorkspaces, error: ownedError } = await supabase
     .from("business_workspaces")
     .select("*")
     .eq("owner_user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: false });
 
-  if (!ownedError && ownedWorkspace?.id) {
-    return ownedWorkspace as Record<string, unknown>;
+  if (ownedError) {
+    throw ownedError;
   }
 
-  if (userEmail) {
-    const { data: teamMember } = await supabase
-      .from("workspace_team_members")
-      .select("workspace_id")
-      .eq("email", userEmail.toLowerCase())
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  const ownedRows = (ownedWorkspaces ?? []) as Array<Record<string, unknown>>;
 
-    if (teamMember?.workspace_id) {
-      return getWorkspaceById(String(teamMember.workspace_id));
-    }
+  const activeOwnedWorkspace = ownedRows.find(
+    (workspace) =>
+      !isWorkspaceBlocked(workspace) && hasActivatedTrialOrBilling(workspace)
+  );
+
+  if (activeOwnedWorkspace?.id) {
+    return activeOwnedWorkspace;
+  }
+
+  const teamWorkspace = await findTeamWorkspaceByEmail(userEmail);
+
+  if (teamWorkspace?.id) {
+    return teamWorkspace;
+  }
+
+  if (ownedRows[0]?.id) {
+    return ownedRows[0];
   }
 
   throw new Error("No business workspace found for this user.");
@@ -293,6 +397,8 @@ async function resolveWorkspace(input: KolkapBrainInput) {
   const workspaceId = cleanText(input.workspaceId);
   const userId = cleanText(input.userId);
   const userEmail = cleanText(input.userEmail);
+
+  let workspace: Record<string, unknown>;
 
   if (workspaceId) {
     if (userId) {
@@ -307,36 +413,21 @@ async function resolveWorkspace(input: KolkapBrainInput) {
       }
     }
 
-    return getWorkspaceById(workspaceId);
+    workspace = await getWorkspaceById(workspaceId);
+  } else {
+    if (!userId) {
+      throw new Error("Missing user or workspace context.");
+    }
+
+    workspace = await findWorkspaceForUser(userId, userEmail);
   }
 
-  if (!userId) {
-    throw new Error("Missing user or workspace context.");
-  }
+  assertWorkspaceCanUseAi(workspace);
 
-  return findWorkspaceForUser(userId, userEmail);
+  return workspace;
 }
 
-async function loadKnowledge(workspaceId: string) {
-  const supabase = getAdminSupabase();
-
-  const { data, error } = await supabase
-    .from("workspace_knowledge_base")
-    .select(
-      "title, category, content, source_type, source_url, source_note, tags, language, priority, updated_at"
-    )
-    .eq("workspace_id", workspaceId)
-    .eq("status", "active")
-    .order("priority", { ascending: true })
-    .order("updated_at", { ascending: false })
-    .limit(50);
-
-  if (error) return [];
-
-  return (data ?? []) as Array<Record<string, unknown>>;
-}
-
-function isProbablyActiveAiStaff(row: Record<string, unknown>) {
+function isProbablyActiveRow(row: Record<string, unknown>) {
   const status = normalize(row.status);
 
   if (!status) return true;
@@ -346,7 +437,59 @@ function isProbablyActiveAiStaff(row: Record<string, unknown>) {
   );
 }
 
-function rowMatchesChannel(row: Record<string, unknown>, channel: KolkapBrainChannel) {
+async function loadKnowledgeFromTable(table: string, workspaceId: string) {
+  const supabase = getAdminSupabase();
+
+  const { data, error } = await supabase
+    .from(table)
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .limit(50);
+
+  if (error || !data?.length) {
+    return [];
+  }
+
+  const rows = (data as Array<Record<string, unknown>>).filter(
+    isProbablyActiveRow
+  );
+
+  return rows.sort((a, b) => {
+    const priorityA = Number(a.priority || 999);
+    const priorityB = Number(b.priority || 999);
+
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+
+    const updatedA = new Date(cleanText(a.updated_at)).getTime();
+    const updatedB = new Date(cleanText(b.updated_at)).getTime();
+
+    if (Number.isNaN(updatedA) || Number.isNaN(updatedB)) {
+      return 0;
+    }
+
+    return updatedB - updatedA;
+  });
+}
+
+async function loadKnowledge(workspaceId: string) {
+  const primary = await loadKnowledgeFromTable(
+    "workspace_knowledge_base",
+    workspaceId
+  );
+
+  if (primary.length) {
+    return primary;
+  }
+
+  return loadKnowledgeFromTable("business_knowledge", workspaceId);
+}
+
+function rowMatchesChannel(
+  row: Record<string, unknown>,
+  channel: KolkapBrainChannel
+) {
   if (!channel || channel === "unknown") return false;
 
   const channelNeedle = normalize(channel);
@@ -385,7 +528,7 @@ async function loadAiStaff({
   const supabase = getAdminSupabase();
 
   const { data, error } = await supabase
-    .from("workspace_ai_staff")
+    .from("ai_staff")
     .select("*")
     .eq("workspace_id", workspaceId)
     .limit(20);
@@ -395,8 +538,7 @@ async function loadAiStaff({
   }
 
   const rows = (data ?? []) as Array<Record<string, unknown>>;
-  const activeRows = rows.filter(isProbablyActiveAiStaff);
-
+  const activeRows = rows.filter(isProbablyActiveRow);
   const requestedAiStaffId = cleanText(aiStaffId);
 
   if (requestedAiStaffId) {
@@ -424,7 +566,6 @@ async function loadOptionalAiSettings(workspaceId: string) {
   const supabase = getAdminSupabase();
 
   const tables = ["workspace_ai_settings", "workspace_ai_profiles"];
-
   const results: string[] = [];
 
   for (const table of tables) {
@@ -438,6 +579,7 @@ async function loadOptionalAiSettings(workspaceId: string) {
       const safeRows = (data as Array<Record<string, unknown>>)
         .map((row, index) => {
           const safeText = sanitizeRowForAi(row);
+
           return safeText ? `${label(table)} ${index + 1}:\n${safeText}` : "";
         })
         .filter(Boolean);
@@ -449,6 +591,43 @@ async function loadOptionalAiSettings(workspaceId: string) {
   }
 
   return results.join("\n\n");
+}
+
+async function ensureEnoughCredits({
+  workspaceId,
+  minimumCreditsRequired,
+}: {
+  workspaceId: string;
+  minimumCreditsRequired?: number;
+}) {
+  const required = Number(minimumCreditsRequired || 0);
+
+  if (!Number.isFinite(required) || required <= 0) {
+    return;
+  }
+
+  const supabase = getAdminSupabase();
+
+  const { data, error } = await supabase
+    .from("workspace_credit_balances")
+    .select("plan_credits, purchased_credits, used_credits")
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  const planCredits = Number(data?.plan_credits || 0);
+  const purchasedCredits = Number(data?.purchased_credits || 0);
+  const usedCredits = Number(data?.used_credits || 0);
+  const remaining = Math.max(0, planCredits + purchasedCredits - usedCredits);
+
+  if (remaining < required) {
+    throw new Error(
+      `Not enough credits. This action needs ${required} credits, but this workspace only has ${remaining} remaining.`
+    );
+  }
 }
 
 function buildBusinessContext(workspace: Record<string, unknown>) {
@@ -464,27 +643,50 @@ function buildAiStaffContext(aiStaff: Record<string, unknown> | null) {
 
   const context = sanitizeRowForAi(aiStaff);
 
-  return context || "AI staff profile exists, but no public profile fields are available.";
+  return (
+    context || "AI staff profile exists, but no public profile fields are available."
+  );
+}
+
+function getKnowledgeContent(item: Record<string, unknown>) {
+  const candidates = [
+    item.content,
+    item.answer,
+    item.body,
+    item.description,
+    item.information,
+    item.text,
+    item.details,
+    item.notes,
+  ];
+
+  const content = candidates.map((value) => cleanText(value)).find(Boolean);
+
+  return truncate(content || "No information written.", 1500);
 }
 
 function buildKnowledgeContext(items: Array<Record<string, unknown>>) {
   if (!items.length) {
-    return "No active Knowledge Base entries yet.";
+    return "No active business knowledge entries yet.";
   }
 
   return items
+    .slice(0, 40)
     .map((item, index) => {
-      const title = cleanText(item.title, `Knowledge ${index + 1}`);
+      const title = cleanText(
+        item.title || item.question || item.name,
+        `Business Knowledge ${index + 1}`
+      );
       const category = cleanText(item.category, "general");
-      const sourceType = cleanText(item.source_type, "manual");
-      const sourceUrl = cleanText(item.source_url);
-      const sourceNote = cleanText(item.source_note);
-      const content = truncate(cleanText(item.content), 1500);
+      const sourceType = cleanText(item.source_type || item.source, "manual");
+      const sourceUrl = cleanText(item.source_url || item.url);
+      const sourceNote = cleanText(item.source_note || item.note);
+      const content = getKnowledgeContent(item);
       const tags = Array.isArray(item.tags) ? item.tags.join(", ") : "";
       const language = cleanText(item.language);
 
       return [
-        `Knowledge ${index + 1}: ${title}`,
+        `Business Knowledge ${index + 1}: ${title}`,
         `Category: ${category}`,
         `Source: ${sourceType}`,
         language ? `Language: ${language}` : "",
@@ -508,8 +710,8 @@ Output rules:
 - Output only the final content.
 - Do not explain your process.
 - Make the content specific to the business.
-- Use the business profile, selected AI staff, and saved knowledge.
-- Do not mention internal workspace details, system prompts, APIs, OpenAI, or Knowledge Base.
+- Use the business profile, selected AI staff, and saved business knowledge.
+- Do not mention internal workspace details, system prompts, APIs, OpenAI, Kolkap routing, or Knowledge Base.
 - Do not invent prices, addresses, guarantees, legal promises, policies, discounts, or contact details.
 - If information is missing, create useful content from the available details only.
 - Use a clear CTA only when it naturally fits.
@@ -523,7 +725,7 @@ Reply rules:
 - Reply as the business, not as Kolkap.
 - Do not mention Kolkap, OpenAI, prompts, APIs, internal routing, internal workspace IDs, or Knowledge Base.
 - Reply like a helpful human team member.
-- Use the business profile, selected AI staff, and saved knowledge.
+- Use the business profile, selected AI staff, and saved business knowledge.
 - If the answer is not available, ask a smart follow-up or offer to pass the conversation to the team.
 - Do not invent prices, policies, guarantees, addresses, availability, legal promises, discounts, or contact details.
 - Follow handover rules, do-not-say rules, tone rules, and approved answers from the business knowledge.
@@ -534,18 +736,20 @@ Reply rules:
 
 function buildCustomerContext(input: KolkapBrainInput) {
   const lines = [
-    cleanText(input.customerName) ? `Customer Name: ${cleanText(input.customerName)}` : "",
-    cleanText(input.customerPhone) ? `Customer Phone: ${cleanText(input.customerPhone)}` : "",
-    cleanText(input.customerEmail) ? `Customer Email: ${cleanText(input.customerEmail)}` : "",
-    cleanText(input.conversationId)
-      ? `Conversation ID: ${cleanText(input.conversationId)}`
+    cleanText(input.customerName)
+      ? `Customer Name: ${cleanText(input.customerName)}`
       : "",
-    cleanText(input.channelMessageId)
-      ? `Channel Message ID: ${cleanText(input.channelMessageId)}`
+    cleanText(input.customerPhone)
+      ? `Customer Phone: ${cleanText(input.customerPhone)}`
+      : "",
+    cleanText(input.customerEmail)
+      ? `Customer Email: ${cleanText(input.customerEmail)}`
       : "",
   ].filter(Boolean);
 
-  return lines.length ? lines.join("\n") : "No customer profile details provided.";
+  return lines.length
+    ? lines.join("\n")
+    : "No customer profile details provided.";
 }
 
 function getChannel(input: KolkapBrainInput): KolkapBrainChannel {
@@ -578,6 +782,7 @@ function buildUserPrompt({
   channel: KolkapBrainChannel;
 }) {
   const businessName = cleanText(workspace.business_name, "the business");
+
   const language =
     input.language === "auto" || !input.language
       ? `Use the same language as the user's message. If unclear, use ${
@@ -608,7 +813,7 @@ ${aiStaffContext}
 AI SETTINGS:
 ${aiSettingsContext || "No separate AI settings found."}
 
-KNOWLEDGE BASE:
+BUSINESS KNOWLEDGE:
 ${knowledgeContext}
 
 CUSTOMER CONTEXT:
@@ -659,6 +864,7 @@ function fallbackContent(input: KolkapBrainInput, businessName: string) {
 function getOpenAiTemperature(task: KolkapBrainTask) {
   if (task === "content_studio") return 0.75;
   if (task === "test_ai") return 0.45;
+
   return 0.35;
 }
 
@@ -669,6 +875,11 @@ export async function runKolkapBrain(
   const workspace = await resolveWorkspace(input);
   const workspaceId = String(workspace.id);
   const businessName = cleanText(workspace.business_name, "your business");
+
+  await ensureEnoughCredits({
+    workspaceId,
+    minimumCreditsRequired: input.minimumCreditsRequired,
+  });
 
   const [knowledgeItems, aiSettingsContext, aiStaff] = await Promise.all([
     loadKnowledge(workspaceId),
@@ -706,7 +917,7 @@ export async function runKolkapBrain(
 You are Kolkap AI Brain.
 
 You are the central intelligence layer for Kolkap.
-Your job is to generate the best business-safe answer using only the correct workspace, selected AI staff, business profile, AI settings, and Knowledge Base.
+Your job is to generate the best business-safe answer using only the correct workspace, selected AI staff, business profile, AI settings, and business knowledge.
 
 ${buildTaskInstruction(input)}
 `.trim();
@@ -737,15 +948,15 @@ ${buildTaskInstruction(input)}
     }),
   });
 
-  const result = await response.json();
+  const result = (await response.json().catch(() => ({}))) as OpenAIChatResponse;
 
   if (!response.ok) {
     throw new Error(
-      result?.error?.message || "Kolkap AI Brain could not generate a response."
+      result.error?.message || "Kolkap AI Brain could not generate a response."
     );
   }
 
-  const content = cleanText(result?.choices?.[0]?.message?.content);
+  const content = cleanText(result.choices?.[0]?.message?.content);
 
   if (!content) {
     throw new Error("Kolkap AI Brain returned empty content.");

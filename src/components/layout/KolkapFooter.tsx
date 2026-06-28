@@ -6,7 +6,10 @@ export default function KolkapFooter() {
       <div className="mx-auto max-w-7xl px-5 py-6 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-5 text-sm font-medium leading-6 text-slate-500 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p>© {new Date().getFullYear()} KolKap. Powered by Tetamo Pty Ltd.</p>
+            <p>
+              © {new Date().getFullYear()} Kolkap. Powered by Tetamo Pty Ltd.
+            </p>
+
             <p className="mt-1">
               168 Kent St, Sydney NSW 2000, Australia. All rights reserved.
             </p>
@@ -21,6 +24,20 @@ export default function KolkapFooter() {
               className="font-black text-slate-600 transition hover:text-[#07111F]"
             >
               About Us
+            </Link>
+
+            <Link
+              href="/pricing"
+              className="font-black text-slate-600 transition hover:text-[#07111F]"
+            >
+              Pricing
+            </Link>
+
+            <Link
+              href="/contact"
+              className="font-black text-slate-600 transition hover:text-[#07111F]"
+            >
+              Contact
             </Link>
 
             <Link

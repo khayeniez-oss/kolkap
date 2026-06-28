@@ -15,7 +15,7 @@ export type KolkapCreditRule = {
 
 export type KolkapTopUpPackage = {
   id: string;
-  priceUsd: number;
+  priceAud: number;
   credits: number;
   label: string;
 };
@@ -24,9 +24,11 @@ export type KolkapPlan = {
   key: KolkapPlanKey;
   name: string;
   priceLabel: string;
-  monthlyPriceUsd: number | null;
+  monthlyPriceAud: number | null;
   aiStaffLimit: number | "custom";
   teamMemberLimit: number | "custom";
+  whatsappNumberLimit: number | "custom";
+  websiteChatLimit: number | "custom";
   monthlyCredits: number | "custom";
   trialDays: number;
   cardRequiredForTrial: boolean;
@@ -56,6 +58,8 @@ export const KOLKAP_TRIAL_DAYS = 7;
 
 export const KOLKAP_TRIAL_NOTE =
   "Payment method needed to activate your 7-day trial. You will not be charged today. Monthly billing starts automatically after the trial unless cancelled before the trial ends.";
+
+export const KOLKAP_PRICE_NOTE = "All prices are in AUD and include GST.";
 
 export const KOLKAP_DEFAULT_CREDIT_COST = 3;
 
@@ -89,23 +93,29 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
   starter: {
     key: "starter",
     name: "Starter AI",
-    priceLabel: "$79/month",
-    monthlyPriceUsd: 79,
+    priceLabel: "A$149/month incl. GST",
+    monthlyPriceAud: 149,
     aiStaffLimit: 1,
     teamMemberLimit: 1,
-    monthlyCredits: 1500,
+    whatsappNumberLimit: 1,
+    websiteChatLimit: 1,
+    monthlyCredits: 2500,
     trialDays: KOLKAP_TRIAL_DAYS,
     cardRequiredForTrial: true,
     trialNote: KOLKAP_TRIAL_NOTE,
     description:
-      "For small businesses that need one AI assistant to support replies, content, and customer questions.",
+      "For small businesses that need one AI staff assistant to support customer replies, content, and everyday questions.",
     features: [
       "7-day free trial",
       "Payment method needed to activate trial",
-      "1,500 credits/month",
+      "A$149/month incl. GST after trial",
+      "2,500 credits/month",
       "1 AI staff",
+      "1 team member",
+      "1 WhatsApp number",
+      "1 Website Chat",
       "1 workspace",
-      "Knowledge Base",
+      "Business knowledge",
       "Content Studio",
       "Test AI",
       "Inbox manual AI replies",
@@ -116,11 +126,13 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
   growth: {
     key: "growth",
     name: "Growth AI",
-    priceLabel: "$149/month",
-    monthlyPriceUsd: 149,
+    priceLabel: "A$249/month incl. GST",
+    monthlyPriceAud: 249,
     aiStaffLimit: 3,
     teamMemberLimit: 3,
-    monthlyCredits: 4000,
+    whatsappNumberLimit: 3,
+    websiteChatLimit: 1,
+    monthlyCredits: 6000,
     trialDays: KOLKAP_TRIAL_DAYS,
     cardRequiredForTrial: true,
     trialNote: KOLKAP_TRIAL_NOTE,
@@ -129,10 +141,13 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
     features: [
       "7-day free trial",
       "Payment method needed to activate trial",
-      "4,000 credits/month",
+      "A$249/month incl. GST after trial",
+      "6,000 credits/month",
       "3 AI staff",
       "3 team members",
-      "Knowledge Base",
+      "3 WhatsApp numbers",
+      "1 Website Chat",
+      "Business knowledge",
       "Content Studio",
       "Test AI",
       "Inbox AI replies",
@@ -144,11 +159,13 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
   professional: {
     key: "professional",
     name: "Professional AI",
-    priceLabel: "$249/month",
-    monthlyPriceUsd: 249,
+    priceLabel: "A$399/month incl. GST",
+    monthlyPriceAud: 399,
     aiStaffLimit: 5,
     teamMemberLimit: 10,
-    monthlyCredits: 10000,
+    whatsappNumberLimit: 5,
+    websiteChatLimit: 1,
+    monthlyCredits: 15000,
     trialDays: KOLKAP_TRIAL_DAYS,
     cardRequiredForTrial: true,
     trialNote: KOLKAP_TRIAL_NOTE,
@@ -158,10 +175,13 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
     features: [
       "7-day free trial",
       "Payment method needed to activate trial",
-      "10,000 credits/month",
+      "A$399/month incl. GST after trial",
+      "15,000 credits/month",
       "5 AI staff",
       "10 team members",
-      "Advanced Knowledge Base",
+      "5 WhatsApp numbers",
+      "1 Website Chat",
+      "Advanced business knowledge",
       "Content Studio",
       "Test AI",
       "Inbox AI replies",
@@ -175,25 +195,30 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
   business: {
     key: "business",
     name: "Business AI",
-    priceLabel: "$399/month",
-    monthlyPriceUsd: 399,
+    priceLabel: "A$699/month incl. GST",
+    monthlyPriceAud: 699,
     aiStaffLimit: 10,
     teamMemberLimit: "custom",
-    monthlyCredits: 18000,
+    whatsappNumberLimit: 10,
+    websiteChatLimit: 1,
+    monthlyCredits: 35000,
     trialDays: KOLKAP_TRIAL_DAYS,
     cardRequiredForTrial: true,
     trialNote: KOLKAP_TRIAL_NOTE,
     description:
-      "For larger teams, agencies, and multi-channel businesses that need stronger automation and support.",
+      "For larger teams, agencies, and multi-channel businesses that need stronger automation, reporting, and support.",
     features: [
       "7-day free trial",
       "Payment method needed to activate trial",
-      "18,000 credits/month",
+      "A$699/month incl. GST after trial",
+      "35,000 credits/month",
       "10 AI staff",
       "Custom team members",
+      "10 WhatsApp numbers",
+      "1 Website Chat",
       "Multi-channel AI",
       "Team inbox",
-      "Advanced Knowledge Base",
+      "Advanced business knowledge",
       "Auto-reply controls",
       "Priority support",
       "Advanced reports",
@@ -206,9 +231,11 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
     key: "enterprise",
     name: "Enterprise",
     priceLabel: "Custom",
-    monthlyPriceUsd: null,
+    monthlyPriceAud: null,
     aiStaffLimit: "custom",
     teamMemberLimit: "custom",
+    whatsappNumberLimit: "custom",
+    websiteChatLimit: "custom",
     monthlyCredits: "custom",
     trialDays: KOLKAP_TRIAL_DAYS,
     cardRequiredForTrial: false,
@@ -220,6 +247,8 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
       "Custom AI credits",
       "Custom AI staff",
       "Custom team members",
+      "Custom WhatsApp numbers",
+      "Custom Website Chat setup",
       "Custom AI setup",
       "Custom integrations",
       "Franchise / agency ready",
@@ -234,9 +263,11 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
     key: "free_trial",
     name: "7-Day Free Trial",
     priceLabel: "Free for 7 days",
-    monthlyPriceUsd: 0,
+    monthlyPriceAud: 0,
     aiStaffLimit: 1,
     teamMemberLimit: 1,
+    whatsappNumberLimit: 1,
+    websiteChatLimit: 1,
     monthlyCredits: 100,
     trialDays: KOLKAP_TRIAL_DAYS,
     cardRequiredForTrial: true,
@@ -249,7 +280,10 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
       "Payment method needed to activate trial",
       "100 trial credits",
       "1 AI staff",
-      "Knowledge Base",
+      "1 team member",
+      "1 WhatsApp number",
+      "1 Website Chat",
+      "Business knowledge",
       "Content Studio",
       "Test AI",
       "Inbox manual AI replies",
@@ -259,11 +293,13 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
   pro: {
     key: "pro",
     name: "Professional AI",
-    priceLabel: "$249/month",
-    monthlyPriceUsd: 249,
+    priceLabel: "A$399/month incl. GST",
+    monthlyPriceAud: 399,
     aiStaffLimit: 5,
     teamMemberLimit: 10,
-    monthlyCredits: 10000,
+    whatsappNumberLimit: 5,
+    websiteChatLimit: 1,
+    monthlyCredits: 15000,
     trialDays: KOLKAP_TRIAL_DAYS,
     cardRequiredForTrial: true,
     trialNote: KOLKAP_TRIAL_NOTE,
@@ -274,10 +310,13 @@ export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
     features: [
       "7-day free trial",
       "Payment method needed to activate trial",
-      "10,000 credits/month",
+      "A$399/month incl. GST after trial",
+      "15,000 credits/month",
       "5 AI staff",
       "10 team members",
-      "Advanced Knowledge Base",
+      "5 WhatsApp numbers",
+      "1 Website Chat",
+      "Advanced business knowledge",
       "Content Studio",
       "Test AI",
       "Inbox AI replies",
@@ -341,34 +380,34 @@ export const kolkapCreditRules: KolkapCreditRule[] = [
 
 export const kolkapTopUpPackages: KolkapTopUpPackage[] = [
   {
-    id: "topup_15",
-    priceUsd: 15,
-    credits: 200,
-    label: "$15 = 200 credits",
+    id: "topup_25",
+    priceAud: 25,
+    credits: 250,
+    label: "A$25 incl. GST = 250 credits",
   },
   {
-    id: "topup_30",
-    priceUsd: 30,
-    credits: 450,
-    label: "$30 = 450 credits",
-  },
-  {
-    id: "topup_60",
-    priceUsd: 60,
-    credits: 1000,
-    label: "$60 = 1,000 credits",
+    id: "topup_50",
+    priceAud: 50,
+    credits: 600,
+    label: "A$50 incl. GST = 600 credits",
   },
   {
     id: "topup_100",
-    priceUsd: 100,
-    credits: 1800,
-    label: "$100 = 1,800 credits",
+    priceAud: 100,
+    credits: 1400,
+    label: "A$100 incl. GST = 1,400 credits",
   },
   {
-    id: "topup_250",
-    priceUsd: 250,
-    credits: 5000,
-    label: "$250 = 5,000 credits",
+    id: "topup_200",
+    priceAud: 200,
+    credits: 3200,
+    label: "A$200 incl. GST = 3,200 credits",
+  },
+  {
+    id: "topup_500",
+    priceAud: 500,
+    credits: 9000,
+    label: "A$500 incl. GST = 9,000 credits",
   },
 ];
 
@@ -378,9 +417,9 @@ export const demoWorkspacePlanStatus: KolkapWorkspacePlanStatus = {
   planName: kolkapPlans.starter.name,
   status: "trial",
   trialDaysRemaining: 7,
-  creditsTotal: 1500,
+  creditsTotal: 2500,
   creditsUsed: 3,
-  creditsRemaining: 1497,
+  creditsRemaining: 2497,
   aiStaffLimit: 1,
   aiStaffUsed: 1,
   whatsappStatus: "not_connected",
@@ -441,6 +480,38 @@ export function getPlanTeamMemberLabel(plan: KolkapPlan) {
   return `${plan.teamMemberLimit} team member${
     plan.teamMemberLimit === 1 ? "" : "s"
   }`;
+}
+
+export function getPlanWhatsAppNumberLimitLabel(plan: KolkapPlan) {
+  if (plan.whatsappNumberLimit === "custom") return "Custom WhatsApp numbers";
+
+  return `${plan.whatsappNumberLimit} WhatsApp number${
+    plan.whatsappNumberLimit === 1 ? "" : "s"
+  }`;
+}
+
+export function getPlanWebsiteChatLimitLabel(plan: KolkapPlan) {
+  if (plan.websiteChatLimit === "custom") return "Custom Website Chat";
+
+  return `${plan.websiteChatLimit} Website Chat`;
+}
+
+export function canAddMoreWhatsAppNumbers(
+  plan: KolkapPlan,
+  currentWhatsAppNumbers: number
+) {
+  if (plan.whatsappNumberLimit === "custom") return true;
+
+  return currentWhatsAppNumbers < plan.whatsappNumberLimit;
+}
+
+export function canAddMoreWebsiteChats(
+  plan: KolkapPlan,
+  currentWebsiteChats: number
+) {
+  if (plan.websiteChatLimit === "custom") return true;
+
+  return currentWebsiteChats < plan.websiteChatLimit;
 }
 
 export function getCreditCostLabel(credits = KOLKAP_DEFAULT_CREDIT_COST) {
