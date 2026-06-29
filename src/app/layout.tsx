@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { KolkapLanguageProvider } from "@/app/context/LanguageContext";
-import KolkapUserHeader from "@/components/layout/KolkapUserHeader";
-import KolkapFooter from "@/components/layout/KolkapFooter";
+import AppChrome from "@/components/layout/AppChrome";
 import "./globals.css";
-import KaiChatBubble from "@/components/kai/KaiChatBubble";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,10 +31,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <KolkapLanguageProvider>
-          <KolkapUserHeader />
-          {children}
-          <KolkapFooter />
-          <KaiChatBubble />
+          <AppChrome>{children}</AppChrome>
         </KolkapLanguageProvider>
       </body>
     </html>
