@@ -71,8 +71,69 @@ function hasConversationHistory(history: KolkapWhatsAppChatMessage[] = []) {
   return sanitizeHistory(history).length > 0;
 }
 
+function isGreetingOnly(message: string) {
+  const lower = cleanText(message)
+    .toLowerCase()
+    .replace(/[!?.\s]/g, "");
+
+  return [
+    "hi",
+    "hello",
+    "hey",
+    "hai",
+    "halo",
+    "hallo",
+    "morning",
+    "goodmorning",
+    "afternoon",
+    "goodafternoon",
+    "evening",
+    "goodevening",
+  ].includes(lower);
+}
+
+function isKnowledgeUploadQuestion(message: string) {
+  const lower = cleanText(message).toLowerCase();
+
+  const hasUploadIntent =
+    lower.includes("upload") ||
+    lower.includes("add") ||
+    lower.includes("attach") ||
+    lower.includes("submit") ||
+    lower.includes("send") ||
+    lower.includes("train") ||
+    lower.includes("teach") ||
+    lower.includes("knowledge") ||
+    lower.includes("document") ||
+    lower.includes("documents") ||
+    lower.includes("file") ||
+    lower.includes("files");
+
+  const hasKnowledgeItem =
+    lower.includes("faq") ||
+    lower.includes("faqs") ||
+    lower.includes("price list") ||
+    lower.includes("pricelist") ||
+    lower.includes("pricing list") ||
+    lower.includes("menu") ||
+    lower.includes("service list") ||
+    lower.includes("services") ||
+    lower.includes("policy") ||
+    lower.includes("policies") ||
+    lower.includes("opening hours") ||
+    lower.includes("business details") ||
+    lower.includes("brochure") ||
+    lower.includes("pdf") ||
+    lower.includes("doc") ||
+    lower.includes("docx");
+
+  return hasUploadIntent && hasKnowledgeItem;
+}
+
 function isPricingQuestion(message: string) {
   const lower = cleanText(message).toLowerCase();
+
+  if (isKnowledgeUploadQuestion(lower)) return false;
 
   return (
     lower.includes("price") ||
@@ -114,27 +175,6 @@ function isPricingQuestion(message: string) {
   );
 }
 
-function isGreetingOnly(message: string) {
-  const lower = cleanText(message)
-    .toLowerCase()
-    .replace(/[!?.\s]/g, "");
-
-  return [
-    "hi",
-    "hello",
-    "hey",
-    "hai",
-    "halo",
-    "hallo",
-    "morning",
-    "goodmorning",
-    "afternoon",
-    "goodafternoon",
-    "evening",
-    "goodevening",
-  ].includes(lower);
-}
-
 function pricingReply() {
   return `Kolkap has different plans depending on your business needs, AI usage, channels, and message volume.
 
@@ -142,6 +182,14 @@ You can view Kolkap pricing here:
 ${KOLKAP_PRICING_URL}
 
 What type of business are you planning to use Kolkap for?`;
+}
+
+function knowledgeUploadReply() {
+  return `Yes. Kolkap is designed so businesses can add knowledge such as FAQs, price lists, services, policies, opening hours, menus, business details, and support information.
+
+That helps the AI staff answer customers based on your real business information instead of guessing.
+
+Do you already have your FAQ and price list prepared, or are you still organizing them?`;
 }
 
 function greetingReply() {
@@ -257,7 +305,9 @@ function nextSalesQuestion(customerMessage: string) {
     lower.includes("document") ||
     lower.includes("pdf") ||
     lower.includes("menu") ||
-    lower.includes("policy")
+    lower.includes("policy") ||
+    lower.includes("pricelist") ||
+    lower.includes("price list")
   ) {
     return "Do you already have FAQs, services, prices, or policies ready for the AI to learn from?";
   }
@@ -267,7 +317,8 @@ function nextSalesQuestion(customerMessage: string) {
 
 function polishReply(reply: string, input: GenerateKolkapWhatsAppReplyInput) {
   const message = cleanText(input.message);
-  const allowGreeting = !hasConversationHistory(input.history) || isGreetingOnly(message);
+  const allowGreeting =
+    !hasConversationHistory(input.history) || isGreetingOnly(message);
 
   let clean = cleanText(reply);
   clean = removeRepeatedGreeting(clean, allowGreeting);
@@ -285,6 +336,10 @@ ${nextSalesQuestion(message)}`;
 
 function fallbackReply(input: GenerateKolkapWhatsAppReplyInput) {
   const message = cleanText(input.message).toLowerCase();
+
+  if (isKnowledgeUploadQuestion(message)) {
+    return knowledgeUploadReply();
+  }
 
   if (isPricingQuestion(message)) {
     return pricingReply();
@@ -320,9 +375,10 @@ function fallbackReply(input: GenerateKolkapWhatsAppReplyInput) {
     message.includes("menu") ||
     message.includes("policy") ||
     message.includes("price list") ||
+    message.includes("pricelist") ||
     message.includes("services")
   ) {
-    return "Kolkap is designed so businesses can add knowledge such as FAQs, services, price lists, policies, opening hours, menus, business details, and support information. This helps the AI staff answer based on the business’s real information.";
+    return knowledgeUploadReply();
   }
 
   if (
@@ -378,7 +434,6 @@ Language rule:
 - Always reply in English only.
 - Even if the customer writes in Indonesian, Malay, Chinese, Tagalog, or another language, reply in English.
 - Do not switch language.
-- Do not apologize for replying in English unless needed.
 
 Tone rule:
 - Sound human, warm, friendly, firm, professional, and sales-smart.
@@ -398,15 +453,17 @@ Forbidden robotic endings:
 - Do not end with generic customer-service filler.
 
 Pricing rule:
-- If the customer asks about price, pricing, how much, plans, packages, cost, fees, subscription, monthly price, yearly price, trial, credits, or top-up, include this exact link:
+- If the customer asks about Kolkap price, pricing, how much, plans, packages, cost, fees, subscription, monthly price, yearly price, trial, credits, or top-up, include this exact link:
 ${KOLKAP_PRICING_URL}
 - Never say "check the pricing page" without including the link.
+- Do not confuse "price list" or "pricelist" upload questions with Kolkap pricing questions.
 - Do not invent exact pricing if not provided in the knowledge.
 - After sharing the pricing link, ask what type of business they are planning to use Kolkap for.
 
 Business knowledge rule:
 - If the customer asks what they can upload or add, explain that Kolkap is designed so businesses can add business knowledge such as FAQs, services, price lists, policies, opening hours, menus, business details, and support information.
 - Explain that this helps the AI staff answer based on the business's real information.
+- If the customer asks about uploading a price list, pricelist, menu, FAQ, document, or policy, answer about business knowledge. Do not answer with the Kolkap pricing link.
 
 Supported business rule:
 - If the customer asks what type of businesses Kolkap supports, explain that Kolkap supports businesses that receive customer questions, leads, bookings, or support messages.
@@ -466,6 +523,20 @@ export async function generateKolkapWhatsAppReply(
         "Hi, thanks for contacting Kolkap. What type of business are you looking to support with AI?",
       model: "fallback",
       fallback: true,
+    };
+  }
+
+  /*
+    Hard rule:
+    Upload / business knowledge questions must not be confused with pricing.
+    Example: "Can I upload my pricelist and FAQ?" should explain business knowledge,
+    not send the Kolkap pricing page.
+  */
+  if (isKnowledgeUploadQuestion(message)) {
+    return {
+      reply: knowledgeUploadReply(),
+      model: "knowledge-rule",
+      fallback: false,
     };
   }
 
