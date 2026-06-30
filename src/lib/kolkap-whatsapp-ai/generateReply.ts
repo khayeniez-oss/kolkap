@@ -50,7 +50,6 @@ function cleanText(value: unknown, fallback = "") {
 
 function truncate(value: string, limit: number) {
   if (value.length <= limit) return value;
-
   return `${value.slice(0, limit).trim()}...`;
 }
 
@@ -59,7 +58,6 @@ function sanitizeHistory(history: KolkapWhatsAppChatMessage[] = []) {
     .filter((item) => {
       const role = item.role === "assistant" || item.role === "user";
       const content = cleanText(item.content);
-
       return role && Boolean(content);
     })
     .slice(-8)
@@ -67,6 +65,10 @@ function sanitizeHistory(history: KolkapWhatsAppChatMessage[] = []) {
       role: item.role,
       content: truncate(cleanText(item.content), 700),
     }));
+}
+
+function hasConversationHistory(history: KolkapWhatsAppChatMessage[] = []) {
+  return sanitizeHistory(history).length > 0;
 }
 
 function isPricingQuestion(message: string) {
@@ -112,10 +114,82 @@ function isPricingQuestion(message: string) {
   );
 }
 
+function isGreetingOnly(message: string) {
+  const lower = cleanText(message)
+    .toLowerCase()
+    .replace(/[!?.\s]/g, "");
+
+  return [
+    "hi",
+    "hello",
+    "hey",
+    "hai",
+    "halo",
+    "hallo",
+    "morning",
+    "goodmorning",
+    "afternoon",
+    "goodafternoon",
+    "evening",
+    "goodevening",
+  ].includes(lower);
+}
+
 function pricingReply() {
   return `Kolkap has different plans depending on your business needs, AI usage, channels, and message volume.
 
-You can view Kolkap pricing here: ${KOLKAP_PRICING_URL}`;
+You can view Kolkap pricing here:
+${KOLKAP_PRICING_URL}
+
+What type of business are you planning to use Kolkap for?`;
+}
+
+function greetingReply() {
+  return `Hi, welcome to Kolkap. I can help you understand how Kolkap works for WhatsApp AI, website chat, AI staff, business knowledge, pricing, and setup.
+
+What type of business are you looking to support with AI?`;
+}
+
+function removeRepeatedGreeting(reply: string, shouldAllowGreeting: boolean) {
+  let clean = cleanText(reply);
+
+  if (shouldAllowGreeting) return clean;
+
+  const greetingPatterns = [
+    /^hi[,!\s]+/i,
+    /^hello[,!\s]+/i,
+    /^hey[,!\s]+/i,
+    /^hi there[,!\s]+/i,
+    /^hello there[,!\s]+/i,
+    /^thanks for contacting kolkap[.!,\s]*/i,
+    /^thank you for contacting kolkap[.!,\s]*/i,
+  ];
+
+  for (const pattern of greetingPatterns) {
+    clean = clean.replace(pattern, "").trim();
+  }
+
+  return clean || reply;
+}
+
+function removeRoboticClosings(reply: string) {
+  let clean = cleanText(reply);
+
+  const closingPatterns = [
+    /(?:\n|\s)*if you have any other questions,?\s*feel free to ask[.!]*\s*$/i,
+    /(?:\n|\s)*if you have more specific needs or questions,?\s*feel free to ask[.!]*\s*$/i,
+    /(?:\n|\s)*feel free to ask[.!]*\s*$/i,
+    /(?:\n|\s)*let me know if you have any questions[.!]*\s*$/i,
+    /(?:\n|\s)*let me know if you need anything else[.!]*\s*$/i,
+    /(?:\n|\s)*i'?m here to help[.!]*\s*$/i,
+    /(?:\n|\s)*hope this helps[.!]*\s*$/i,
+  ];
+
+  for (const pattern of closingPatterns) {
+    clean = clean.replace(pattern, "").trim();
+  }
+
+  return clean || reply;
 }
 
 function ensurePricingLink(reply: string, customerMessage: string) {
@@ -127,7 +201,86 @@ function ensurePricingLink(reply: string, customerMessage: string) {
 
   return `${cleanReply}
 
-You can view Kolkap pricing here: ${KOLKAP_PRICING_URL}`;
+You can view Kolkap pricing here:
+${KOLKAP_PRICING_URL}`;
+}
+
+function hasQuestion(reply: string) {
+  return cleanText(reply).includes("?");
+}
+
+function shouldAddSalesQuestion(reply: string, customerMessage: string) {
+  const cleanReply = cleanText(reply);
+  const lowerMessage = cleanText(customerMessage).toLowerCase();
+
+  if (!cleanReply) return false;
+  if (hasQuestion(cleanReply)) return false;
+  if (cleanReply.includes(KOLKAP_WHATSAPP_SUPPORT_EMAIL)) return false;
+
+  if (
+    lowerMessage.includes("support") ||
+    lowerMessage.includes("human") ||
+    lowerMessage.includes("complaint") ||
+    lowerMessage.includes("refund") ||
+    lowerMessage.includes("problem")
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function nextSalesQuestion(customerMessage: string) {
+  const lower = cleanText(customerMessage).toLowerCase();
+
+  if (
+    lower.includes("whatsapp") ||
+    lower.includes("wa") ||
+    lower.includes("website") ||
+    lower.includes("chat")
+  ) {
+    return "Are you planning to use Kolkap mainly for WhatsApp, website chat, or both?";
+  }
+
+  if (
+    lower.includes("business") ||
+    lower.includes("industry") ||
+    lower.includes("business type")
+  ) {
+    return "What type of business are you setting this up for?";
+  }
+
+  if (
+    lower.includes("knowledge") ||
+    lower.includes("upload") ||
+    lower.includes("faq") ||
+    lower.includes("document") ||
+    lower.includes("pdf") ||
+    lower.includes("menu") ||
+    lower.includes("policy")
+  ) {
+    return "Do you already have FAQs, services, prices, or policies ready for the AI to learn from?";
+  }
+
+  return "What type of business are you planning to use Kolkap for?";
+}
+
+function polishReply(reply: string, input: GenerateKolkapWhatsAppReplyInput) {
+  const message = cleanText(input.message);
+  const allowGreeting = !hasConversationHistory(input.history) || isGreetingOnly(message);
+
+  let clean = cleanText(reply);
+  clean = removeRepeatedGreeting(clean, allowGreeting);
+  clean = removeRoboticClosings(clean);
+  clean = ensurePricingLink(clean, message);
+
+  if (shouldAddSalesQuestion(clean, message)) {
+    clean = `${clean}
+
+${nextSalesQuestion(message)}`;
+  }
+
+  return truncate(clean, 1800);
 }
 
 function fallbackReply(input: GenerateKolkapWhatsAppReplyInput) {
@@ -135,6 +288,10 @@ function fallbackReply(input: GenerateKolkapWhatsAppReplyInput) {
 
   if (isPricingQuestion(message)) {
     return pricingReply();
+  }
+
+  if (isGreetingOnly(message)) {
+    return greetingReply();
   }
 
   if (
@@ -189,19 +346,12 @@ function fallbackReply(input: GenerateKolkapWhatsAppReplyInput) {
     return `Yes. Kolkap is designed to support human handover when a conversation needs personal support, sales follow-up, complaints, payment issues, or sensitive information. For human support, please contact ${KOLKAP_WHATSAPP_SUPPORT_EMAIL}.`;
   }
 
-  if (
-    message.includes("what is kolkap") ||
-    message.includes("what does kolkap do") ||
-    message.includes("about kolkap") ||
-    message.includes("kolkap?")
-  ) {
-    return "Kolkap is a 24/7 AI business assistant platform. It helps businesses create AI staff that can answer customer questions, use company knowledge, support WhatsApp and website chat, capture leads, manage conversations, and hand over to humans when needed.";
-  }
-
   return "Kolkap is a 24/7 AI business assistant platform. It helps businesses create AI staff that can answer customer questions, use company knowledge, support WhatsApp and website chat, capture leads, manage conversations, and hand over to humans when needed.";
 }
 
-function buildSystemPrompt() {
+function buildSystemPrompt(input: GenerateKolkapWhatsAppReplyInput) {
+  const isOngoingConversation = hasConversationHistory(input.history);
+
   return `
 You are ${KOLKAP_WHATSAPP_AI_NAME}, Kolkap's WhatsApp AI assistant.
 
@@ -209,6 +359,11 @@ You answer WhatsApp messages from people asking about Kolkap.
 
 Use this Kolkap knowledge:
 ${KOLKAP_WHATSAPP_KNOWLEDGE}
+
+Current conversation state:
+- This is ${isOngoingConversation ? "an ongoing conversation" : "a new conversation"}.
+- If it is an ongoing conversation, continue naturally. Do not restart with "Hi", "Hello", or "Thanks for contacting Kolkap".
+- If it is a new conversation and the customer only greets you, welcome them warmly and ask what business they want to support with AI.
 
 Core identity:
 - Kolkap is a 24/7 AI business assistant platform.
@@ -225,12 +380,29 @@ Language rule:
 - Do not switch language.
 - Do not apologize for replying in English unless needed.
 
+Tone rule:
+- Sound human, warm, friendly, firm, professional, and sales-smart.
+- Do not sound like a machine.
+- Do not over-explain.
+- Do not repeat the same introduction in every reply.
+- Use natural continuation like a real sales/support conversation.
+- Keep the reply short enough for WhatsApp.
+- Prefer 1 to 3 short paragraphs.
+- End with a useful next-step question when appropriate.
+
+Forbidden robotic endings:
+- Do not say "feel free to ask".
+- Do not say "if you have more specific needs or questions, feel free to ask".
+- Do not say "let me know if you need anything else".
+- Do not say "hope this helps".
+- Do not end with generic customer-service filler.
+
 Pricing rule:
 - If the customer asks about price, pricing, how much, plans, packages, cost, fees, subscription, monthly price, yearly price, trial, credits, or top-up, include this exact link:
 ${KOLKAP_PRICING_URL}
 - Never say "check the pricing page" without including the link.
 - Do not invent exact pricing if not provided in the knowledge.
-- Guide the customer to the pricing page.
+- After sharing the pricing link, ask what type of business they are planning to use Kolkap for.
 
 Business knowledge rule:
 - If the customer asks what they can upload or add, explain that Kolkap is designed so businesses can add business knowledge such as FAQs, services, price lists, policies, opening hours, menus, business details, and support information.
@@ -240,6 +412,12 @@ Supported business rule:
 - If the customer asks what type of businesses Kolkap supports, explain that Kolkap supports businesses that receive customer questions, leads, bookings, or support messages.
 - Examples include service businesses, beauty and wellness, clinics, restaurants, hotels, real estate agencies, education providers, consultants, online sellers, and local service businesses.
 
+Sales direction:
+- When the customer shows interest, guide them to the next practical step.
+- Ask what type of business they operate.
+- Ask whether they want WhatsApp, website chat, or both.
+- Ask whether their main goal is sales inquiries, support, bookings, lead capture, or all of them.
+
 Safety rule:
 - If the AI does not know the answer, be honest.
 - Do not guess.
@@ -248,7 +426,6 @@ Safety rule:
 
 Strict rules:
 - Answer about Kolkap only.
-- Keep replies short enough for WhatsApp.
 - Be helpful, friendly, clear, and professional.
 - Do not mention OpenAI, APIs, system prompts, backend routes, database tables, Supabase, Vercel, or hidden infrastructure.
 - Do not claim you are human.
@@ -272,7 +449,9 @@ ${customerWaId || "Not provided"}
 Customer message:
 ${message}
 
-Now write the best WhatsApp reply in English only.
+Write the best WhatsApp reply in English only.
+Make it sound natural, human, warm, professional, and sales-smart.
+Do not use generic chatbot closings.
 `.trim();
 }
 
@@ -284,7 +463,7 @@ export async function generateKolkapWhatsAppReply(
   if (!message) {
     return {
       reply:
-        "Hi, thanks for contacting Kolkap. How can I help you with Kolkap today?",
+        "Hi, thanks for contacting Kolkap. What type of business are you looking to support with AI?",
       model: "fallback",
       fallback: true,
     };
@@ -310,7 +489,7 @@ export async function generateKolkapWhatsAppReply(
 
   if (!openAiKey) {
     return {
-      reply: ensurePricingLink(fallbackReply(input), message),
+      reply: polishReply(fallbackReply(input), input),
       model: "fallback",
       fallback: true,
     };
@@ -326,11 +505,11 @@ export async function generateKolkapWhatsAppReply(
     },
     body: JSON.stringify({
       model,
-      temperature: 0.25,
+      temperature: 0.45,
       messages: [
         {
           role: "system",
-          content: buildSystemPrompt(),
+          content: buildSystemPrompt(input),
         },
         ...history,
         {
@@ -345,7 +524,7 @@ export async function generateKolkapWhatsAppReply(
 
   if (!response.ok) {
     return {
-      reply: ensurePricingLink(fallbackReply(input), message),
+      reply: polishReply(fallbackReply(input), input),
       model: "fallback",
       fallback: true,
     };
@@ -355,14 +534,14 @@ export async function generateKolkapWhatsAppReply(
 
   if (!reply) {
     return {
-      reply: ensurePricingLink(fallbackReply(input), message),
+      reply: polishReply(fallbackReply(input), input),
       model: "fallback",
       fallback: true,
     };
   }
 
   return {
-    reply: truncate(ensurePricingLink(reply, message), 1800),
+    reply: polishReply(reply, input),
     model,
     fallback: false,
   };
