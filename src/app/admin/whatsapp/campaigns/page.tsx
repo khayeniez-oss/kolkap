@@ -78,6 +78,15 @@ type TemplateOption = {
 
 const APPROVED_TEMPLATES: TemplateOption[] = [
   {
+    label: "Kolkap Business AI Intro",
+    name: "kolkap_business_ai_intro",
+    language: "en",
+    category: "marketing",
+    type: "business_initiated",
+    variableHint: '{"1":"there"}',
+    note: "Use this for first outreach to introduce Kolkap AI staff to business leads. Replace 'there' with the customer's name if available.",
+  },
+  {
     label: "Kolkap Introduction",
     name: "kolkap_intro_en",
     language: "en",
@@ -236,7 +245,7 @@ export default function KolkapWhatsAppCampaignsPage() {
   const [success, setSuccess] = useState("");
 
   const [name, setName] = useState("");
-  const [templateName, setTemplateName] = useState("kolkap_intro_en");
+  const [templateName, setTemplateName] = useState("kolkap_business_ai_intro");
   const [templateLanguage, setTemplateLanguage] = useState("en");
   const [templateCategory, setTemplateCategory] =
     useState<TemplateCategory>("marketing");
@@ -244,7 +253,8 @@ export default function KolkapWhatsAppCampaignsPage() {
   const [leadType, setLeadType] = useState("manual_admin");
   const [batchSize, setBatchSize] = useState(25);
   const [recipientText, setRecipientText] = useState("");
-  const [defaultVariablesText, setDefaultVariablesText] = useState("");
+  const [defaultVariablesText, setDefaultVariablesText] =
+    useState('{"1":"there"}');
 
   const selectedTemplate = useMemo(() => {
     return (
@@ -384,7 +394,7 @@ export default function KolkapWhatsAppCampaignsPage() {
       return JSON.parse(clean);
     } catch {
       throw new Error(
-        'Template variables must be valid JSON, example: {"1":"Customer name"}'
+        'Template variables must be valid JSON, example: {"1":"there"}'
       );
     }
   }
@@ -436,7 +446,7 @@ export default function KolkapWhatsAppCampaignsPage() {
 
       setName("");
       setRecipientText("");
-      setDefaultVariablesText("");
+      setDefaultVariablesText(selectedTemplate.variableHint.startsWith("{") ? selectedTemplate.variableHint : "");
       setRecipientStatusFilter("all");
 
       await loadCampaigns();
@@ -661,9 +671,8 @@ export default function KolkapWhatsAppCampaignsPage() {
           <div className="flex gap-3">
             <AlertTriangle className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
             <p className="text-sm font-bold leading-6 text-amber-900">
-              Use exact template names approved in Meta. The default template
-              names here are placeholders until your Kolkap Meta templates are
-              approved.
+              Use exact template names approved in Meta. The selected template
+              name must match the Meta-approved template name exactly.
             </p>
           </div>
         </div>
@@ -693,7 +702,7 @@ export default function KolkapWhatsAppCampaignsPage() {
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="Example: Kolkap Trial Leads Batch 1"
+                placeholder="Example: Kolkap Business Leads Batch 1"
                 className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none focus:border-[#07111F]"
               />
             </div>
@@ -830,12 +839,12 @@ export default function KolkapWhatsAppCampaignsPage() {
                 value={recipientText}
                 onChange={(event) => setRecipientText(event.target.value)}
                 rows={10}
-                placeholder={`Paste one phone number per line:\n628123456789\n08123456789\n+628123456789`}
+                placeholder={`Paste one phone number per line:\n61416957890\n+61416957890\n628123456789`}
                 className="mt-2 w-full resize-y rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none focus:border-[#07111F]"
               />
               <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-                Indonesian numbers starting with 08 or 8 will be normalized to
-                62 automatically.
+                Use international format without spaces when possible. Example:
+                61416957890 or 628123456789.
               </p>
             </div>
 
@@ -847,15 +856,24 @@ export default function KolkapWhatsAppCampaignsPage() {
                 value={defaultVariablesText}
                 onChange={(event) => setDefaultVariablesText(event.target.value)}
                 rows={3}
-                placeholder={`Leave empty if template has no variables.\nExample for {{1}}: {"1":"Khaye"}`}
+                placeholder={`Leave empty if template has no variables.\nExample for {{1}}: {"1":"there"} or {"1":"Michael"}`}
                 className="mt-2 w-full resize-none rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none focus:border-[#07111F]"
               />
+              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                For the Kolkap Business AI Intro template, use {"{"}"1":"there"{"}"}
+                or replace "there" with the customer name.
+              </p>
             </div>
 
             <button
               type="button"
               onClick={createCampaign}
-              disabled={creating || !name.trim() || !templateName.trim() || !recipientText.trim()}
+              disabled={
+                creating ||
+                !name.trim() ||
+                !templateName.trim() ||
+                !recipientText.trim()
+              }
               className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#07111F] px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
               {creating ? "Creating..." : "Create Campaign"}
@@ -1034,7 +1052,9 @@ export default function KolkapWhatsAppCampaignsPage() {
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => processCampaignBatch("continue_pending")}
+                          onClick={() =>
+                            processCampaignBatch("continue_pending")
+                          }
                           disabled={sendingBatch || campaignPending === 0}
                           className="inline-flex items-center gap-2 rounded-full bg-[#07111F] px-4 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
                         >
