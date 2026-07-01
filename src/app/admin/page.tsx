@@ -1,9 +1,9 @@
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowRight,
   BarChart3,
   CreditCard,
-  Inbox,
   LayoutDashboard,
   MessageCircle,
   ShieldCheck,
@@ -52,11 +52,11 @@ const adminCards = [
     status: "Ready",
   },
   {
-    title: "Support Inbox",
+    title: "Needs Attention",
     description:
-      "Handle Kolkap support requests, account issues, and customer follow-ups.",
-    href: "/admin/support",
-    icon: Inbox,
+      "Review help requests submitted by Kolkap customers from their dashboard.",
+    href: "/admin/needs-attention",
+    icon: AlertTriangle,
     status: "Ready",
   },
 ];
@@ -76,7 +76,8 @@ export default function KolkapAdminHomePage() {
 
         <p className="mt-5 max-w-3xl text-xl font-semibold leading-9 text-slate-300">
           This area is separate from the customer dashboard. Use it to monitor
-          WhatsApp AI, users, workspaces, billing, usage, and support.
+          WhatsApp AI, users, workspaces, billing, usage, and customer help
+          requests.
         </p>
       </section>
 

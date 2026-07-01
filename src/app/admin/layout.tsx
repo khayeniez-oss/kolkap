@@ -1,11 +1,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
+  AlertTriangle,
   BarChart3,
   Bot,
   CreditCard,
   Home,
-  Inbox,
   LayoutDashboard,
   Megaphone,
   MessageCircle,
@@ -51,9 +51,9 @@ const adminNavItems = [
     icon: CreditCard,
   },
   {
-    label: "Support Inbox",
-    href: "/admin/support",
-    icon: Inbox,
+    label: "Needs Attention",
+    href: "/admin/needs-attention",
+    icon: AlertTriangle,
   },
   {
     label: "Settings",
