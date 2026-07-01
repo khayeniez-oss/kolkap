@@ -68,18 +68,71 @@ function mobileNavClass(active: boolean) {
   }`;
 }
 
+function formatUnreadCount(count: number) {
+  if (count > 99) return "99+";
+  return String(count);
+}
+
 export default function KolkapUserHeader() {
   const pathname = usePathname();
 
   const [open, setOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const isInsideDashboard = pathname.startsWith("/dashboard");
   const isPublicVisitor = isCheckingAuth ? true : !isLoggedIn;
 
   const helpActive = isActivePath(pathname, "/dashboard/help");
   const notificationsActive = isActivePath(pathname, "/dashboard/notifications");
+
+  const hasUnreadNotifications = unreadCount > 0;
+  const unreadLabel = formatUnreadCount(unreadCount);
+
+  async function loadUnreadCount(accessToken?: string) {
+    try {
+      const supabase = createClient();
+      let token = accessToken || "";
+
+      if (!token) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        token = session?.access_token || "";
+      }
+
+      if (!token) {
+        setUnreadCount(0);
+        return;
+      }
+
+      const params = new URLSearchParams({
+        status: "unread",
+        page: "1",
+        pageSize: "1",
+      });
+
+      const response = await fetch(`/api/notifications?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result.success) {
+        setUnreadCount(0);
+        return;
+      }
+
+      setUnreadCount(Number(result.unreadCount || 0));
+    } catch (error) {
+      console.error("Failed to load notification count:", error);
+      setUnreadCount(0);
+    }
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -91,21 +144,40 @@ export default function KolkapUserHeader() {
 
       setIsLoggedIn(Boolean(session));
       setIsCheckingAuth(false);
+
+      if (session?.access_token) {
+        await loadUnreadCount(session.access_token);
+      } else {
+        setUnreadCount(0);
+      }
     }
 
     checkSession();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setIsLoggedIn(Boolean(session));
       setIsCheckingAuth(false);
+
+      if (session?.access_token) {
+        await loadUnreadCount(session.access_token);
+      } else {
+        setUnreadCount(0);
+      }
     });
 
     return () => {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!isCheckingAuth && isLoggedIn) {
+      loadUnreadCount();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, isCheckingAuth, isLoggedIn]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
@@ -159,10 +231,19 @@ export default function KolkapUserHeader() {
                     ? "border-[#07111F] bg-[#07111F] text-white"
                     : "border-slate-200 bg-[#F7F9FA] text-[#07111F] hover:border-blue-400 hover:bg-white"
                 }`}
-                aria-label="Notifications"
+                aria-label={
+                  hasUnreadNotifications
+                    ? `Notifications, ${unreadCount} unread`
+                    : "Notifications"
+                }
               >
                 <Bell className="h-5 w-5" />
-                <span className="absolute right-2.5 top-2.5 h-2.5 w-2.5 rounded-full bg-[#7CFF3D]" />
+
+                {hasUnreadNotifications ? (
+                  <span className="absolute -right-1 -top-1 inline-flex min-w-6 items-center justify-center rounded-full bg-[#7CFF3D] px-1.5 py-1 text-[10px] font-black leading-none text-[#07111F] ring-2 ring-white">
+                    {unreadLabel}
+                  </span>
+                ) : null}
               </Link>
             </>
           ) : null}
@@ -260,7 +341,11 @@ export default function KolkapUserHeader() {
                     Notifications
                   </span>
 
-                  <span className="h-3 w-3 rounded-full bg-[#7CFF3D]" />
+                  {hasUnreadNotifications ? (
+                    <span className="inline-flex min-w-7 items-center justify-center rounded-full bg-[#7CFF3D] px-2 py-1 text-xs font-black text-[#07111F]">
+                      {unreadLabel}
+                    </span>
+                  ) : null}
                 </Link>
               </>
             ) : null}
