@@ -11,6 +11,7 @@ import {
   CreditCard,
   FileText,
   Globe2,
+  HelpCircle,
   Inbox,
   LayoutDashboard,
   MessageCircle,
@@ -26,10 +27,7 @@ import {
   Zap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import {
-  getKolkapPlan,
-  getPlanAIStaffLabel,
-} from "@/lib/kolkapPlan";
+import { getKolkapPlan, getPlanAIStaffLabel } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 type DashboardStats = {
@@ -334,6 +332,12 @@ export default function DashboardPage() {
       href: "/dashboard/integrations/whatsapp",
       icon: <MessageCircle className="h-6 w-6" />,
     },
+    {
+      title: "Need Help?",
+      text: "Send a help request to Kolkap for WhatsApp, billing, AI staff, credits, bugs, or account issues.",
+      href: "/dashboard/help",
+      icon: <HelpCircle className="h-6 w-6" />,
+    },
   ];
 
   const setupFlow = [
@@ -450,6 +454,12 @@ export default function DashboardPage() {
       href: "/dashboard/inbox",
       icon: <Inbox className="h-6 w-6" />,
     },
+    {
+      title: "Help",
+      text: "Contact Kolkap support about your workspace, billing, WhatsApp setup, AI staff, or technical issues.",
+      href: "/dashboard/help",
+      icon: <HelpCircle className="h-6 w-6" />,
+    },
   ];
 
   const workspaceHealth = useMemo(() => {
@@ -507,14 +517,24 @@ export default function DashboardPage() {
               Kolkap Dashboard
             </div>
 
-            <button
-              type="button"
-              onClick={() => setReloadKey((value) => value + 1)}
-              className="inline-flex w-fit items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10"
-            >
-              <RefreshCcw className="h-5 w-5" />
-              Refresh
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/dashboard/help"
+                className="inline-flex w-fit items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10"
+              >
+                <HelpCircle className="h-5 w-5" />
+                Need Help?
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => setReloadKey((value) => value + 1)}
+                className="inline-flex w-fit items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10"
+              >
+                <RefreshCcw className="h-5 w-5" />
+                Refresh
+              </button>
+            </div>
           </div>
 
           <h1 className="max-w-5xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
@@ -689,7 +709,7 @@ export default function DashboardPage() {
 
               <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
                 Manage content, usage, reports, credits, billing, team, inbox,
-                leads, and settings.
+                leads, settings, and help requests.
               </h2>
             </div>
 
@@ -790,7 +810,11 @@ function HeroStat({
         {label}
       </p>
 
-      <p className={`mt-2 text-2xl font-black ${highlight ? "text-[#7CFF3D]" : ""}`}>
+      <p
+        className={`mt-2 text-2xl font-black ${
+          highlight ? "text-[#7CFF3D]" : ""
+        }`}
+      >
         {value}
       </p>
     </div>
