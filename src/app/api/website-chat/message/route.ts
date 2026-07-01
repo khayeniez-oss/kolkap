@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
+import { createKolkapNotification } from "@/lib/kolkap-notifications/createNotification";
 import { KOLKAP_WEBSITE_CHAT_REPLY_MIN_CREDITS } from "@/lib/kolkapPlan";
 
 export const runtime = "nodejs";
@@ -32,6 +33,8 @@ type BusinessWorkspaceRow = {
   trial_activated_at: string | null;
   billing_started_at: string | null;
   subscription_cancelled_at: string | null;
+  notify_new_lead?: boolean | null;
+  notify_handover?: boolean | null;
 };
 
 type CreditBalanceRow = {
@@ -218,13 +221,48 @@ function getVisitorFallbackReply(reason: string) {
   return "Thanks. Your message has been received and the team can follow up.";
 }
 
+function getMessagePreview(message: string) {
+  const clean = cleanText(message).replace(/\s+/g, " ");
+
+  if (clean.length <= 140) return clean;
+
+  return `${clean.slice(0, 137)}...`;
+}
+
+function getWebsiteChatNotificationTitle(needsAttention: boolean) {
+  if (needsAttention) {
+    return "New website chat message needs attention";
+  }
+
+  return "New website chat message";
+}
+
+function getWebsiteChatNotificationMessage({
+  customerName,
+  customerMessage,
+  needsAttention,
+}: {
+  customerName: string;
+  customerMessage: string;
+  needsAttention: boolean;
+}) {
+  const name = customerName || "Website Visitor";
+  const preview = getMessagePreview(customerMessage);
+
+  if (needsAttention) {
+    return `${name} sent a website chat message and may need human follow-up: "${preview}"`;
+  }
+
+  return `${name} sent a website chat message: "${preview}"`;
+}
+
 async function getWorkspace(workspaceId: string) {
   const supabase = getAdminSupabase();
 
   const { data, error } = await supabase
     .from("business_workspaces")
     .select(
-      "id, owner_user_id, business_name, plan_key, plan_status, billing_status, stripe_subscription_id, trial_activated_at, billing_started_at, subscription_cancelled_at"
+      "id, owner_user_id, business_name, plan_key, plan_status, billing_status, stripe_subscription_id, trial_activated_at, billing_started_at, subscription_cancelled_at, notify_new_lead, notify_handover"
     )
     .eq("id", workspaceId)
     .maybeSingle();
@@ -263,8 +301,7 @@ async function getWebsiteChatSettings(workspaceId: string) {
     widget_title: data.widget_title || "Chat with us",
     widget_subtitle:
       data.widget_subtitle || "Ask a question and our AI assistant will help.",
-    welcome_message:
-      data.welcome_message || "Hi, how can we help you today?",
+    welcome_message: data.welcome_message || "Hi, how can we help you today?",
     is_active: Boolean(data.is_active),
     ai_enabled: Boolean(data.ai_enabled),
     auto_reply_enabled: Boolean(data.auto_reply_enabled),
@@ -392,17 +429,96 @@ async function saveMessage({
 }) {
   const supabase = getAdminSupabase();
 
-  const { error } = await supabase.from("customer_messages").insert({
-    conversation_id: conversationId,
-    workspace_id: workspace.id,
-    owner_user_id: workspace.owner_user_id,
-    ai_staff_id: aiStaffId || null,
-    sender_type: senderType,
-    message_text: messageText,
-  });
+  const { data, error } = await supabase
+    .from("customer_messages")
+    .insert({
+      conversation_id: conversationId,
+      workspace_id: workspace.id,
+      owner_user_id: workspace.owner_user_id,
+      ai_staff_id: aiStaffId || null,
+      sender_type: senderType,
+      message_text: messageText,
+    })
+    .select("id")
+    .single();
 
   if (error) {
     throw error;
+  }
+
+  return data?.id || null;
+}
+
+async function createWebsiteChatMessageNotification({
+  workspace,
+  conversationId,
+  messageId,
+  customerName,
+  customerPhone,
+  customerEmail,
+  customerMessage,
+  pageUrl,
+  visitorId,
+  shouldGenerateAiReply,
+  needsAttention,
+}: {
+  workspace: BusinessWorkspaceRow;
+  conversationId: string;
+  messageId?: string | null;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  customerMessage: string;
+  pageUrl: string;
+  visitorId: string;
+  shouldGenerateAiReply: boolean;
+  needsAttention: boolean;
+}) {
+  try {
+    if (needsAttention && workspace.notify_handover === false) {
+      return;
+    }
+
+    if (!needsAttention && workspace.notify_new_lead === false) {
+      return;
+    }
+
+    await createKolkapNotification({
+      workspaceId: workspace.id,
+      ownerUserId: workspace.owner_user_id,
+      recipientUserId: workspace.owner_user_id,
+      type: needsAttention
+        ? "website_chat_handover_requested"
+        : "website_chat_message_received",
+      channel: "website_chat",
+      title: getWebsiteChatNotificationTitle(needsAttention),
+      message: getWebsiteChatNotificationMessage({
+        customerName,
+        customerMessage,
+        needsAttention,
+      }),
+      actionLabel: "Open Inbox",
+      actionUrl: "/dashboard/inbox",
+      priority: needsAttention ? "high" : "normal",
+      sourceTable: "customer_messages",
+      sourceRecordId: messageId || conversationId,
+      metadata: {
+        conversation_id: conversationId,
+        message_id: messageId || null,
+        visitor_id: visitorId || null,
+        page_url: pageUrl || null,
+        customer_name: customerName || null,
+        customer_phone: customerPhone || null,
+        customer_email: customerEmail || null,
+        should_generate_ai_reply: shouldGenerateAiReply,
+        needs_attention: needsAttention,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Website chat notification error.",
+      error instanceof Error ? error.message : error
+    );
   }
 }
 
@@ -578,6 +694,9 @@ export async function POST(request: Request) {
         selectedAiStaffId
     );
 
+    const handoverRequested =
+      settings.handover_enabled && !shouldGenerateAiReply;
+
     const conversation = await findOrCreateConversation({
       workspace,
       conversationId,
@@ -585,15 +704,29 @@ export async function POST(request: Request) {
       customerPhone,
       customerMessage,
       aiStaffId: selectedAiStaffId,
-      handoverRequested: settings.handover_enabled && !shouldGenerateAiReply,
+      handoverRequested,
     });
 
-    await saveMessage({
+    const customerMessageId = await saveMessage({
       conversationId: conversation.id,
       workspace,
       aiStaffId: selectedAiStaffId || conversation.ai_staff_id || null,
       senderType: "customer",
       messageText: customerMessage,
+    });
+
+    await createWebsiteChatMessageNotification({
+      workspace,
+      conversationId: conversation.id,
+      messageId: customerMessageId,
+      customerName,
+      customerPhone,
+      customerEmail,
+      customerMessage,
+      pageUrl,
+      visitorId,
+      shouldGenerateAiReply,
+      needsAttention: handoverRequested,
     });
 
     await logWorkspaceUsage({
@@ -605,6 +738,7 @@ export async function POST(request: Request) {
       creditsUsed: 0,
       metadata: {
         conversation_id: conversation.id,
+        message_id: customerMessageId,
         visitor_id: visitorId || null,
         customer_name: customerName || null,
         has_customer_phone: Boolean(customerPhone),
