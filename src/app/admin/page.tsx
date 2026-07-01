@@ -57,7 +57,7 @@ const adminCards = [
       "Handle Kolkap support requests, account issues, and customer follow-ups.",
     href: "/admin/support",
     icon: Inbox,
-    status: "Coming next",
+    status: "Ready",
   },
 ];
 
