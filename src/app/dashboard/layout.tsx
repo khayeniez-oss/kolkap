@@ -81,6 +81,23 @@ function isAllowedWithoutActiveTrial(pathname: string) {
   );
 }
 
+async function checkAdminAccess(accessToken: string) {
+  try {
+    const response = await fetch("/api/admin/access", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    return Boolean(response.ok && result.success && result.isAdmin);
+  } catch (error) {
+    console.error("Dashboard admin access check failed:", error);
+    return false;
+  }
+}
+
 async function findWorkspaceForUser({
   userId,
   userEmail,
@@ -144,14 +161,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       const supabase = createClient();
 
       const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
       if (!isMounted) return;
 
-      if (error || !user?.id) {
+      const user = session?.user;
+
+      if (sessionError || !user?.id || !session?.access_token) {
         router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+        return;
+      }
+
+      const isAdmin = await checkAdminAccess(session.access_token);
+
+      if (!isMounted) return;
+
+      if (isAdmin) {
+        setIsCheckingAccess(false);
         return;
       }
 
