@@ -3,7 +3,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle,
   ArrowLeft,
   CheckCircle2,
   HelpCircle,
@@ -192,7 +191,9 @@ export default function DashboardHelpPage() {
         throw new Error(result.error || "Failed to send help request.");
       }
 
-      setNotice("Your help request was sent to Kolkap. Our team can now see it.");
+      setNotice(
+        "Your help request was sent to Kolkap. Our team will get back to you within 24 hours."
+      );
       setSubject("");
       setMessage("");
       setCustomerPhone("");
@@ -241,7 +242,7 @@ export default function DashboardHelpPage() {
         <section className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
           <div className="mb-5 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-black text-[#7CFF3D]">
             <HelpCircle className="h-5 w-5" />
-            Kolkap Help
+            Kolkap Help Centre
           </div>
 
           <h1 className="max-w-4xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl">
@@ -249,9 +250,8 @@ export default function DashboardHelpPage() {
           </h1>
 
           <p className="mt-5 max-w-3xl text-lg font-semibold leading-8 text-slate-300">
-            Send a support request to Kolkap for WhatsApp setup, website chat,
-            AI staff, billing, credits, account issues, bugs, or anything that
-            needs our attention.
+            Send us your issue and our team will get back to you within 24
+            hours.
           </p>
         </section>
 
@@ -265,8 +265,8 @@ export default function DashboardHelpPage() {
             </h2>
 
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-              This goes to Kolkap admin. It is not connected to your customer
-              conversations.
+              Tell us what happened. Choose the closest category so our team can
+              review it faster.
             </p>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -335,14 +335,14 @@ export default function DashboardHelpPage() {
 
             <div className="mt-4">
               <label className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-                What happened?
+                What do you need help with?
               </label>
 
               <textarea
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
                 rows={8}
-                placeholder="Please explain the problem. Include any error message, page name, payment issue, WhatsApp issue, or anything you need help with."
+                placeholder="Please explain the issue. Include the page name, error message, payment issue, WhatsApp issue, or anything you need help with."
                 className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold leading-6 outline-none focus:border-[#07111F]"
               />
             </div>
@@ -379,7 +379,7 @@ export default function DashboardHelpPage() {
             </h2>
 
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-              These are help requests you sent to Kolkap.
+              You can check the latest requests you sent to Kolkap here.
             </p>
 
             <div className="mt-5 grid gap-3">
@@ -439,17 +439,6 @@ export default function DashboardHelpPage() {
               ))}
             </div>
           </aside>
-        </div>
-
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-          <div className="flex gap-3">
-            <AlertTriangle className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
-            <p className="text-sm font-bold leading-6 text-amber-900">
-              This Help page is for issues with Kolkap only. Your own customer
-              chats remain inside your Inbox and are not sent here as support
-              tickets.
-            </p>
-          </div>
         </div>
       </section>
     </main>
