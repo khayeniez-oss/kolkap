@@ -6,6 +6,7 @@ import {
   CreditCard,
   LayoutDashboard,
   MessageCircle,
+  Settings,
   ShieldCheck,
   UsersRound,
 } from "lucide-react";
@@ -59,6 +60,14 @@ const adminCards = [
     icon: AlertTriangle,
     status: "Ready",
   },
+  {
+    title: "Settings",
+    description:
+      "Check system health for Supabase, Stripe, Meta WhatsApp, OpenAI, admin access, and database tables.",
+    href: "/admin/settings",
+    icon: Settings,
+    status: "Ready",
+  },
 ];
 
 export default function KolkapAdminHomePage() {
@@ -76,8 +85,8 @@ export default function KolkapAdminHomePage() {
 
         <p className="mt-5 max-w-3xl text-xl font-semibold leading-9 text-slate-300">
           This area is separate from the customer dashboard. Use it to monitor
-          WhatsApp AI, users, workspaces, billing, usage, and customer help
-          requests.
+          WhatsApp AI, users, workspaces, billing, usage, customer help requests,
+          and system health.
         </p>
       </section>
 
