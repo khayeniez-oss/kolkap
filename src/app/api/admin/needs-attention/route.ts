@@ -40,6 +40,8 @@ type AttentionFilter =
   | "closed"
   | "high_priority";
 
+type HelpStatus = "needs_attention" | "in_progress" | "resolved" | "closed";
+
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 
@@ -200,6 +202,21 @@ function normalizeFilter(value?: string | null): AttentionFilter {
   return "all";
 }
 
+function normalizeHelpStatus(value: unknown): HelpStatus | "" {
+  const clean = cleanText(value).toLowerCase();
+
+  if (
+    clean === "needs_attention" ||
+    clean === "in_progress" ||
+    clean === "resolved" ||
+    clean === "closed"
+  ) {
+    return clean;
+  }
+
+  return "";
+}
+
 function sevenDaysAgoIso() {
   const date = new Date();
   date.setDate(date.getDate() - 7);
@@ -296,6 +313,80 @@ async function getStats() {
   };
 }
 
+function getNotificationTitle(status: HelpStatus) {
+  if (status === "in_progress") return "Kolkap is reviewing your request";
+  if (status === "resolved") return "Your help request was marked resolved";
+  if (status === "closed") return "Your help request was closed";
+  return "Kolkap received your help request update";
+}
+
+function getNotificationMessage({
+  status,
+  subject,
+  adminNote,
+}: {
+  status: HelpStatus;
+  subject: string;
+  adminNote: string;
+}) {
+  const statusText = status.replace(/_/g, " ");
+
+  if (adminNote) {
+    return `Update for "${subject}": ${adminNote}`;
+  }
+
+  return `Your help request "${subject}" was updated to ${statusText}.`;
+}
+
+async function createHelpRequestNotification({
+  request,
+  status,
+  adminNote,
+}: {
+  request: any;
+  status: HelpStatus;
+  adminNote: string;
+}) {
+  const supabaseAdmin = getAdminSupabase();
+
+  const recipientUserId =
+    request.submitted_by_user_id || request.owner_user_id || null;
+
+  if (!recipientUserId) {
+    return;
+  }
+
+  const { error } = await supabaseAdmin.from("kolkap_notifications").insert({
+    workspace_id: request.workspace_id || null,
+    owner_user_id: request.owner_user_id || null,
+    recipient_user_id: recipientUserId,
+    type: "help_request_updated",
+    channel: "system",
+    title: getNotificationTitle(status),
+    message: getNotificationMessage({
+      status,
+      subject: request.subject || "Help request",
+      adminNote,
+    }),
+    action_label: "Open Help Centre",
+    action_url: "/dashboard/help",
+    priority: status === "resolved" || status === "closed" ? "normal" : "high",
+    status: "unread",
+    source_table: "kolkap_help_requests",
+    source_record_id: request.id,
+    metadata: {
+      help_request_id: request.id,
+      help_status: status,
+      category: request.category,
+      subject: request.subject,
+    },
+  });
+
+  if (error) {
+    console.error("Failed to create help request notification:", error);
+  }
+}
+
 export async function GET(req: Request) {
   const auth = await verifyAdmin(req);
 
@@ -368,6 +459,113 @@ export async function GET(req: Request) {
           error instanceof Error
             ? error.message
             : "Failed to load needs attention requests.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: Request) {
+  const auth = await verifyAdmin(req);
+
+  if (!auth.authorized) {
+    return auth.response!;
+  }
+
+  try {
+    const supabaseAdmin = getAdminSupabase();
+    const body = await req.json().catch(() => ({}));
+
+    const requestId = cleanText(body.requestId);
+    const nextStatus = normalizeHelpStatus(body.status);
+    const adminNote = cleanText(body.adminNote).slice(0, 5000);
+    const notifyCustomer = body.notifyCustomer !== false;
+
+    if (!requestId) {
+      return Response.json(
+        { success: false, error: "Missing help request ID." },
+        { status: 400 }
+      );
+    }
+
+    if (!nextStatus) {
+      return Response.json(
+        { success: false, error: "Invalid help request status." },
+        { status: 400 }
+      );
+    }
+
+    const { data: existingRequest, error: existingError } = await supabaseAdmin
+      .from("kolkap_help_requests")
+      .select(HELP_SELECT)
+      .eq("id", requestId)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error("Failed to check help request:", existingError);
+
+      return Response.json(
+        { success: false, error: "Failed to check help request." },
+        { status: 500 }
+      );
+    }
+
+    if (!existingRequest?.id) {
+      return Response.json(
+        { success: false, error: "Help request not found." },
+        { status: 404 }
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    const updates: Record<string, string | null> = {
+      status: nextStatus,
+      admin_note: adminNote || null,
+      assigned_to_admin_id: auth.userId || null,
+      resolved_at: nextStatus === "resolved" ? now : null,
+      closed_at: nextStatus === "closed" ? now : null,
+    };
+
+    const { data: updatedRequest, error: updateError } = await supabaseAdmin
+      .from("kolkap_help_requests")
+      .update(updates)
+      .eq("id", requestId)
+      .select(HELP_SELECT)
+      .single();
+
+    if (updateError) {
+      console.error("Failed to update help request:", updateError);
+
+      return Response.json(
+        { success: false, error: "Failed to update help request." },
+        { status: 500 }
+      );
+    }
+
+    if (notifyCustomer) {
+      await createHelpRequestNotification({
+        request: updatedRequest,
+        status: nextStatus,
+        adminNote,
+      });
+    }
+
+    return Response.json({
+      success: true,
+      request: updatedRequest,
+      notifiedCustomer: notifyCustomer,
+    });
+  } catch (error) {
+    console.error("Needs attention PATCH error:", error);
+
+    return Response.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to update help request.",
       },
       { status: 500 }
     );

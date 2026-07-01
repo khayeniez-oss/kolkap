@@ -4,12 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Building2,
+  CheckCircle2,
   HelpCircle,
+  Loader2,
   Mail,
   MessageSquareText,
   Phone,
   RefreshCw,
+  Save,
   Search,
+  Send,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -20,6 +24,8 @@ type AttentionFilter =
   | "resolved"
   | "closed"
   | "high_priority";
+
+type HelpStatus = "needs_attention" | "in_progress" | "resolved" | "closed";
 
 type HelpRequest = {
   id: string;
@@ -73,6 +79,13 @@ const FILTERS: { value: AttentionFilter; label: string }[] = [
   { value: "high_priority", label: "High Priority" },
 ];
 
+const HELP_STATUSES: { value: HelpStatus; label: string }[] = [
+  { value: "needs_attention", label: "Needs Attention" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "resolved", label: "Resolved" },
+  { value: "closed", label: "Closed" },
+];
+
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 const EMPTY_STATS: AttentionStats = {
@@ -105,6 +118,21 @@ function cleanLabel(value?: string | null, fallback = "-") {
     .replace(/_/g, " ")
     .replace(/\s+/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function normalizeHelpStatus(value?: string | null): HelpStatus {
+  const clean = String(value || "").toLowerCase();
+
+  if (
+    clean === "needs_attention" ||
+    clean === "in_progress" ||
+    clean === "resolved" ||
+    clean === "closed"
+  ) {
+    return clean;
+  }
+
+  return "needs_attention";
 }
 
 function formatDate(value?: string | null) {
@@ -187,7 +215,14 @@ export default function AdminNeedsAttentionPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
+  const [statusDraft, setStatusDraft] =
+    useState<HelpStatus>("needs_attention");
+  const [adminNoteDraft, setAdminNoteDraft] = useState("");
+  const [notifyCustomer, setNotifyCustomer] = useState(true);
+
   const [loading, setLoading] = useState(true);
+  const [updatingRequest, setUpdatingRequest] = useState(false);
+  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
   const filterLabel = useMemo(() => {
@@ -271,6 +306,75 @@ export default function AdminNeedsAttentionPage() {
     }
   }
 
+  async function updateSelectedRequest() {
+    if (!selectedRequest?.id) return;
+
+    try {
+      setUpdatingRequest(true);
+      setError("");
+      setNotice("");
+
+      const token = await getAccessToken();
+
+      if (!token) {
+        setError("Please log in as admin first.");
+        return;
+      }
+
+      const response = await fetch("/api/admin/needs-attention", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requestId: selectedRequest.id,
+          status: statusDraft,
+          adminNote: adminNoteDraft,
+          notifyCustomer,
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to update request.");
+      }
+
+      const updatedRequest = result.request as HelpRequest;
+
+      setSelectedRequest(updatedRequest);
+      setStatusDraft(normalizeHelpStatus(updatedRequest.status));
+      setAdminNoteDraft(updatedRequest.admin_note || "");
+
+      setNotice(
+        result.notifiedCustomer
+          ? "Request updated and customer notification was sent."
+          : "Request updated without customer notification."
+      );
+
+      await loadRequests(search, filter, page, pageSize);
+    } catch (updateError) {
+      console.error("Update help request error:", updateError);
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Failed to update request."
+      );
+    } finally {
+      setUpdatingRequest(false);
+    }
+  }
+
+  function selectRequest(request: HelpRequest) {
+    setSelectedRequest(request);
+    setStatusDraft(normalizeHelpStatus(request.status));
+    setAdminNoteDraft(request.admin_note || "");
+    setNotifyCustomer(true);
+    setNotice("");
+    setError("");
+  }
+
   function submitSearch() {
     const clean = searchInput.trim();
 
@@ -325,9 +429,9 @@ export default function AdminNeedsAttentionPage() {
             </h1>
 
             <p className="mt-3 max-w-3xl text-base font-semibold leading-7 text-slate-600">
-              See help requests submitted by Kolkap customers from their
-              dashboard. This is for Kolkap support issues only, not their
-              private customer conversations.
+              Review help requests submitted by Kolkap customers, update the
+              request status, add admin notes, and notify the customer when
+              action has been taken.
             </p>
           </div>
 
@@ -401,6 +505,12 @@ export default function AdminNeedsAttentionPage() {
             </p>
           </div>
         </div>
+
+        {notice ? (
+          <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+            {notice}
+          </div>
+        ) : null}
 
         {error ? (
           <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
@@ -523,7 +633,7 @@ export default function AdminNeedsAttentionPage() {
                     <button
                       key={request.id}
                       type="button"
-                      onClick={() => setSelectedRequest(request)}
+                      onClick={() => selectRequest(request)}
                       className={`w-full rounded-2xl border p-4 text-left transition ${
                         active
                           ? "border-[#07111F] bg-[#07111F] text-white"
@@ -707,7 +817,7 @@ export default function AdminNeedsAttentionPage() {
                   </div>
                 </div>
 
-                <div className="p-6">
+                <div className="grid gap-5 p-6">
                   <div className="rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-5">
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
                       Customer Message
@@ -718,24 +828,112 @@ export default function AdminNeedsAttentionPage() {
                     </p>
                   </div>
 
-                  {selectedRequest.admin_note ? (
-                    <div className="mt-5 rounded-[2rem] border border-blue-100 bg-blue-50 p-5">
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-500">
-                        Admin Note
-                      </p>
+                  <div className="rounded-[2rem] border border-blue-100 bg-blue-50 p-5">
+                    <div className="flex items-start gap-3">
+                      <Send className="mt-1 h-5 w-5 shrink-0 text-blue-700" />
 
-                      <p className="mt-3 whitespace-pre-wrap text-sm font-bold leading-7 text-blue-900">
-                        {selectedRequest.admin_note}
-                      </p>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-500">
+                          Admin Action
+                        </p>
+
+                        <h4 className="mt-2 text-xl font-black tracking-[-0.04em] text-blue-950">
+                          Update this help request
+                        </h4>
+
+                        <p className="mt-2 text-sm font-bold leading-6 text-blue-900">
+                          Change the status, add a note, and optionally notify
+                          the customer in their Notification Centre.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="text-xs font-black uppercase tracking-[0.14em] text-blue-500">
+                          Status
+                        </label>
+
+                        <select
+                          value={statusDraft}
+                          onChange={(event) =>
+                            setStatusDraft(
+                              normalizeHelpStatus(event.target.value)
+                            )
+                          }
+                          className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-black text-blue-950 outline-none focus:border-blue-500"
+                        >
+                          {HELP_STATUSES.map((item) => (
+                            <option key={item.value} value={item.value}>
+                              {item.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex items-end">
+                        <label className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-black text-blue-950">
+                          <input
+                            type="checkbox"
+                            checked={notifyCustomer}
+                            onChange={(event) =>
+                              setNotifyCustomer(event.target.checked)
+                            }
+                            className="h-4 w-4 accent-[#07111F]"
+                          />
+                          Notify customer
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <label className="text-xs font-black uppercase tracking-[0.14em] text-blue-500">
+                        Admin Note
+                      </label>
+
+                      <textarea
+                        value={adminNoteDraft}
+                        onChange={(event) =>
+                          setAdminNoteDraft(event.target.value)
+                        }
+                        rows={5}
+                        placeholder="Example: We are checking your WhatsApp setup and will update you shortly."
+                        className="mt-2 w-full resize-none rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-bold leading-6 text-blue-950 outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={updateSelectedRequest}
+                      disabled={updatingRequest}
+                      className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#07111F] px-6 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {updatingRequest ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      {updatingRequest ? "Updating..." : "Update Request"}
+                    </button>
+                  </div>
+
+                  {selectedRequest.admin_note ? (
+                    <div className="rounded-[2rem] border border-blue-100 bg-white p-5">
+                      <div className="flex items-start gap-3">
+                        <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-blue-700" />
+
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-500">
+                            Current Admin Note
+                          </p>
+
+                          <p className="mt-3 whitespace-pre-wrap text-sm font-bold leading-7 text-blue-900">
+                            {selectedRequest.admin_note}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   ) : null}
-
-                  <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                    <p className="text-sm font-bold leading-6 text-amber-900">
-                      This first version is monitoring only. Next upgrade can add
-                      status updates, admin notes, assignment, and reply history.
-                    </p>
-                  </div>
                 </div>
               </div>
             )}
