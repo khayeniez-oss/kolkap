@@ -41,7 +41,7 @@ const adminCards = [
       "Track credits, AI replies, content generation, WhatsApp replies, and usage events.",
     href: "/admin/usage",
     icon: BarChart3,
-    status: "Coming next",
+    status: "Ready",
   },
   {
     title: "Billing",
