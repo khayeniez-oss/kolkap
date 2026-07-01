@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   Bot,
+  HelpCircle,
   Home,
   LayoutDashboard,
   LogOut,
@@ -51,6 +52,22 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function navClass(active: boolean) {
+  return `inline-flex items-center gap-2 rounded-full border px-5 py-3 text-base font-black transition ${
+    active
+      ? "border-[#07111F] bg-[#07111F] text-white"
+      : "border-slate-200 bg-[#F7F9FA] text-slate-700 hover:border-blue-400 hover:bg-white"
+  }`;
+}
+
+function mobileNavClass(active: boolean) {
+  return `flex items-center gap-3 rounded-2xl border px-5 py-4 text-lg font-black transition ${
+    active
+      ? "border-[#07111F] bg-[#07111F] text-white"
+      : "border-slate-200 bg-[#F7F9FA] text-slate-700"
+  }`;
+}
+
 export default function KolkapUserHeader() {
   const pathname = usePathname();
 
@@ -60,6 +77,9 @@ export default function KolkapUserHeader() {
 
   const isInsideDashboard = pathname.startsWith("/dashboard");
   const isPublicVisitor = isCheckingAuth ? true : !isLoggedIn;
+
+  const helpActive = isActivePath(pathname, "/dashboard/help");
+  const notificationsActive = isActivePath(pathname, "/dashboard/notifications");
 
   useEffect(() => {
     const supabase = createClient();
@@ -112,15 +132,7 @@ export default function KolkapUserHeader() {
             const active = isActivePath(pathname, item.href);
 
             return (
-              <Link
-                key={item.label}
-                href={href}
-                className={`inline-flex items-center gap-2 rounded-full border px-5 py-3 text-base font-black transition ${
-                  active
-                    ? "border-[#07111F] bg-[#07111F] text-white"
-                    : "border-slate-200 bg-[#F7F9FA] text-slate-700 hover:border-blue-400 hover:bg-white"
-                }`}
-              >
+              <Link key={item.label} href={href} className={navClass(active)}>
                 <Icon className="h-5 w-5" />
                 {item.label}
               </Link>
@@ -129,14 +141,31 @@ export default function KolkapUserHeader() {
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
-          <button
-            type="button"
-            className="relative inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-[#F7F9FA] text-[#07111F] transition hover:border-blue-400 hover:bg-white"
-            aria-label="Notifications"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-2.5 top-2.5 h-2.5 w-2.5 rounded-full bg-[#7CFF3D]" />
-          </button>
+          {!isCheckingAuth && isLoggedIn ? (
+            <>
+              <Link
+                href="/dashboard/help"
+                className={navClass(helpActive)}
+                aria-label="Help Centre"
+              >
+                <HelpCircle className="h-5 w-5" />
+                Help Centre
+              </Link>
+
+              <Link
+                href="/dashboard/notifications"
+                className={`relative inline-flex h-12 w-12 items-center justify-center rounded-full border transition ${
+                  notificationsActive
+                    ? "border-[#07111F] bg-[#07111F] text-white"
+                    : "border-slate-200 bg-[#F7F9FA] text-[#07111F] hover:border-blue-400 hover:bg-white"
+                }`}
+                aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+                <span className="absolute right-2.5 top-2.5 h-2.5 w-2.5 rounded-full bg-[#7CFF3D]" />
+              </Link>
+            </>
+          ) : null}
 
           {!isCheckingAuth && isLoggedIn && !isInsideDashboard ? (
             <Link
@@ -202,11 +231,7 @@ export default function KolkapUserHeader() {
                   key={item.label}
                   href={href}
                   onClick={() => setOpen(false)}
-                  className={`flex items-center gap-3 rounded-2xl border px-5 py-4 text-lg font-black transition ${
-                    active
-                      ? "border-[#07111F] bg-[#07111F] text-white"
-                      : "border-slate-200 bg-[#F7F9FA] text-slate-700"
-                  }`}
+                  className={mobileNavClass(active)}
                 >
                   <Icon className="h-6 w-6" />
                   {item.label}
@@ -214,17 +239,31 @@ export default function KolkapUserHeader() {
               );
             })}
 
-            <button
-              type="button"
-              className="flex items-center justify-between rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-black text-slate-700"
-            >
-              <span className="flex items-center gap-3">
-                <Bell className="h-6 w-6" />
-                Notifications
-              </span>
+            {!isCheckingAuth && isLoggedIn ? (
+              <>
+                <Link
+                  href="/dashboard/help"
+                  onClick={() => setOpen(false)}
+                  className={mobileNavClass(helpActive)}
+                >
+                  <HelpCircle className="h-6 w-6" />
+                  Help Centre
+                </Link>
 
-              <span className="h-3 w-3 rounded-full bg-[#7CFF3D]" />
-            </button>
+                <Link
+                  href="/dashboard/notifications"
+                  onClick={() => setOpen(false)}
+                  className={mobileNavClass(notificationsActive)}
+                >
+                  <span className="flex flex-1 items-center gap-3">
+                    <Bell className="h-6 w-6" />
+                    Notifications
+                  </span>
+
+                  <span className="h-3 w-3 rounded-full bg-[#7CFF3D]" />
+                </Link>
+              </>
+            ) : null}
 
             {!isCheckingAuth && isLoggedIn ? (
               <div

@@ -19,6 +19,7 @@ type WorkspaceAccessRow = {
 const ALLOWED_WITHOUT_ACTIVE_TRIAL = new Set([
   "/dashboard/activate-trial",
   "/dashboard/help",
+  "/dashboard/notifications",
 ]);
 
 const BLOCKED_STATUSES = new Set([
