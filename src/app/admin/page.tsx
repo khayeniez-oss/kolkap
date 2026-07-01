@@ -33,7 +33,7 @@ const adminCards = [
       "Monitor business workspaces, trial status, plan status, and setup progress.",
     href: "/admin/workspaces",
     icon: LayoutDashboard,
-    status: "Coming next",
+    status: "Ready",
   },
   {
     title: "AI Usage",
