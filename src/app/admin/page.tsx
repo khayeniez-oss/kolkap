@@ -49,7 +49,7 @@ const adminCards = [
       "Review subscriptions, top-ups, failed payments, trial activations, and cancellations.",
     href: "/admin/billing",
     icon: CreditCard,
-    status: "Coming next",
+    status: "Ready",
   },
   {
     title: "Support Inbox",
