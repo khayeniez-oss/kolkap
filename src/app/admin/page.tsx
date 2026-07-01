@@ -25,7 +25,7 @@ const adminCards = [
       "Review Kolkap users, admin access, account status, and customer signups.",
     href: "/admin/users",
     icon: UsersRound,
-    status: "Coming next",
+    status: "Ready",
   },
   {
     title: "Workspaces",
