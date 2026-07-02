@@ -90,6 +90,25 @@ function isSafeNextPath(path: string) {
   return path.startsWith("/") && !path.startsWith("//");
 }
 
+async function checkAdminAccess(accessToken?: string | null) {
+  if (!accessToken) return false;
+
+  try {
+    const response = await fetch("/api/admin/access", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    return Boolean(response.ok && result.success && result.isAdmin);
+  } catch (error) {
+    console.error("Login admin access check failed:", error);
+    return false;
+  }
+}
+
 async function findActiveTeamWorkspace({
   supabase,
   userEmail,
@@ -212,14 +231,28 @@ function LoginContent() {
       }
 
       const user = data.user;
+      const accessToken = data.session?.access_token || "";
 
-      if (!user?.id) {
+      if (!user?.id || !accessToken) {
         setError("Login session could not be created. Please try again.");
         setIsSubmitting(false);
         return;
       }
 
       setIsCheckingPlan(true);
+
+      const isAdmin = await checkAdminAccess(accessToken);
+
+      if (isAdmin) {
+        const adminRedirectPath = nextPath.startsWith("/admin")
+          ? nextPath
+          : "/admin";
+
+        setMessage("Admin login successful. Redirecting...");
+        router.replace(adminRedirectPath);
+        router.refresh();
+        return;
+      }
 
       let workspace = await findWorkspaceAfterLogin({
         supabase,
@@ -259,7 +292,7 @@ function LoginContent() {
   }
 
   const buttonText = isCheckingPlan
-    ? "Checking your trial..."
+    ? "Checking your access..."
     : isSubmitting
       ? "Logging in..."
       : "Log In";
