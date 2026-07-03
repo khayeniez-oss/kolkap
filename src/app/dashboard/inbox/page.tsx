@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,7 +20,6 @@ import {
   Inbox,
   MessageCircle,
   RefreshCcw,
-  Search,
   Send,
   ShieldCheck,
   Sparkles,
@@ -129,6 +134,7 @@ function channelLabel(value: string | null | undefined) {
   if (value === "whatsapp") return "WhatsApp";
   if (value === "email") return "Email";
   if (value === "inbox") return "Inbox";
+
   return value.replace(/_/g, " ");
 }
 
@@ -141,6 +147,7 @@ function statusLabel(value: string | null | undefined) {
   if (value === "qualified") return "Qualified";
   if (value === "follow_up") return "Follow Up";
   if (value === "completed") return "Completed";
+
   return value.replace(/_/g, " ");
 }
 
@@ -161,6 +168,20 @@ function getAiStaffLimitLabel(plan: ReturnType<typeof getKolkapPlan>) {
   }
 
   return `${plan.aiStaffLimit} AI staff included`;
+}
+
+function isWhatsAppConversation(conversation: ConversationRow | null) {
+  return String(conversation?.customer_channel || "").toLowerCase() === "whatsapp";
+}
+
+async function getAccessToken() {
+  const supabase = createClient();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  return session?.access_token || "";
 }
 
 export default function InboxPage() {
@@ -210,6 +231,8 @@ export default function InboxPage() {
       ) ?? null
     );
   }, [conversations, selectedConversationId]);
+
+  const selectedIsWhatsApp = isWhatsAppConversation(selectedConversation);
 
   const aiNameMap = useMemo(() => {
     return aiStaffRows.reduce<Record<string, string>>((map, staff) => {
@@ -423,7 +446,7 @@ export default function InboxPage() {
           language: "auto",
           tone: "professional",
           extra_instructions:
-            "Create a helpful suggested inbox reply for the business owner or team to review before saving. Do not send the reply automatically.",
+            "Create a helpful suggested inbox reply for the business owner or team to review before sending or saving.",
           ui_language: "en",
         }),
       });
@@ -444,7 +467,7 @@ export default function InboxPage() {
           : "";
 
       setActionMessage(
-        `AI suggested reply is ready. ${result.credits_used || INBOX_AI_REPLY_CREDIT_COST} credits have been used. Review it before saving.${knowledgeText}`
+        `AI suggested reply is ready. ${result.credits_used || INBOX_AI_REPLY_CREDIT_COST} credits have been used. Review it before sending or saving.${knowledgeText}`
       );
 
       await loadCreditBalance();
@@ -466,73 +489,78 @@ export default function InboxPage() {
     setActionMessage("");
     setActionError("");
 
-    if (!workspace || !selectedConversation || !replyText.trim()) {
+    if (!selectedConversation || !replyText.trim()) {
       setActionError("Please write a reply first.");
       return;
     }
 
     setIsSavingReply(true);
 
-    const supabase = createClient();
-    const now = new Date().toISOString();
-    const cleanReply = replyText.trim();
+    try {
+      const token = await getAccessToken();
 
-    const { data, error: insertError } = await supabase
-      .from("customer_messages")
-      .insert({
-        conversation_id: selectedConversation.id,
-        workspace_id: workspace.id,
-        owner_user_id: workspace.owner_user_id,
-        ai_staff_id: selectedConversation.ai_staff_id,
-        sender_type: "human",
-        message_text: cleanReply,
-      })
-      .select("*")
-      .single();
+      if (!token) {
+        setActionError("Please log in again before sending a reply.");
+        setIsSavingReply(false);
+        return;
+      }
 
-    if (insertError) {
-      setActionError(insertError.message);
-      setIsSavingReply(false);
-      return;
+      const response = await fetch("/api/inbox/send-reply", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          conversation_id: selectedConversation.id,
+          message_text: replyText.trim(),
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result.success) {
+        setActionError(result.error || "Reply could not be sent or saved.");
+        setIsSavingReply(false);
+        return;
+      }
+
+      const savedMessage = result.message as MessageRow;
+      const cleanReply = savedMessage?.message_text || replyText.trim();
+      const now = savedMessage?.created_at || new Date().toISOString();
+
+      setMessages((current) => [...current, savedMessage]);
+
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === selectedConversation.id
+            ? {
+                ...conversation,
+                last_message: cleanReply,
+                last_message_at: now,
+                status: "open",
+                handover_requested: false,
+                updated_at: now,
+              }
+            : conversation
+        )
+      );
+
+      setReplyText("");
+      setActionMessage(
+        result.notice ||
+          (result.delivered
+            ? "Reply sent and saved in Inbox."
+            : "Reply saved in Inbox.")
+      );
+    } catch (saveError) {
+      setActionError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Reply could not be sent or saved."
+      );
     }
 
-    const { error: updateError } = await supabase
-      .from("customer_conversations")
-      .update({
-        last_message: cleanReply,
-        last_message_at: now,
-        status: "open",
-        updated_at: now,
-      })
-      .eq("id", selectedConversation.id)
-      .eq("workspace_id", workspace.id);
-
-    if (updateError) {
-      setActionError(updateError.message);
-      setIsSavingReply(false);
-      return;
-    }
-
-    setMessages((current) => [...current, data as MessageRow]);
-
-    setConversations((current) =>
-      current.map((conversation) =>
-        conversation.id === selectedConversation.id
-          ? {
-              ...conversation,
-              last_message: cleanReply,
-              last_message_at: now,
-              status: "open",
-              updated_at: now,
-            }
-          : conversation
-      )
-    );
-
-    setReplyText("");
-    setActionMessage(
-      "Reply saved in Inbox. Channel delivery for Website Chat and WhatsApp will be connected separately."
-    );
     setIsSavingReply(false);
   }
 
@@ -679,7 +707,7 @@ export default function InboxPage() {
 
           <p className="mt-6 max-w-4xl text-xl font-semibold leading-9 text-slate-300">
             View Website Chat and WhatsApp conversations, generate AI suggested
-            replies, save internal replies, update lead status, and manage
+            replies, send manual WhatsApp replies, update lead status, and manage
             handover from your Kolkap workspace.
           </p>
         </div>
@@ -938,8 +966,8 @@ export default function InboxPage() {
             </p>
 
             <h2 className="mt-3 max-w-4xl text-3xl font-black leading-tight tracking-[-0.04em]">
-              Review messages, generate an AI suggestion, and save your team
-              reply.
+              Review messages, generate an AI suggestion, and reply to the
+              customer.
             </h2>
 
             {!selectedConversation ? (
@@ -1007,18 +1035,30 @@ export default function InboxPage() {
                     <p className="text-xl font-black tracking-[-0.03em]">
                       Reply Box
                     </p>
+
                     <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-                      AI can draft a suggested reply for review. Saving here
-                      stores the reply in Kolkap Inbox. Channel delivery for
-                      Website Chat and WhatsApp will be connected separately.
+                      AI can draft a suggested reply for review. If this is a
+                      WhatsApp conversation, sending from here will deliver the
+                      reply to the customer’s WhatsApp and save it in Inbox. For
+                      Website Chat or other channels, the reply will be saved in
+                      Inbox only.
                     </p>
+
+                    <div className="mt-3 inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-600">
+                      Current channel:{" "}
+                      <span className="ml-1 text-[#07111F]">
+                        {channelLabel(selectedConversation.customer_channel)}
+                      </span>
+                    </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={handleGenerateAiReply}
                     disabled={
-                      isGeneratingAiReply || isLoadingMessages || !hasEnoughCredits
+                      isGeneratingAiReply ||
+                      isLoadingMessages ||
+                      !hasEnoughCredits
                     }
                     className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-lg font-black text-[#07111F] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:text-xl"
                   >
@@ -1034,7 +1074,9 @@ export default function InboxPage() {
                     disabled={isLoadingCredits}
                     className="text-left text-sm font-black text-blue-600 disabled:opacity-50"
                   >
-                    {isLoadingCredits ? "Refreshing credits..." : "Refresh credits"}
+                    {isLoadingCredits
+                      ? "Refreshing credits..."
+                      : "Refresh credits"}
                   </button>
 
                   <textarea
@@ -1051,7 +1093,13 @@ export default function InboxPage() {
                     className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Send className="h-6 w-6" />
-                    {isSavingReply ? "Saving..." : "Save Reply to Inbox"}
+                    {isSavingReply
+                      ? selectedIsWhatsApp
+                        ? "Sending..."
+                        : "Saving..."
+                      : selectedIsWhatsApp
+                        ? "Send Reply to WhatsApp"
+                        : "Save Reply to Inbox"}
                   </button>
                 </form>
               </div>
@@ -1095,7 +1143,11 @@ function SummaryCard({
         {icon}
       </div>
 
-      <p className={`text-lg font-black ${dark ? "text-slate-300" : "text-slate-500"}`}>
+      <p
+        className={`text-lg font-black ${
+          dark ? "text-slate-300" : "text-slate-500"
+        }`}
+      >
         {label}
       </p>
 
@@ -1224,7 +1276,8 @@ function ConversationHeader({
           </h3>
 
           <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
-            {conversation.customer_phone || channelLabel(conversation.customer_channel)}
+            {conversation.customer_phone ||
+              channelLabel(conversation.customer_channel)}
           </p>
 
           <p className="mt-1 text-sm font-bold text-slate-500">
@@ -1275,7 +1328,7 @@ function MessageBubble({ message }: { message: MessageRow }) {
     ? "Customer Message"
     : isAI
       ? "AI Reply"
-      : "Saved Team Reply";
+      : "Team Reply";
 
   return (
     <div className={`flex ${isCustomer ? "justify-start" : "justify-end"}`}>
