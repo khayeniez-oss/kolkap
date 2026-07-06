@@ -570,9 +570,10 @@ export default function WhatsAppIntegrationPage() {
       }
 
       window.FB.login(
-        async (response) => {
-          try {
-            const code = cleanText(response.authResponse?.code);
+  (response) => {
+    void (async () => {
+      try {
+        const code = cleanText(response.authResponse?.code);
 
             if (!code) {
               setError(
@@ -642,12 +643,13 @@ export default function WhatsAppIntegrationPage() {
                 ? connectError.message
                 : "WhatsApp could not be connected."
             );
-          } finally {
-            setIsConnectingMeta(false);
-          }
-        },
-        {
-          config_id: metaConfigId,
+                  } finally {
+          setIsConnectingMeta(false);
+        }
+      })();
+    },
+    {
+      config_id: metaConfigId,
           response_type: "code",
           override_default_response_type: true,
           extras: {
