@@ -20,6 +20,11 @@
     script?.getAttribute("data-subtitle") ||
     "Ask a question and our AI assistant will help.";
 
+  var welcomeMessage =
+    script?.getAttribute("data-welcome-message") ||
+    script?.getAttribute("data-welcome_message") ||
+    "Hi, how can we help you today?";
+
   var accentColor =
     script?.getAttribute("data-accent-color") || "#7CFF3D";
 
@@ -358,7 +363,9 @@
     injectStyles();
 
     var root = createElement("div", "kolkap-widget-root");
+
     var panel = createElement("section", "kolkap-widget-panel");
+
     var button = createElement("button", "kolkap-widget-button");
     button.type = "button";
     button.setAttribute("aria-label", "Open Kolkap chat");
@@ -370,8 +377,10 @@
     var brand = createElement("div", "kolkap-widget-brand");
     var logo = createElement("div", "kolkap-widget-logo", "k");
     var copy = createElement("div");
+
     var title = createElement("h2", "kolkap-widget-title", widgetTitle);
     var subtitle = createElement("p", "kolkap-widget-subtitle", widgetSubtitle);
+
     var closeButton = createElement("button", "kolkap-widget-close", "×");
     closeButton.type = "button";
     closeButton.setAttribute("aria-label", "Close Kolkap chat");
@@ -385,15 +394,18 @@
     header.appendChild(headerTop);
 
     var messages = createElement("div", "kolkap-widget-messages");
+
     var welcome = createElement(
       "div",
       "kolkap-widget-message bot",
-      "Hi, how can we help you today?"
+      welcomeMessage
     );
+
     messages.appendChild(welcome);
 
     var form = createElement("form", "kolkap-widget-form");
     var row = createElement("div", "kolkap-widget-input-row");
+
     var input = createElement("textarea", "kolkap-widget-input");
     input.placeholder = "Write your message...";
     input.rows = 1;
@@ -429,15 +441,23 @@
         "kolkap-widget-message " + type,
         text || ""
       );
+
       messages.appendChild(item);
       scrollToBottom();
+
       return item;
     }
 
     function addTyping() {
-      var item = createElement("div", "kolkap-widget-typing", "Kolkap is replying...");
+      var item = createElement(
+        "div",
+        "kolkap-widget-typing",
+        "Assistant is replying..."
+      );
+
       messages.appendChild(item);
       scrollToBottom();
+
       return item;
     }
 
@@ -445,6 +465,7 @@
       if (isOpen) {
         panel.classList.add("is-open");
         button.style.display = "none";
+
         window.setTimeout(function () {
           input.focus();
         }, 120);
@@ -486,6 +507,7 @@
       send.disabled = true;
 
       addMessage("user", message);
+
       var typing = addTyping();
 
       try {
@@ -522,6 +544,7 @@
             result.error ||
               "Sorry, we could not send this message right now. Please try again later."
           );
+
           return;
         }
 
