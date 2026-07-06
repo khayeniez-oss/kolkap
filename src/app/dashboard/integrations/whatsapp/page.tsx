@@ -9,16 +9,18 @@ import {
   ArrowRight,
   Bot,
   CheckCircle2,
+  CirclePause,
   Inbox,
+  KeyRound,
   MessageCircle,
   Phone,
   PlugZap,
-  Plus,
   RefreshCcw,
   Send,
   Settings,
   ShieldCheck,
   Smartphone,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import KolkapLogo from "@/components/brand/KolkapLogo";
@@ -29,6 +31,32 @@ import {
   getPlanWhatsAppNumberLimitLabel,
 } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
+
+declare global {
+  interface Window {
+    fbAsyncInit?: () => void;
+    FB?: {
+      init: (options: {
+        appId: string;
+        autoLogAppEvents?: boolean;
+        xfbml?: boolean;
+        version: string;
+      }) => void;
+      login: (
+        callback: (response: {
+          authResponse?: {
+            code?: string;
+            accessToken?: string;
+            userID?: string;
+            expiresIn?: number;
+          };
+          status?: string;
+        }) => void,
+        options: Record<string, unknown>
+      ) => void;
+    };
+  }
+}
 
 type AiStaffRow = {
   id: string;
@@ -45,6 +73,8 @@ type WhatsAppConnectionRow = {
   status: string;
   connection_label: string | null;
   display_phone_number: string | null;
+  meta_phone_number_id?: string | null;
+  meta_waba_id?: string | null;
   selected_ai_staff_id: string | null;
   ai_enabled: boolean;
   auto_reply_enabled: boolean;
@@ -76,6 +106,15 @@ type WhatsAppLogRow = {
   created_at: string;
 };
 
+type EmbeddedSignupInfo = {
+  phone_number_id?: string;
+  waba_id?: string;
+  business_id?: string;
+  phone_number?: string;
+  event?: string;
+  raw?: unknown;
+};
+
 type ActiveTab = "overview" | "numbers" | "logs" | "settings";
 
 const navItems = [
@@ -96,7 +135,6 @@ const tabs: { id: ActiveTab; label: string }[] = [
 
 const emptyForm = {
   connection_label: "",
-  display_phone_number: "",
   selected_ai_staff_id: "",
   ai_enabled: true,
   auto_reply_enabled: false,
@@ -104,6 +142,26 @@ const emptyForm = {
   is_primary: false,
   notes: "",
 };
+
+const metaAppId =
+  process.env.NEXT_PUBLIC_META_APP_ID ||
+  process.env.NEXT_PUBLIC_FACEBOOK_APP_ID ||
+  "";
+
+const metaConfigId =
+  process.env.NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID ||
+  process.env.NEXT_PUBLIC_META_WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID ||
+  process.env.NEXT_PUBLIC_WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID ||
+  "";
+
+const metaGraphVersion =
+  process.env.NEXT_PUBLIC_META_GRAPH_VERSION ||
+  process.env.NEXT_PUBLIC_META_API_VERSION ||
+  "v23.0";
+
+function cleanText(value: unknown, fallback = "") {
+  return String(value || fallback).trim();
+}
 
 function formatDate(value: string | null) {
   if (!value) return "Not available";
@@ -125,25 +183,14 @@ function statusLabel(status: string | null) {
   if (status === "failed") return "Needs attention";
   if (status === "paused") return "Paused";
 
-  return status;
+  return status.replace(/_/g, " ");
 }
 
 function statusClass(status: string | null) {
-  if (status === "connected") {
-    return "border-green-200 bg-green-50 text-green-800";
-  }
-
-  if (status === "pending") {
-    return "border-blue-200 bg-blue-50 text-blue-800";
-  }
-
-  if (status === "failed") {
-    return "border-red-200 bg-red-50 text-red-800";
-  }
-
-  if (status === "paused") {
-    return "border-slate-200 bg-slate-100 text-slate-700";
-  }
+  if (status === "connected") return "border-green-200 bg-green-50 text-green-800";
+  if (status === "pending") return "border-blue-200 bg-blue-50 text-blue-800";
+  if (status === "failed") return "border-red-200 bg-red-50 text-red-800";
+  if (status === "paused") return "border-slate-200 bg-slate-100 text-slate-700";
 
   return "border-slate-200 bg-[#F7F9FA] text-slate-700";
 }
@@ -162,6 +209,89 @@ function messageStatusText(status: string | null) {
   return statusLabel(status);
 }
 
+function parseEmbeddedSignupMessage(data: unknown): EmbeddedSignupInfo | null {
+  if (!data || typeof data !== "object") return null;
+
+  const payload = data as Record<string, unknown>;
+  const eventType = cleanText(payload.type || payload.event);
+
+  if (
+    eventType !== "WA_EMBEDDED_SIGNUP" &&
+    eventType !== "whatsapp_embedded_signup" &&
+    !payload.phone_number_id &&
+    !payload.waba_id
+  ) {
+    return null;
+  }
+
+  const innerData =
+    typeof payload.data === "object" && payload.data !== null
+      ? (payload.data as Record<string, unknown>)
+      : payload;
+
+  return {
+    phone_number_id: cleanText(
+      innerData.phone_number_id || innerData.phoneNumberId
+    ),
+    waba_id: cleanText(innerData.waba_id || innerData.wabaId),
+    business_id: cleanText(innerData.business_id || innerData.businessId),
+    phone_number: cleanText(innerData.phone_number || innerData.phoneNumber),
+    event: eventType,
+    raw: payload,
+  };
+}
+
+async function getAccessToken() {
+  const supabase = createClient();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  return session?.access_token || "";
+}
+
+function loadFacebookSdk(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!metaAppId) {
+      reject(new Error("Missing NEXT_PUBLIC_META_APP_ID."));
+      return;
+    }
+
+    if (window.FB) {
+      resolve();
+      return;
+    }
+
+    window.fbAsyncInit = function fbAsyncInit() {
+      window.FB?.init({
+        appId: metaAppId,
+        autoLogAppEvents: true,
+        xfbml: true,
+        version: metaGraphVersion,
+      });
+
+      resolve();
+    };
+
+    const existingScript = document.getElementById("facebook-jssdk");
+
+    if (existingScript) {
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "facebook-jssdk";
+    script.src = "https://connect.facebook.net/en_US/sdk.js";
+    script.async = true;
+    script.defer = true;
+    script.onerror = () =>
+      reject(new Error("Facebook SDK could not be loaded."));
+
+    document.body.appendChild(script);
+  });
+}
+
 export default function WhatsAppIntegrationPage() {
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
@@ -173,6 +303,7 @@ export default function WhatsAppIntegrationPage() {
   const [logs, setLogs] = useState<WhatsAppLogRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isConnectingMeta, setIsConnectingMeta] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingConnectionId, setEditingConnectionId] = useState<string | null>(
     null
@@ -180,6 +311,8 @@ export default function WhatsAppIntegrationPage() {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [embeddedSignupInfo, setEmbeddedSignupInfo] =
+    useState<EmbeddedSignupInfo | null>(null);
 
   const aiStaffById = useMemo(() => {
     return new Map(aiStaff.map((item) => [item.id, item]));
@@ -198,6 +331,10 @@ export default function WhatsAppIntegrationPage() {
     (item) => item.status === "connected"
   ).length;
 
+  const autoReplyCount = visibleConnections.filter(
+    (item) => item.auto_reply_enabled
+  ).length;
+
   const aiEnabledCount = visibleConnections.filter(
     (item) => item.ai_enabled
   ).length;
@@ -207,6 +344,7 @@ export default function WhatsAppIntegrationPage() {
   );
 
   const whatsappLimitLabel = getPlanWhatsAppNumberLimitLabel(currentPlan);
+
   const canAddWhatsAppNumber = canAddMoreWhatsAppNumbers(
     currentPlan,
     visibleConnections.length
@@ -221,6 +359,8 @@ export default function WhatsAppIntegrationPage() {
     currentPlan.whatsappNumberLimit === "custom"
       ? ""
       : `Your ${currentPlan.name} plan includes ${whatsappLimitLabel}. Upgrade your plan to add more WhatsApp numbers.`;
+
+  const metaReady = Boolean(metaAppId && metaConfigId);
 
   async function loadWhatsAppSetup() {
     if (!workspace?.id) {
@@ -245,7 +385,7 @@ export default function WhatsAppIntegrationPage() {
           supabase
             .from("workspace_whatsapp_connections")
             .select(
-              "id,workspace_id,owner_user_id,provider,status,connection_label,display_phone_number,selected_ai_staff_id,ai_enabled,auto_reply_enabled,handover_enabled,is_primary,last_inbound_at,last_outbound_at,last_status_at,last_error_at,last_error_code,last_error_message,notes,created_at,updated_at"
+              "id,workspace_id,owner_user_id,provider,status,connection_label,display_phone_number,meta_phone_number_id,meta_waba_id,selected_ai_staff_id,ai_enabled,auto_reply_enabled,handover_enabled,is_primary,last_inbound_at,last_outbound_at,last_status_at,last_error_at,last_error_code,last_error_message,notes,created_at,updated_at"
             )
             .eq("workspace_id", workspace.id)
             .order("created_at", { ascending: false }),
@@ -275,7 +415,40 @@ export default function WhatsAppIntegrationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspace?.id]);
 
-  function openAddForm() {
+  useEffect(() => {
+    function handleMetaMessage(event: MessageEvent) {
+      if (
+        !event.origin.includes("facebook.com") &&
+        !event.origin.includes("facebook.net")
+      ) {
+        return;
+      }
+
+      let parsed: unknown = event.data;
+
+      if (typeof event.data === "string") {
+        try {
+          parsed = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+      }
+
+      const signupInfo = parseEmbeddedSignupMessage(parsed);
+
+      if (signupInfo) {
+        setEmbeddedSignupInfo(signupInfo);
+      }
+    }
+
+    window.addEventListener("message", handleMetaMessage);
+
+    return () => {
+      window.removeEventListener("message", handleMetaMessage);
+    };
+  }, []);
+
+  function openConnectForm() {
     setSuccess("");
     setError("");
 
@@ -297,7 +470,6 @@ export default function WhatsAppIntegrationPage() {
     setEditingConnectionId(connection.id);
     setForm({
       connection_label: connection.connection_label ?? "",
-      display_phone_number: connection.display_phone_number ?? "",
       selected_ai_staff_id: connection.selected_ai_staff_id ?? "",
       ai_enabled: connection.ai_enabled,
       auto_reply_enabled: connection.auto_reply_enabled,
@@ -311,20 +483,9 @@ export default function WhatsAppIntegrationPage() {
     setError("");
   }
 
-  async function saveWhatsAppNumber() {
-    if (!workspace?.id) {
-      setError("Workspace is not ready yet.");
-      return;
-    }
-
-    if (!editingConnectionId && !canAddWhatsAppNumber) {
-      setError(limitReachedMessage);
-      setIsFormOpen(false);
-      return;
-    }
-
-    if (!form.display_phone_number.trim()) {
-      setError("Please add a business WhatsApp number first.");
+  async function saveConnectionSettings() {
+    if (!workspace?.id || !editingConnectionId) {
+      setError("Connection is not ready yet.");
       return;
     }
 
@@ -335,77 +496,34 @@ export default function WhatsAppIntegrationPage() {
     try {
       const supabase = createClient();
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user?.id) {
-        throw new Error("Please log in again before saving WhatsApp setup.");
-      }
-
       if (form.is_primary) {
-        const clearPrimaryQuery = supabase
+        await supabase
           .from("workspace_whatsapp_connections")
           .update({ is_primary: false })
-          .eq("workspace_id", workspace.id);
-
-        if (editingConnectionId) {
-          await clearPrimaryQuery.neq("id", editingConnectionId);
-        } else {
-          await clearPrimaryQuery;
-        }
+          .eq("workspace_id", workspace.id)
+          .neq("id", editingConnectionId);
       }
 
-      const currentConnection = connections.find(
-        (item) => item.id === editingConnectionId
-      );
+      const { error: updateError } = await supabase
+        .from("workspace_whatsapp_connections")
+        .update({
+          connection_label: form.connection_label.trim() || null,
+          selected_ai_staff_id: form.selected_ai_staff_id || null,
+          ai_enabled: form.ai_enabled,
+          auto_reply_enabled: form.auto_reply_enabled,
+          handover_enabled: form.handover_enabled,
+          is_primary: form.is_primary,
+          notes: form.notes.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingConnectionId)
+        .eq("workspace_id", workspace.id);
 
-      const nextStatus =
-        currentConnection?.status === "connected" ? "connected" : "pending";
-
-      const payload = {
-        workspace_id: workspace.id,
-        owner_user_id: user.id,
-        provider: "meta",
-        status: nextStatus,
-        connection_label: form.connection_label.trim() || null,
-        display_phone_number: form.display_phone_number.trim(),
-        selected_ai_staff_id: form.selected_ai_staff_id || null,
-        ai_enabled: form.ai_enabled,
-        auto_reply_enabled: form.auto_reply_enabled,
-        handover_enabled: form.handover_enabled,
-        is_primary: form.is_primary,
-        notes: form.notes.trim() || null,
-      };
-
-      let saveError = null;
-
-      if (editingConnectionId) {
-        const result = await supabase
-          .from("workspace_whatsapp_connections")
-          .update(payload)
-          .eq("id", editingConnectionId)
-          .eq("workspace_id", workspace.id);
-
-        saveError = result.error;
-      } else {
-        const result = await supabase
-          .from("workspace_whatsapp_connections")
-          .insert(payload);
-
-        saveError = result.error;
+      if (updateError) {
+        throw updateError;
       }
 
-      if (saveError) {
-        throw saveError;
-      }
-
-      setSuccess(
-        editingConnectionId
-          ? "WhatsApp number updated."
-          : "WhatsApp number added. Status is pending setup."
-      );
-
+      setSuccess("WhatsApp settings updated.");
       setIsFormOpen(false);
       setEditingConnectionId(null);
       setForm(emptyForm);
@@ -414,10 +532,138 @@ export default function WhatsAppIntegrationPage() {
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "WhatsApp setup could not be saved."
+          : "WhatsApp settings could not be saved."
       );
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function startMetaEmbeddedSignup() {
+    if (!workspace?.id) {
+      setError("Workspace is not ready yet.");
+      return;
+    }
+
+    if (!canAddWhatsAppNumber) {
+      setError(limitReachedMessage);
+      return;
+    }
+
+    if (!metaAppId || !metaConfigId) {
+      setError(
+        "Meta Embedded Signup is not configured yet. Add NEXT_PUBLIC_META_APP_ID and NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID to your environment."
+      );
+      return;
+    }
+
+    setIsConnectingMeta(true);
+    setError("");
+    setSuccess("");
+    setEmbeddedSignupInfo(null);
+
+    try {
+      await loadFacebookSdk();
+
+      if (!window.FB) {
+        throw new Error("Facebook SDK is not ready yet.");
+      }
+
+      window.FB.login(
+        async (response) => {
+          try {
+            const code = cleanText(response.authResponse?.code);
+
+            if (!code) {
+              setError(
+                "Meta signup was cancelled or did not return an authorization code."
+              );
+              setIsConnectingMeta(false);
+              return;
+            }
+
+            const token = await getAccessToken();
+
+            if (!token) {
+              setError("Please log in again before connecting WhatsApp.");
+              setIsConnectingMeta(false);
+              return;
+            }
+
+            const apiResponse = await fetch(
+              "/api/meta/whatsapp/embedded-signup",
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  code,
+                  workspace_id: workspace.id,
+                  connection_label: form.connection_label.trim() || null,
+                  selected_ai_staff_id: form.selected_ai_staff_id || null,
+                  ai_enabled: form.ai_enabled,
+                  auto_reply_enabled: form.auto_reply_enabled,
+                  handover_enabled: form.handover_enabled,
+                  is_primary: form.is_primary,
+                  notes: form.notes.trim() || null,
+                  phone_number_id:
+                    embeddedSignupInfo?.phone_number_id || undefined,
+                  waba_id: embeddedSignupInfo?.waba_id || undefined,
+                  business_id: embeddedSignupInfo?.business_id || undefined,
+                  phone_number: embeddedSignupInfo?.phone_number || undefined,
+                  embedded_signup_info: embeddedSignupInfo || null,
+                }),
+              }
+            );
+
+            const result = await apiResponse.json().catch(() => ({}));
+
+            if (!apiResponse.ok || result.success === false) {
+              setError(
+                result.error ||
+                  "WhatsApp could not be connected. Please check Meta setup."
+              );
+              setIsConnectingMeta(false);
+              return;
+            }
+
+            setSuccess(
+              "WhatsApp connected. Choose AI staff, test replies, then turn auto-reply on when ready."
+            );
+            setIsFormOpen(false);
+            setEditingConnectionId(null);
+            setForm(emptyForm);
+            await loadWhatsAppSetup();
+          } catch (connectError) {
+            setError(
+              connectError instanceof Error
+                ? connectError.message
+                : "WhatsApp could not be connected."
+            );
+          } finally {
+            setIsConnectingMeta(false);
+          }
+        },
+        {
+          config_id: metaConfigId,
+          response_type: "code",
+          override_default_response_type: true,
+          extras: {
+            setup: {},
+            featureType: "whatsapp_embedded_signup",
+            sessionInfoVersion: "3",
+          },
+        }
+      );
+    } catch (connectError) {
+      setError(
+        connectError instanceof Error
+          ? connectError.message
+          : "Meta Embedded Signup could not start."
+      );
+      setIsConnectingMeta(false);
     }
   }
 
@@ -438,9 +684,7 @@ export default function WhatsAppIntegrationPage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
-            <p className="text-xl font-black">
-              WhatsApp page could not load.
-            </p>
+            <p className="text-xl font-black">WhatsApp page could not load.</p>
             <p className="mt-2 text-base font-semibold">
               {workspaceState.error}
             </p>
@@ -485,40 +729,51 @@ export default function WhatsAppIntegrationPage() {
           <div className="rounded-[2.4rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-10">
             <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
               <Smartphone className="h-5 w-5" />
-              WhatsApp
+              WhatsApp AI
             </div>
 
             <div className="grid gap-8 lg:grid-cols-[1fr_0.72fr] lg:items-end">
               <div>
                 <h1 className="max-w-4xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-                  Manage WhatsApp numbers for customer replies.
+                  Connect WhatsApp to your Kolkap AI staff.
                 </h1>
 
                 <p className="mt-6 max-w-3xl text-xl font-semibold leading-9 text-slate-300">
-                  Add business WhatsApp numbers, assign AI staff, control
-                  auto-replies, keep human handover available, and track message
-                  activity from your Kolkap workspace.
+                  Connect your official WhatsApp number with Meta, assign AI
+                  staff, control auto-replies, keep human handover available,
+                  and manage every conversation from Inbox.
                 </p>
 
-                <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
-                  <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
-                    Current Plan Limit
-                  </p>
-                  <p className="mt-2 text-2xl font-black text-[#7CFF3D]">
-                    {currentPlan.name}: {whatsappLimitLabel}
-                  </p>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                    <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
+                      Current Plan Limit
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-[#7CFF3D]">
+                      {currentPlan.name}: {whatsappLimitLabel}
+                    </p>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                    <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
+                      Meta Setup
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-[#7CFF3D]">
+                      {metaReady ? "Ready" : "Needs env setup"}
+                    </p>
+                  </div>
                 </div>
               </div>
 
               <div className="grid gap-3">
                 <button
                   type="button"
-                  onClick={openAddForm}
+                  onClick={openConnectForm}
                   disabled={!canAddWhatsAppNumber}
                   className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <Plus className="h-6 w-6" />
-                  Add WhatsApp Number
+                  <PlugZap className="h-6 w-6" />
+                  Connect with Meta
                 </button>
 
                 <Link
@@ -538,6 +793,19 @@ export default function WhatsAppIntegrationPage() {
             <p className="text-lg font-black">WhatsApp number limit reached</p>
             <p className="mt-1 text-base font-semibold leading-7">
               {limitReachedMessage}
+            </p>
+          </div>
+        ) : null}
+
+        {!metaReady ? (
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-800">
+            <p className="text-lg font-black">
+              Meta Embedded Signup is not fully configured
+            </p>
+            <p className="mt-1 text-base font-semibold leading-7">
+              Add NEXT_PUBLIC_META_APP_ID and
+              NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID to your environment before
+              customers can connect WhatsApp from this page.
             </p>
           </div>
         ) : null}
@@ -568,10 +836,12 @@ export default function WhatsAppIntegrationPage() {
             value={`${connectedCount}`}
           />
 
+          <SummaryCard icon={Bot} title="AI Support On" value={`${aiEnabledCount}`} />
+
           <SummaryCard
-            icon={Bot}
-            title="AI Support On"
-            value={`${aiEnabledCount}`}
+            icon={Sparkles}
+            title="Auto-reply On"
+            value={`${autoReplyCount}`}
           />
 
           <SummaryCard
@@ -605,7 +875,7 @@ export default function WhatsAppIntegrationPage() {
           <OverviewPanel
             connections={visibleConnections}
             aiStaffById={aiStaffById}
-            openAddForm={openAddForm}
+            openConnectForm={openConnectForm}
             openEditForm={openEditForm}
             setActiveTab={setActiveTab}
             canAddWhatsAppNumber={canAddWhatsAppNumber}
@@ -619,19 +889,23 @@ export default function WhatsAppIntegrationPage() {
               isLoading={isLoading}
               connections={visibleConnections}
               aiStaffById={aiStaffById}
-              openAddForm={openAddForm}
+              openConnectForm={openConnectForm}
               openEditForm={openEditForm}
               canAddWhatsAppNumber={canAddWhatsAppNumber}
             />
 
             {isFormOpen ? (
-              <WhatsAppNumberForm
+              <WhatsAppSetupForm
                 form={form}
                 setForm={setForm}
                 aiStaff={aiStaff}
                 isSaving={isSaving}
+                isConnectingMeta={isConnectingMeta}
                 editing={Boolean(editingConnectionId)}
-                onSave={saveWhatsAppNumber}
+                metaReady={metaReady}
+                embeddedSignupInfo={embeddedSignupInfo}
+                onSaveSettings={saveConnectionSettings}
+                onConnectWithMeta={startMetaEmbeddedSignup}
                 onCancel={() => {
                   setIsFormOpen(false);
                   setEditingConnectionId(null);
@@ -639,11 +913,12 @@ export default function WhatsAppIntegrationPage() {
                 }}
               />
             ) : (
-              <AddNumberSideCard
-                openAddForm={openAddForm}
+              <ConnectNumberSideCard
+                openConnectForm={openConnectForm}
                 canAddWhatsAppNumber={canAddWhatsAppNumber}
                 limitReachedMessage={limitReachedMessage}
                 whatsappLimitLabel={whatsappLimitLabel}
+                metaReady={metaReady}
               />
             )}
           </section>
@@ -652,7 +927,10 @@ export default function WhatsAppIntegrationPage() {
         {activeTab === "logs" ? <MessageLogs logs={logs} /> : null}
 
         {activeTab === "settings" ? (
-          <SettingsPanel loadWhatsAppSetup={loadWhatsAppSetup} />
+          <SettingsPanel
+            loadWhatsAppSetup={loadWhatsAppSetup}
+            metaReady={metaReady}
+          />
         ) : null}
       </div>
     </main>
@@ -662,7 +940,7 @@ export default function WhatsAppIntegrationPage() {
 function OverviewPanel({
   connections,
   aiStaffById,
-  openAddForm,
+  openConnectForm,
   openEditForm,
   setActiveTab,
   canAddWhatsAppNumber,
@@ -670,7 +948,7 @@ function OverviewPanel({
 }: {
   connections: WhatsAppConnectionRow[];
   aiStaffById: Map<string, AiStaffRow>;
-  openAddForm: () => void;
+  openConnectForm: () => void;
   openEditForm: (connection: WhatsAppConnectionRow) => void;
   setActiveTab: Dispatch<SetStateAction<ActiveTab>>;
   canAddWhatsAppNumber: boolean;
@@ -685,18 +963,18 @@ function OverviewPanel({
               Overview
             </p>
             <h2 className="mt-1 text-3xl font-black tracking-[-0.04em]">
-              WhatsApp numbers in this workspace
+              WhatsApp numbers connected to this workspace
             </h2>
           </div>
 
           <button
             type="button"
-            onClick={openAddForm}
+            onClick={openConnectForm}
             disabled={!canAddWhatsAppNumber}
             className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-base font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Plus className="h-5 w-5" />
-            Add WhatsApp Number
+            <PlugZap className="h-5 w-5" />
+            Connect with Meta
           </button>
         </div>
 
@@ -708,7 +986,7 @@ function OverviewPanel({
 
         {connections.length === 0 ? (
           <EmptyNumbersState
-            openAddForm={openAddForm}
+            openConnectForm={openConnectForm}
             canAddWhatsAppNumber={canAddWhatsAppNumber}
           />
         ) : (
@@ -744,22 +1022,40 @@ function OverviewPanel({
         </div>
 
         <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-          Quick Actions
+          How it works
         </p>
 
         <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
-          Prepare WhatsApp replies before going live.
+          Connect, test, then activate auto-reply.
         </h2>
 
-        <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
-          Create AI staff, add business knowledge, test replies, then turn on
-          WhatsApp support when your team is ready.
-        </p>
+        <div className="mt-6 grid gap-4">
+          <FlowStep
+            number="1"
+            title="Connect with Meta"
+            text="The business owner connects their official WhatsApp number through Meta Embedded Signup."
+          />
+          <FlowStep
+            number="2"
+            title="Choose AI staff"
+            text="Assign one AI staff member to answer messages for this WhatsApp number."
+          />
+          <FlowStep
+            number="3"
+            title="Turn auto-reply on"
+            text="When auto-reply is on, AI replies automatically. When off, Inbox can still generate suggestions."
+          />
+          <FlowStep
+            number="4"
+            title="Manage in Inbox"
+            text="All inbound messages, AI replies, and human replies are saved in the customer Inbox."
+          />
+        </div>
 
-        <div className="mt-6 grid gap-3">
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <Link
             href="/dashboard/test-ai"
-            className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-7 py-4 text-base font-black text-white transition hover:-translate-y-0.5"
+            className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-base font-black text-white transition hover:-translate-y-0.5"
           >
             <Send className="h-5 w-5" />
             Test AI
@@ -767,15 +1063,15 @@ function OverviewPanel({
 
           <Link
             href="/dashboard/inbox"
-            className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-7 py-4 text-base font-black text-[#07111F] transition hover:-translate-y-0.5"
+            className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-6 py-4 text-base font-black text-[#07111F] transition hover:-translate-y-0.5"
           >
             <Inbox className="h-5 w-5" />
-            Open Inbox
+            Inbox
           </Link>
 
           <Link
             href="/dashboard/go-live"
-            className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-7 py-4 text-base font-black text-[#07111F] transition hover:-translate-y-0.5"
+            className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-6 py-4 text-base font-black text-[#07111F] transition hover:-translate-y-0.5"
           >
             Go Live
             <ArrowRight className="h-5 w-5" />
@@ -790,14 +1086,14 @@ function WhatsAppNumbersInventory({
   isLoading,
   connections,
   aiStaffById,
-  openAddForm,
+  openConnectForm,
   openEditForm,
   canAddWhatsAppNumber,
 }: {
   isLoading: boolean;
   connections: WhatsAppConnectionRow[];
   aiStaffById: Map<string, AiStaffRow>;
-  openAddForm: () => void;
+  openConnectForm: () => void;
   openEditForm: (connection: WhatsAppConnectionRow) => void;
   canAddWhatsAppNumber: boolean;
 }) {
@@ -809,18 +1105,18 @@ function WhatsAppNumbersInventory({
             WhatsApp Numbers
           </p>
           <h2 className="mt-1 text-3xl font-black tracking-[-0.04em]">
-            Numbers connected to this workspace
+            Official WhatsApp API connections
           </h2>
         </div>
 
         <button
           type="button"
-          onClick={openAddForm}
+          onClick={openConnectForm}
           disabled={!canAddWhatsAppNumber}
           className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-base font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Plus className="h-5 w-5" />
-          Add Number
+          <PlugZap className="h-5 w-5" />
+          Connect
         </button>
       </div>
 
@@ -830,7 +1126,7 @@ function WhatsAppNumbersInventory({
         </div>
       ) : connections.length === 0 ? (
         <EmptyNumbersState
-          openAddForm={openAddForm}
+          openConnectForm={openConnectForm}
           canAddWhatsAppNumber={canAddWhatsAppNumber}
         />
       ) : (
@@ -854,31 +1150,33 @@ function WhatsAppNumbersInventory({
 }
 
 function EmptyNumbersState({
-  openAddForm,
+  openConnectForm,
   canAddWhatsAppNumber,
 }: {
-  openAddForm: () => void;
+  openConnectForm: () => void;
   canAddWhatsAppNumber: boolean;
 }) {
   return (
     <div className="rounded-3xl border border-dashed border-slate-300 bg-[#F7F9FA] p-7 text-center">
       <Smartphone className="mx-auto h-10 w-10 text-slate-400" />
+
       <h3 className="mt-4 text-2xl font-black">
-        No WhatsApp number added yet.
+        No WhatsApp number connected yet.
       </h3>
+
       <p className="mx-auto mt-3 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
-        Add a business WhatsApp number, assign AI staff, and prepare it for
-        customer replies.
+        Connect an official WhatsApp number through Meta, assign AI staff, then
+        test replies before turning auto-reply on.
       </p>
 
       <button
         type="button"
-        onClick={openAddForm}
+        onClick={openConnectForm}
         disabled={!canAddWhatsAppNumber}
         className="mt-6 inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-7 py-4 text-base font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Plus className="h-5 w-5" />
-        Add WhatsApp Number
+        <PlugZap className="h-5 w-5" />
+        Connect with Meta
       </button>
     </div>
   );
@@ -930,12 +1228,18 @@ function NumberRow({
           </div>
 
           <p className="mt-2 text-lg font-bold text-slate-600">
-            {connection.display_phone_number || "Number not added"}
+            {connection.display_phone_number || "Number not available yet"}
           </p>
 
           <p className="mt-1 text-sm font-bold text-slate-500">
             AI Staff: {assignedAI?.name || "Not selected"}
           </p>
+
+          {connection.meta_phone_number_id || connection.meta_waba_id ? (
+            <p className="mt-1 text-xs font-bold text-slate-400">
+              Meta ID connected
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -945,16 +1249,7 @@ function NumberRow({
             className="inline-flex items-center justify-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5"
           >
             <Settings className="h-4 w-4" />
-            Edit Setup
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openEditForm(connection)}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-[#07111F] transition hover:-translate-y-0.5"
-          >
-            <PlugZap className="h-4 w-4" />
-            Manage Number
+            Edit Controls
           </button>
         </div>
       </div>
@@ -974,45 +1269,64 @@ function NumberRow({
         />
       </div>
 
-      {connection.last_status_at ? (
-        <p className="mt-4 text-sm font-bold text-slate-500">
-          Last status update: {formatDate(connection.last_status_at)}
-        </p>
+      {hasIssue ? (
+        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+          <p className="text-sm font-black">
+            {connection.last_error_code || "WhatsApp issue"}
+          </p>
+          <p className="mt-1 text-sm font-semibold">
+            {connection.last_error_message || "Please check the setup."}
+          </p>
+        </div>
       ) : null}
+
+      <div className="mt-4 grid gap-2 text-sm font-bold text-slate-500 sm:grid-cols-2">
+        <p>Last inbound: {formatDate(connection.last_inbound_at)}</p>
+        <p>Last outbound: {formatDate(connection.last_outbound_at)}</p>
+      </div>
     </div>
   );
 }
 
-function AddNumberSideCard({
-  openAddForm,
+function ConnectNumberSideCard({
+  openConnectForm,
   canAddWhatsAppNumber,
   limitReachedMessage,
   whatsappLimitLabel,
+  metaReady,
 }: {
-  openAddForm: () => void;
+  openConnectForm: () => void;
   canAddWhatsAppNumber: boolean;
   limitReachedMessage: string;
   whatsappLimitLabel: string;
+  metaReady: boolean;
 }) {
   return (
     <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-7">
       <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-        <MessageCircle className="h-8 w-8" />
+        <PlugZap className="h-8 w-8" />
       </div>
 
       <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-        Setup
+        Connect
       </p>
 
       <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
-        Add numbers based on your business needs.
+        Connect WhatsApp through Meta.
       </h2>
 
       <p className="mt-5 text-lg font-semibold leading-8 text-slate-600">
-        Your current plan includes {whatsappLimitLabel}. Add separate WhatsApp
-        numbers for sales, support, bookings, branches, or different business
-        teams when your plan allows it.
+        Your current plan includes {whatsappLimitLabel}. Each connected number
+        can have its own AI staff, auto-reply setting, and handover controls.
       </p>
+
+      {!metaReady ? (
+        <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-800">
+          <p className="text-base font-black">
+            Meta environment variables are missing.
+          </p>
+        </div>
+      ) : null}
 
       {!canAddWhatsAppNumber ? (
         <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-800">
@@ -1022,47 +1336,55 @@ function AddNumberSideCard({
 
       <button
         type="button"
-        onClick={openAddForm}
+        onClick={openConnectForm}
         disabled={!canAddWhatsAppNumber}
         className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Plus className="h-6 w-6" />
-        Add WhatsApp Number
+        <PlugZap className="h-6 w-6" />
+        Start Meta Setup
       </button>
     </div>
   );
 }
 
-function WhatsAppNumberForm({
+function WhatsAppSetupForm({
   form,
   setForm,
   aiStaff,
   isSaving,
+  isConnectingMeta,
   editing,
-  onSave,
+  metaReady,
+  embeddedSignupInfo,
+  onSaveSettings,
+  onConnectWithMeta,
   onCancel,
 }: {
   form: typeof emptyForm;
   setForm: Dispatch<SetStateAction<typeof emptyForm>>;
   aiStaff: AiStaffRow[];
   isSaving: boolean;
+  isConnectingMeta: boolean;
   editing: boolean;
-  onSave: () => void;
+  metaReady: boolean;
+  embeddedSignupInfo: EmbeddedSignupInfo | null;
+  onSaveSettings: () => void;
+  onConnectWithMeta: () => void;
   onCancel: () => void;
 }) {
   return (
     <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-7">
       <div className="mb-6 flex items-center gap-4">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-          <Plus className="h-8 w-8" />
+          {editing ? <Settings className="h-8 w-8" /> : <PlugZap className="h-8 w-8" />}
         </div>
 
         <div>
           <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-            {editing ? "Edit Number" : "Add Number"}
+            {editing ? "Edit Controls" : "Meta Setup"}
           </p>
           <h2 className="mt-1 text-3xl font-black tracking-[-0.04em]">
-            WhatsApp number details
+            {editing ? "WhatsApp AI controls" : "Connect official WhatsApp"}
           </h2>
         </div>
       </div>
@@ -1077,18 +1399,9 @@ function WhatsAppNumberForm({
           }
         />
 
-        <Field
-          label="Business WhatsApp number"
-          value={form.display_phone_number}
-          placeholder="+61 4XX XXX XXX"
-          onChange={(value) =>
-            setForm((current) => ({ ...current, display_phone_number: value }))
-          }
-        />
-
         <label className="grid gap-2">
           <span className="text-base font-black text-slate-700">
-            AI staff for this number
+            AI staff for this WhatsApp number
           </span>
 
           <select
@@ -1122,7 +1435,7 @@ function WhatsAppNumberForm({
 
           <ToggleRow
             title="AI support"
-            text="Allow selected AI staff to help with this WhatsApp number."
+            text="Allow the selected AI staff to help with this WhatsApp number."
             checked={form.ai_enabled}
             onChange={(value) =>
               setForm((current) => ({ ...current, ai_enabled: value }))
@@ -1131,7 +1444,7 @@ function WhatsAppNumberForm({
 
           <ToggleRow
             title="Auto-reply"
-            text="Allow AI to reply automatically when this number is active."
+            text="If this is on, AI can reply automatically to customer WhatsApp messages."
             checked={form.auto_reply_enabled}
             onChange={(value) =>
               setForm((current) => ({ ...current, auto_reply_enabled: value }))
@@ -1140,7 +1453,7 @@ function WhatsAppNumberForm({
 
           <ToggleRow
             title="Human handover"
-            text="Keep human handover available when the customer needs help from your team."
+            text="Keep human handover available when the customer needs your team."
             checked={form.handover_enabled}
             onChange={(value) =>
               setForm((current) => ({ ...current, handover_enabled: value }))
@@ -1155,31 +1468,70 @@ function WhatsAppNumberForm({
             onChange={(event) =>
               setForm((current) => ({ ...current, notes: event.target.value }))
             }
-            placeholder="Example: This number is for sales inquiries."
+            placeholder="Example: This number is for bookings or customer support."
             rows={4}
             className="rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
           />
         </label>
 
+        {!editing ? (
+          <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5 text-blue-900">
+            <div className="flex items-start gap-4">
+              <KeyRound className="mt-1 h-6 w-6 shrink-0" />
+              <div>
+                <p className="text-lg font-black">
+                  Meta will verify and connect the official number.
+                </p>
+                <p className="mt-2 text-base font-semibold leading-7">
+                  After Meta signup finishes, Kolkap saves the real WhatsApp
+                  phone number ID, WABA ID, and access token through the backend.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {embeddedSignupInfo ? (
+          <div className="rounded-3xl border border-green-200 bg-green-50 p-5 text-green-800">
+            <p className="text-base font-black">
+              Meta signup information received.
+            </p>
+            <p className="mt-1 text-sm font-semibold">
+              Phone number ID: {embeddedSignupInfo.phone_number_id || "Pending"}
+            </p>
+            <p className="mt-1 text-sm font-semibold">
+              WABA ID: {embeddedSignupInfo.waba_id || "Pending"}
+            </p>
+          </div>
+        ) : null}
+
         <div className="grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={isSaving}
-            className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-7 py-5 text-lg font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <CheckCircle2 className="h-6 w-6" />
-            {isSaving
-              ? "Saving..."
-              : editing
-                ? "Save Changes"
-                : "Continue Setup"}
-          </button>
+          {editing ? (
+            <button
+              type="button"
+              onClick={onSaveSettings}
+              disabled={isSaving}
+              className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-7 py-5 text-lg font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <CheckCircle2 className="h-6 w-6" />
+              {isSaving ? "Saving..." : "Save Controls"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onConnectWithMeta}
+              disabled={isConnectingMeta || !metaReady}
+              className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-7 py-5 text-lg font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <PlugZap className="h-6 w-6" />
+              {isConnectingMeta ? "Connecting..." : "Connect with Meta"}
+            </button>
+          )}
 
           <button
             type="button"
             onClick={onCancel}
-            disabled={isSaving}
+            disabled={isSaving || isConnectingMeta}
             className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-7 py-5 text-lg font-black text-[#07111F] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
@@ -1192,8 +1544,10 @@ function WhatsAppNumberForm({
 
 function SettingsPanel({
   loadWhatsAppSetup,
+  metaReady,
 }: {
   loadWhatsAppSetup: () => void;
+  metaReady: boolean;
 }) {
   return (
     <section className="grid gap-6 lg:grid-cols-2">
@@ -1240,7 +1594,7 @@ function SettingsPanel({
         </div>
 
         <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-          Refresh
+          System Status
         </p>
 
         <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
@@ -1249,8 +1603,17 @@ function SettingsPanel({
 
         <p className="mt-5 text-lg font-semibold leading-8 text-slate-600">
           Refresh this page to check the latest WhatsApp numbers, message
-          activity, and setup status.
+          activity, setup status, and Meta connection state.
         </p>
+
+        <div className="mt-5 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5">
+          <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500">
+            Meta Embedded Signup
+          </p>
+          <p className="mt-1 text-xl font-black">
+            {metaReady ? "Configured" : "Missing environment variables"}
+          </p>
+        </div>
 
         <button
           type="button"
@@ -1297,23 +1660,21 @@ function MessageLogs({ logs }: { logs: WhatsAppLogRow[] }) {
           </h3>
 
           <p className="mx-auto mt-3 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
-            Once WhatsApp is active, incoming messages, replies, delivery
-            status, read status, and failed messages will appear here.
+            Once WhatsApp is active, incoming messages, AI replies, manual
+            replies, failed sends, and skipped auto-replies will appear here.
           </p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-3xl border border-slate-200">
-          <div className="min-w-[1180px]">
-            <div className="grid grid-cols-[1.15fr_0.9fr_0.9fr_1fr_1fr_1.6fr_0.9fr_0.65fr_0.65fr] border-b border-slate-200 bg-[#F7F9FA] px-5 py-4 text-sm font-black uppercase tracking-[0.12em] text-slate-500">
+          <div className="min-w-[1120px]">
+            <div className="grid grid-cols-[1.15fr_0.9fr_1fr_1fr_1.6fr_0.9fr_0.65fr] border-b border-slate-200 bg-[#F7F9FA] px-5 py-4 text-sm font-black uppercase tracking-[0.12em] text-slate-500">
               <p>Date</p>
-              <p>Service</p>
               <p>Direction</p>
               <p>From</p>
               <p>To</p>
-              <p>Body</p>
+              <p>Message</p>
               <p>Status</p>
               <p>Credits</p>
-              <p>Media</p>
             </div>
 
             {logs.map((log) => {
@@ -1328,13 +1689,11 @@ function MessageLogs({ logs }: { logs: WhatsAppLogRow[] }) {
               return (
                 <div
                   key={log.id}
-                  className="grid grid-cols-[1.15fr_0.9fr_0.9fr_1fr_1fr_1.6fr_0.9fr_0.65fr_0.65fr] border-b border-slate-200 px-5 py-5 text-base font-semibold text-slate-700 last:border-b-0"
+                  className="grid grid-cols-[1.15fr_0.9fr_1fr_1fr_1.6fr_0.9fr_0.65fr] border-b border-slate-200 px-5 py-5 text-base font-semibold text-slate-700 last:border-b-0"
                 >
                   <p className="font-black text-blue-600">
                     {formatDate(log.created_at)}
                   </p>
-
-                  <p>WhatsApp</p>
 
                   <p className="font-black">
                     {isInbound
@@ -1349,7 +1708,7 @@ function MessageLogs({ logs }: { logs: WhatsAppLogRow[] }) {
                   <p className="break-all">{toValue}</p>
 
                   <p className="overflow-hidden text-ellipsis whitespace-nowrap">
-                    {log.message_text || "No preview"}
+                    {log.message_text || log.error_message || "No preview"}
                   </p>
 
                   <p
@@ -1363,8 +1722,6 @@ function MessageLogs({ logs }: { logs: WhatsAppLogRow[] }) {
                   </p>
 
                   <p>{log.credits_used}</p>
-
-                  <p>-</p>
                 </div>
               );
             })}
@@ -1418,6 +1775,28 @@ function MiniStatus({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p className="mt-1 text-base font-black">{value}</p>
+    </div>
+  );
+}
+
+function FlowStep({
+  number,
+  title,
+  text,
+}: {
+  number: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#07111F] text-sm font-black text-[#7CFF3D]">
+        {number}
+      </div>
+      <p className="text-lg font-black">{title}</p>
+      <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
+        {text}
+      </p>
     </div>
   );
 }
