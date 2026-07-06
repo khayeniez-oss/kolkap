@@ -281,21 +281,13 @@ export default function WebsiteChatIntegrationPage() {
     if (!workspace?.id) return;
 
     setIsLoadingLogs(true);
+    setActionError("");
 
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    const [{ data: messageData }, { data: conversationData }] =
-      await Promise.all([
-        supabase
-          .from("customer_messages")
-          .select(
-            "id,conversation_id,workspace_id,owner_user_id,ai_staff_id,sender_type,message_text,created_at"
-          )
-          .eq("workspace_id", workspace.id)
-          .order("created_at", { ascending: false })
-          .limit(50),
-
-        supabase
+      const { data: conversationData, error: conversationError } =
+        await supabase
           .from("customer_conversations")
           .select(
             "id,customer_name,customer_phone,customer_channel,status,lead_status,handover_requested,last_message,last_message_at,ai_staff_id,created_at,updated_at"
@@ -303,14 +295,48 @@ export default function WebsiteChatIntegrationPage() {
           .eq("workspace_id", workspace.id)
           .eq("customer_channel", "website_chat")
           .order("last_message_at", { ascending: false })
-          .limit(30),
-      ]);
+          .limit(30);
 
-    setMessages((messageData ?? []) as WebsiteChatMessageRow[]);
-    setConversations(
-      (conversationData ?? []) as WebsiteChatConversationRow[]
-    );
-    setIsLoadingLogs(false);
+      if (conversationError) {
+        throw conversationError;
+      }
+
+      const websiteChatConversations =
+        (conversationData ?? []) as WebsiteChatConversationRow[];
+
+      setConversations(websiteChatConversations);
+
+      const conversationIds = websiteChatConversations.map((item) => item.id);
+
+      if (!conversationIds.length) {
+        setMessages([]);
+        return;
+      }
+
+      const { data: messageData, error: messageError } = await supabase
+        .from("customer_messages")
+        .select(
+          "id,conversation_id,workspace_id,owner_user_id,ai_staff_id,sender_type,message_text,created_at"
+        )
+        .eq("workspace_id", workspace.id)
+        .in("conversation_id", conversationIds)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (messageError) {
+        throw messageError;
+      }
+
+      setMessages((messageData ?? []) as WebsiteChatMessageRow[]);
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Website Chat logs could not load."
+      );
+    } finally {
+      setIsLoadingLogs(false);
+    }
   }
 
   useEffect(() => {
@@ -693,7 +719,10 @@ function OverviewTab({
           </h2>
 
           <div className="mt-7 grid gap-4">
-            <SummaryRow label="AI support" value={form.ai_enabled ? "On" : "Off"} />
+            <SummaryRow
+              label="AI support"
+              value={form.ai_enabled ? "On" : "Off"}
+            />
             <SummaryRow
               label="Auto-reply"
               value={form.auto_reply_enabled ? "On" : "Off"}
@@ -712,7 +741,11 @@ function OverviewTab({
             />
             <SummaryRow
               label="Last saved"
-              value={settings?.updated_at ? formatDate(settings.updated_at) : "Not saved yet"}
+              value={
+                settings?.updated_at
+                  ? formatDate(settings.updated_at)
+                  : "Not saved yet"
+              }
             />
           </div>
         </div>
@@ -1061,7 +1094,9 @@ function MessageLogsTab({
                     {formatDate(message.created_at)}
                   </p>
 
-                  <p className="font-black">{senderLabel(message.sender_type)}</p>
+                  <p className="font-black">
+                    {senderLabel(message.sender_type)}
+                  </p>
 
                   <p className="break-words">
                     {conversation?.customer_name || "Website Visitor"}
