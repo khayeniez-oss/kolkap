@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import {
   AlertTriangle,
@@ -13,6 +14,20 @@ import {
   UsersRound,
 } from "lucide-react";
 import KolkapLogo from "@/components/brand/KolkapLogo";
+
+export const metadata: Metadata = {
+  title: "Kolkap Admin",
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
+};
 
 const adminNavItems = [
   {
