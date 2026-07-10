@@ -647,8 +647,26 @@ async function handleCustomerWorkspaceWhatsAppMessage(input: {
     customerName,
     customerPhone,
     messageText,
-    needsAttention: handoverRequested,
+    needsAttention: handoverRequested || isConversationAiPaused(conversation),
   });
+
+  if (isConversationAiPaused(conversation)) {
+    await saveCustomerWhatsAppLog({
+      connection: input.connection,
+      conversationId: conversation.id,
+      direction: "system",
+      status: "skipped",
+      customerPhone,
+      messageType: "system",
+      messageText: "WhatsApp AI reply skipped because AI is paused for this conversation.",
+      errorCode: "ai_paused",
+      errorMessage: "AI is paused for this conversation.",
+      creditsUsed: 0,
+      rawMetaPayload: toRawPayload(input.payload),
+    });
+
+    return;
+  }
 
   if (!canAttemptAiReply) {
     return;
@@ -1326,6 +1344,12 @@ function extractWebhookMessages(payload: MetaWebhookPayload) {
   }
 
   return items;
+}
+
+function isConversationAiPaused(value: unknown) {
+  return Boolean(
+    (value as { handover_requested?: boolean | null })?.handover_requested
+  );
 }
 
 export async function GET(request: NextRequest) {

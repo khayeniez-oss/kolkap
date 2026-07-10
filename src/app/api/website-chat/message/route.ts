@@ -623,6 +623,12 @@ async function returnWithoutAiReply({
   });
 }
 
+function isConversationAiPaused(value: unknown) {
+  return Boolean(
+    (value as { handover_requested?: boolean | null })?.handover_requested
+  );
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
@@ -726,7 +732,7 @@ export async function POST(request: Request) {
       pageUrl,
       visitorId,
       shouldGenerateAiReply,
-      needsAttention: handoverRequested,
+      needsAttention: handoverRequested || isConversationAiPaused(conversation),
     });
 
     await logWorkspaceUsage({
@@ -750,6 +756,17 @@ export async function POST(request: Request) {
         selected_ai_staff_id: selectedAiStaffId,
       },
     });
+
+    if (isConversationAiPaused(conversation)) {
+      return returnWithoutAiReply({
+        workspace,
+        conversation,
+        pageUrl,
+        visitorId,
+        reason: "ai_paused",
+        settings,
+      });
+    }
 
     if (!settings.is_active) {
       return returnWithoutAiReply({

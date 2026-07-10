@@ -349,8 +349,8 @@ async function updateConversationAfterReply({
     .update({
       last_message: messageText,
       last_message_at: now,
-      status: "open",
-      handover_requested: false,
+      status: "handover",
+      handover_requested: true,
       updated_at: now,
     })
     .eq("id", conversationId)
