@@ -28,7 +28,7 @@ import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 const MAX_GENERATED_LENGTH = 8000;
 const MAX_DETAILS_LENGTH = 420;
 const MAX_PROMPT_LENGTH = 2000;
-const CONTENT_GENERATION_CREDIT_COST = 5;
+const CONTENT_GENERATION_CREDIT_COST = 10;
 
 type WorkspaceRow = {
   id: string;
@@ -366,7 +366,7 @@ export default function ContentStudioPage() {
     {
       label: "Credit Cost",
       value: `${CONTENT_GENERATION_CREDIT_COST} Credits`,
-      note: "Every successful content generation uses 5 credits.",
+      note: "Every successful content generation uses 10 credits.",
       icon: <Zap className="h-7 w-7" />,
     },
     {
@@ -491,11 +491,11 @@ export default function ContentStudioPage() {
             : "";
 
         setActionMessage(
-          `Content generated for ${result.business_name}.${knowledgeText} 5 credits have been used. Please review and edit before saving.`
+          `Content generated for ${result.business_name}.${knowledgeText} 10 credits have been used. Please review and edit before saving.`
         );
       } else {
         setActionMessage(
-          "Content generated using your business context. 5 credits have been used. Please review and edit before saving."
+          "Content generated using your business context. 10 credits have been used. Please review and edit before saving."
         );
       }
 
@@ -955,8 +955,8 @@ export default function ContentStudioPage() {
                   {isGenerating
                     ? "Generating..."
                     : generatedContent
-                      ? "Regenerate Content for 5 Credits"
-                      : "Generate Content for 5 Credits"}
+                      ? "Regenerate Content for 10 Credits"
+                      : "Generate Content for 10 Credits"}
                 </button>
 
                 <button

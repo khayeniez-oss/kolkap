@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
 
-const CONTENT_GENERATION_CREDIT_COST = 5;
+const CONTENT_GENERATION_CREDIT_COST = 10;
 
 type GenerateBody = {
   content_type?: string;
