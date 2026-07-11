@@ -23,7 +23,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { getKolkapPlan } from "@/lib/kolkapPlan";
+import { KOLKAP_GENERATE_KNOWLEDGE_CREDITS, getKolkapPlan } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 const MAX_CONTENT_LENGTH = 4000;
@@ -73,15 +73,12 @@ const categoryOptions: Option[] = [
 
 const sourceTypeOptions: Option[] = [
   { value: "manual", label: "Write business information" },
+  { value: "generate_ai", label: "Generate with AI" },
   { value: "url", label: "Add important URL" },
 ];
 
 const languageOptions: Option[] = [
-  { value: "auto", label: "Auto Detect" },
   { value: "en", label: "English" },
-  { value: "zh", label: "Chinese" },
-  { value: "id", label: "Indonesian" },
-  { value: "ms", label: "Malay" },
 ];
 
 const syncStatusOptions: Record<string, string> = {
@@ -153,11 +150,13 @@ export default function KnowledgeBasePage() {
   const [sourceType, setSourceType] = useState("manual");
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("business_info");
-  const [entryLanguage, setEntryLanguage] = useState("auto");
+  const [entryLanguage, setEntryLanguage] = useState("en");
   const [tagsText, setTagsText] = useState("");
   const [content, setContent] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceNote, setSourceNote] = useState("");
+  const [generationDetails, setGenerationDetails] = useState("");
+  const [isGeneratingKnowledge, setIsGeneratingKnowledge] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
@@ -267,11 +266,12 @@ export default function KnowledgeBasePage() {
     setSourceType("manual");
     setTitle("");
     setCategory("business_info");
-    setEntryLanguage("auto");
+    setEntryLanguage("en");
     setTagsText("");
     setContent("");
     setSourceUrl("");
     setSourceNote("");
+    setGenerationDetails("");
     setActionError("");
   }
 
@@ -280,11 +280,12 @@ export default function KnowledgeBasePage() {
     setSourceType(item.source_type || "manual");
     setTitle(item.title);
     setCategory(item.category);
-    setEntryLanguage(item.language || "auto");
+    setEntryLanguage("en");
     setTagsText((item.tags || []).join(", "));
     setContent(item.source_type === "url" ? "" : item.content);
     setSourceUrl(item.source_url || "");
     setSourceNote(item.source_note || "");
+    setGenerationDetails("");
     setActionMessage("");
     setActionError("");
 
@@ -292,6 +293,87 @@ export default function KnowledgeBasePage() {
       top: 0,
       behavior: "smooth",
     });
+  }
+
+  async function handleGenerateKnowledge() {
+    setActionMessage("");
+    setActionError("");
+
+    if (!workspace) {
+      setActionError("Business knowledge could not be generated.");
+      return;
+    }
+
+    if (!generationDetails.trim() || generationDetails.trim().length < 10) {
+      setActionError("Please add details for the knowledge you want to generate.");
+      return;
+    }
+
+    setIsGeneratingKnowledge(true);
+
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch("/api/knowledge/generate", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          title: title.trim(),
+          category,
+          language: "en",
+          tags: tagsText,
+          details: generationDetails.trim(),
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result.success) {
+        setActionError(
+          result.error || "Business knowledge could not be generated."
+        );
+        setIsGeneratingKnowledge(false);
+        return;
+      }
+
+      const generated = result.generated || {};
+
+      setTitle(String(generated.title || title || "Generated Knowledge"));
+      setCategory(String(generated.category || category || "custom_note"));
+      setEntryLanguage("en");
+      setTagsText(
+        Array.isArray(generated.tags)
+          ? generated.tags.join(", ")
+          : String(generated.tags || tagsText || "")
+      );
+      setContent(String(generated.content || ""));
+      setSourceUrl("");
+      setSourceNote("");
+
+      setActionMessage(
+        `Generated knowledge is ready. ${result.credits_used || KOLKAP_GENERATE_KNOWLEDGE_CREDITS} credits have been used. Review it, edit if needed, then save.`
+      );
+    } catch (generateError) {
+      setActionError(
+        generateError instanceof Error
+          ? generateError.message
+          : "Business knowledge could not be generated."
+      );
+    } finally {
+      setIsGeneratingKnowledge(false);
+    }
   }
 
   async function handleSaveKnowledge(event: FormEvent<HTMLFormElement>) {
@@ -314,12 +396,12 @@ export default function KnowledgeBasePage() {
       return;
     }
 
-    if (sourceType === "manual" && !content.trim()) {
+    if (sourceType !== "url" && !content.trim()) {
       setActionError("Please add a title and business knowledge content.");
       return;
     }
 
-    if (sourceType === "manual" && content.length > MAX_CONTENT_LENGTH) {
+    if (sourceType !== "url" && content.length > MAX_CONTENT_LENGTH) {
       setActionError("Business knowledge content must be 4,000 characters or less.");
       return;
     }
@@ -353,6 +435,8 @@ export default function KnowledgeBasePage() {
           `Important company URL: ${cleanUrl}. AI should use this official page when answering related customer questions.`
         : content.trim();
 
+    const finalSourceType = sourceType === "url" ? "url" : "manual";
+
     const payload = {
       workspace_id: workspace.id,
       owner_user_id: workspace.owner_user_id,
@@ -361,10 +445,10 @@ export default function KnowledgeBasePage() {
       content: finalContent,
       priority: getCategoryPriority(category),
       ai_usage: "customer_answer",
-      language: entryLanguage,
+      language: "en",
       tags: normalizeTags(tagsText),
       status: "active",
-      source_type: sourceType,
+      source_type: finalSourceType,
       source_url: sourceType === "url" ? cleanUrl : null,
       source_note: sourceType === "url" ? cleanNote || null : null,
       sync_status: "not_synced",
@@ -613,8 +697,8 @@ export default function KnowledgeBasePage() {
               </p>
 
               <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                Write the information directly or add an important company URL.
-                Each written entry can have up to 4,000 characters.
+                Write it manually, generate it with AI, or add an important company URL.
+                Generated knowledge can be reviewed and edited before saving.
               </h2>
             </div>
 
@@ -628,22 +712,60 @@ export default function KnowledgeBasePage() {
 
               <div
                 className={`rounded-3xl border p-5 ${
-                  sourceType === "url"
-                    ? "border-blue-100 bg-blue-50 text-blue-950"
-                    : "border-slate-200 bg-[#F7F9FA] text-slate-700"
+                  sourceType === "generate_ai"
+                    ? "border-purple-100 bg-purple-50 text-purple-950"
+                    : sourceType === "url"
+                      ? "border-blue-100 bg-blue-50 text-blue-950"
+                      : "border-slate-200 bg-[#F7F9FA] text-slate-700"
                 }`}
               >
                 <p className="text-base font-black">
-                  {sourceType === "url"
-                    ? "Add important URL"
-                    : "Write business information"}
+                  {sourceType === "generate_ai"
+                    ? "Generate with AI"
+                    : sourceType === "url"
+                      ? "Add important URL"
+                      : "Write business information"}
                 </p>
                 <p className="mt-2 text-sm font-bold leading-6">
-                  {sourceType === "url"
-                    ? "Use this when your business already has an official page, such as pricing, FAQ, terms, policy, or service page."
-                    : "Use this when you want to write the business information directly."}
+                  {sourceType === "generate_ai"
+                    ? `Use this when you want Kolkap to turn rough business notes into clean AI-ready knowledge. This uses ${KOLKAP_GENERATE_KNOWLEDGE_CREDITS} credits only after generation succeeds.`
+                    : sourceType === "url"
+                      ? "Use this when your business already has an official page, such as pricing, FAQ, terms, policy, or service page."
+                      : "Use this when you want to write the business information directly."}
                 </p>
               </div>
+
+              {sourceType === "generate_ai" ? (
+                <label className="grid gap-2">
+                  <span className="text-base font-black text-slate-700">
+                    Tell Kolkap what knowledge to create
+                  </span>
+
+                  <textarea
+                    rows={6}
+                    value={generationDetails}
+                    onChange={(event) => setGenerationDetails(event.target.value)}
+                    placeholder="Example: We are a spa in Canggu. We offer massage, waxing, cupping, body scrub, and manicure. Customers can book by WhatsApp. Create knowledge for service menu and booking rules."
+                    className="w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-semibold leading-8 outline-none transition focus:border-blue-500 focus:bg-white"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={handleGenerateKnowledge}
+                    disabled={isGeneratingKnowledge || !generationDetails.trim()}
+                    className="inline-flex items-center justify-center gap-3 rounded-full bg-purple-600 px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Sparkles className="h-6 w-6" />
+                    {isGeneratingKnowledge
+                      ? "Generating..."
+                      : `Generate Knowledge with AI — ${KOLKAP_GENERATE_KNOWLEDGE_CREDITS} Credits`}
+                  </button>
+
+                  <p className="text-sm font-bold leading-6 text-slate-500">
+                    Review the generated knowledge below before saving it.
+                  </p>
+                </label>
+              ) : null}
 
               <TextInput
                 label="Title"
@@ -659,12 +781,15 @@ export default function KnowledgeBasePage() {
                 options={categoryOptions}
               />
 
-              <SelectInput
-                label="Language"
-                value={entryLanguage}
-                onChange={setEntryLanguage}
-                options={languageOptions}
-              />
+              <div className="grid gap-2">
+                <span className="text-base font-black text-slate-700">
+                  Language
+                </span>
+
+                <div className="rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-black text-[#07111F]">
+                  English
+                </div>
+              </div>
 
               <TextInput
                 label="Tags"
@@ -775,7 +900,7 @@ export default function KnowledgeBasePage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="submit"
-                  disabled={isSaving || isOverLimit || isNoteOverLimit}
+                  disabled={isSaving || isGeneratingKnowledge || isOverLimit || isNoteOverLimit}
                   className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Save className="h-6 w-6" />
@@ -783,7 +908,9 @@ export default function KnowledgeBasePage() {
                     ? "Saving..."
                     : editingId
                       ? "Update Business Knowledge"
-                      : "Save Business Knowledge"}
+                      : sourceType === "generate_ai"
+                        ? "Save Generated Knowledge"
+                        : "Save Business Knowledge"}
                 </button>
 
                 <Link

@@ -69,6 +69,7 @@ export const KOLKAP_WHATSAPP_REPLY_MIN_CREDITS = 5;
 export const KOLKAP_MANUAL_WHATSAPP_REPLY_MIN_CREDITS = 3;
 export const KOLKAP_AI_STAFF_CREATE_CREDITS = 100;
 export const KOLKAP_AI_STAFF_EDIT_CREDITS = 50;
+export const KOLKAP_GENERATE_KNOWLEDGE_CREDITS = 150;
 
 export function getWhatsAppReplyCreditCost(message = "") {
   const length = message.trim().length;
