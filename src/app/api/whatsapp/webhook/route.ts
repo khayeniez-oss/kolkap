@@ -13,6 +13,7 @@ import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
 import { createKolkapNotification } from "@/lib/kolkap-notifications/createNotification";
 import { KOLKAP_WHATSAPP_REPLY_MIN_CREDITS } from "@/lib/kolkapPlan";
+import { chooseDefaultChannelAiStaffId } from "@/lib/kolkap-ai-staff/channelAssignments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -319,6 +320,7 @@ async function findOrCreateCustomerConversation(input: {
   customerPhone: string;
   customerMessage: string;
   handoverRequested: boolean;
+  aiStaffId?: string | null;
 }) {
   const supabase = getAdminSupabase();
   const now = new Date().toISOString();
@@ -343,8 +345,7 @@ async function findOrCreateCustomerConversation(input: {
     const { data: updated, error: updateError } = await supabase
       .from("customer_conversations")
       .update({
-        ai_staff_id:
-          input.connection.selected_ai_staff_id || existing.ai_staff_id || null,
+        ai_staff_id: input.aiStaffId || existing.ai_staff_id || null,
         customer_name: input.customerName || existing.customer_name || null,
         status: existing.status === "closed" ? "open" : existing.status || "open",
         lead_status: existing.lead_status || "new",
@@ -371,7 +372,7 @@ async function findOrCreateCustomerConversation(input: {
     .insert({
       workspace_id: input.connection.workspace_id,
       owner_user_id: input.connection.owner_user_id,
-      ai_staff_id: input.connection.selected_ai_staff_id || null,
+      ai_staff_id: input.aiStaffId || null,
       customer_name: input.customerName || null,
       customer_phone: input.customerPhone || null,
       customer_channel: "whatsapp",
@@ -587,11 +588,18 @@ async function handleCustomerWorkspaceWhatsAppMessage(input: {
     return;
   }
 
+  const selectedAiStaffId = await chooseDefaultChannelAiStaffId({
+    workspaceId: input.connection.workspace_id,
+    channelType: "whatsapp",
+    channelConnectionId: input.connection.id,
+    fallbackAiStaffId: input.connection.selected_ai_staff_id || null,
+  });
+
   const canAttemptAiReply = Boolean(
     input.connection.status === "connected" &&
       input.connection.ai_enabled &&
       input.connection.auto_reply_enabled &&
-      input.connection.selected_ai_staff_id &&
+      selectedAiStaffId &&
       messageType === "text" &&
       messageText
   );
@@ -606,13 +614,14 @@ async function handleCustomerWorkspaceWhatsAppMessage(input: {
     customerPhone,
     customerMessage: messageText,
     handoverRequested,
+    aiStaffId: selectedAiStaffId,
   });
 
   const customerMessageId = await saveCustomerInboxMessage({
     conversation,
     senderType: "customer",
     messageText,
-    aiStaffId: input.connection.selected_ai_staff_id || null,
+    aiStaffId: selectedAiStaffId || null,
   });
 
   await saveCustomerWhatsAppLog({
@@ -734,7 +743,7 @@ async function handleCustomerWorkspaceWhatsAppMessage(input: {
 
   let aiReply = "";
   let aiModel = "";
-  let aiStaffId = input.connection.selected_ai_staff_id || null;
+  let aiStaffId = selectedAiStaffId || null;
 
   try {
     const result = await runKolkapBrain({
@@ -776,6 +785,8 @@ async function handleCustomerWorkspaceWhatsAppMessage(input: {
         knowledge_count: result.knowledgeCount,
         fallback: result.fallback,
         ai_staff_id: aiStaffId,
+        selected_ai_staff_id: selectedAiStaffId,
+        fallback_selected_ai_staff_id: input.connection.selected_ai_staff_id || null,
         credit_rule: "customer_whatsapp_ai_reply_minimum",
       },
     });

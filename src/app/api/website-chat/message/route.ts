@@ -4,6 +4,7 @@ import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
 import { createKolkapNotification } from "@/lib/kolkap-notifications/createNotification";
 import { KOLKAP_WEBSITE_CHAT_REPLY_MIN_CREDITS } from "@/lib/kolkapPlan";
+import { chooseDefaultChannelAiStaffId } from "@/lib/kolkap-ai-staff/channelAssignments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -691,7 +692,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const selectedAiStaffId = settings.selected_ai_staff_id || null;
+    const selectedAiStaffId = settings.id
+      ? await chooseDefaultChannelAiStaffId({
+          workspaceId: workspace.id,
+          channelType: "website_chat",
+          channelConnectionId: settings.id,
+          fallbackAiStaffId: settings.selected_ai_staff_id || null,
+        })
+      : settings.selected_ai_staff_id || null;
 
     const shouldGenerateAiReply = Boolean(
       settings.is_active &&
@@ -754,6 +762,7 @@ export async function POST(request: Request) {
         auto_reply_enabled: settings.auto_reply_enabled,
         handover_enabled: settings.handover_enabled,
         selected_ai_staff_id: selectedAiStaffId,
+        fallback_selected_ai_staff_id: settings.selected_ai_staff_id || null,
       },
     });
 
