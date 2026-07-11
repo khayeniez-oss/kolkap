@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
 
@@ -51,31 +52,72 @@ export async function POST(request: Request) {
       );
     }
 
-    const cookieStore = await cookies();
+    const authHeader = request.headers.get("authorization") || "";
+    const bearerToken = authHeader.toLowerCase().startsWith("bearer ")
+      ? authHeader.slice(7).trim()
+      : "";
 
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        },
-      },
-    });
+    let user: { id: string; email?: string | null } | null = null;
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return NextResponse.json(
-        { error: "You must be logged in to generate content." },
-        { status: 401 }
+    if (bearerToken) {
+      const mobileSupabase = createSupabaseClient(
+        supabaseUrl,
+        supabaseAnonKey,
+        {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+          },
+          global: {
+            headers: {
+              Authorization: `Bearer ${bearerToken}`,
+            },
+          },
+        }
       );
+
+      const {
+        data: { user: mobileUser },
+        error: mobileUserError,
+      } = await mobileSupabase.auth.getUser(bearerToken);
+
+      if (mobileUserError || !mobileUser) {
+        return NextResponse.json(
+          { error: "You must be logged in to generate content." },
+          { status: 401 }
+        );
+      }
+
+      user = mobileUser;
+    } else {
+      const cookieStore = await cookies();
+
+      const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          },
+        },
+      });
+
+      const {
+        data: { user: webUser },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !webUser) {
+        return NextResponse.json(
+          { error: "You must be logged in to generate content." },
+          { status: 401 }
+        );
+      }
+
+      user = webUser;
     }
 
     const result = await runKolkapBrain({
@@ -98,7 +140,7 @@ export async function POST(request: Request) {
       userId: user.id,
       eventType: "content_generated",
       channel: "content_studio",
-      sourcePage: "/dashboard/content-studio",
+      sourcePage: bearerToken ? "mobile_content_studio" : "/dashboard/content-studio",
       creditsUsed: CONTENT_GENERATION_CREDIT_COST,
       metadata: {
         content_type: contentType,
