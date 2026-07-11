@@ -65,6 +65,29 @@ type AiStaffRow = {
   status: string;
 };
 
+type ChannelAiAssignmentRow = {
+  id: string;
+  workspace_id: string;
+  channel_type: "website_chat" | "whatsapp";
+  channel_connection_id: string;
+  ai_staff_id: string;
+  is_enabled: boolean;
+  is_default: boolean;
+  priority: number;
+};
+
+type WhatsAppForm = {
+  connection_label: string;
+  selected_ai_staff_id: string;
+  ai_team_staff_ids: string[];
+  first_responder_ai_staff_id: string;
+  ai_enabled: boolean;
+  auto_reply_enabled: boolean;
+  handover_enabled: boolean;
+  is_primary: boolean;
+  notes: string;
+};
+
 type WhatsAppConnectionRow = {
   id: string;
   workspace_id: string;
@@ -133,9 +156,11 @@ const tabs: { id: ActiveTab; label: string }[] = [
   { id: "settings", label: "Settings" },
 ];
 
-const emptyForm = {
+const emptyForm: WhatsAppForm = {
   connection_label: "",
   selected_ai_staff_id: "",
+  ai_team_staff_ids: [],
+  first_responder_ai_staff_id: "",
   ai_enabled: true,
   auto_reply_enabled: false,
   handover_enabled: true,
@@ -207,6 +232,77 @@ function messageStatusText(status: string | null) {
   if (status === "ignored") return "Ignored";
 
   return statusLabel(status);
+}
+
+function uniqueIds(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function normalizeAiTeamIds({
+  teamIds,
+  firstResponderId,
+  fallbackId,
+}: {
+  teamIds: string[];
+  firstResponderId?: string;
+  fallbackId?: string;
+}) {
+  const ids = uniqueIds(teamIds);
+  const fallback = firstResponderId || fallbackId || ids[0] || "";
+
+  if (fallback && !ids.includes(fallback)) {
+    ids.unshift(fallback);
+  }
+
+  return {
+    teamIds: ids,
+    firstResponderId: fallback || "",
+  };
+}
+
+function getConnectionTeamSummary({
+  connection,
+  aiStaffById,
+  assignments,
+}: {
+  connection: WhatsAppConnectionRow;
+  aiStaffById: Map<string, AiStaffRow>;
+  assignments?: ChannelAiAssignmentRow[];
+}) {
+  const enabledAssignments = (assignments || []).filter(
+    (assignment) => assignment.is_enabled
+  );
+
+  const teamIds = enabledAssignments.length
+    ? enabledAssignments.map((assignment) => assignment.ai_staff_id)
+    : connection.selected_ai_staff_id
+      ? [connection.selected_ai_staff_id]
+      : [];
+
+  const firstResponderId =
+    enabledAssignments.find((assignment) => assignment.is_default)?.ai_staff_id ||
+    connection.selected_ai_staff_id ||
+    teamIds[0] ||
+    "";
+
+  const normalized = normalizeAiTeamIds({
+    teamIds,
+    firstResponderId,
+    fallbackId: connection.selected_ai_staff_id || "",
+  });
+
+  const team = normalized.teamIds
+    .map((id) => aiStaffById.get(id))
+    .filter(Boolean) as AiStaffRow[];
+
+  return {
+    teamIds: normalized.teamIds,
+    firstResponderId: normalized.firstResponderId,
+    team,
+    firstResponderAI: normalized.firstResponderId
+      ? aiStaffById.get(normalized.firstResponderId)
+      : undefined,
+  };
 }
 
 function parseEmbeddedSignupMessage(data: unknown): EmbeddedSignupInfo | null {
@@ -300,6 +396,9 @@ export default function WhatsAppIntegrationPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
   const [aiStaff, setAiStaff] = useState<AiStaffRow[]>([]);
   const [connections, setConnections] = useState<WhatsAppConnectionRow[]>([]);
+  const [assignmentsByConnectionId, setAssignmentsByConnectionId] = useState<
+    Record<string, ChannelAiAssignmentRow[]>
+  >({});
   const [logs, setLogs] = useState<WhatsAppLogRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -400,8 +499,47 @@ export default function WhatsAppIntegrationPage() {
             .limit(50),
         ]);
 
-      setAiStaff((staffData ?? []) as AiStaffRow[]);
-      setConnections((connectionData ?? []) as WhatsAppConnectionRow[]);
+      const staffRows = (staffData ?? []) as AiStaffRow[];
+      const connectionRows = (connectionData ?? []) as WhatsAppConnectionRow[];
+      const connectionIds = connectionRows.map((connection) => connection.id);
+      const nextAssignmentsByConnectionId: Record<
+        string,
+        ChannelAiAssignmentRow[]
+      > = {};
+
+      if (connectionIds.length) {
+        const { data: assignmentData, error: assignmentError } = await supabase
+          .from("channel_ai_assignments")
+          .select(
+            "id,workspace_id,channel_type,channel_connection_id,ai_staff_id,is_enabled,is_default,priority"
+          )
+          .eq("workspace_id", workspace.id)
+          .eq("channel_type", "whatsapp")
+          .in("channel_connection_id", connectionIds)
+          .eq("is_enabled", true)
+          .order("is_default", { ascending: false })
+          .order("priority", { ascending: true });
+
+        if (assignmentError) {
+          throw assignmentError;
+        }
+
+        ((assignmentData ?? []) as ChannelAiAssignmentRow[]).forEach(
+          (assignment) => {
+            const key = assignment.channel_connection_id;
+
+            if (!nextAssignmentsByConnectionId[key]) {
+              nextAssignmentsByConnectionId[key] = [];
+            }
+
+            nextAssignmentsByConnectionId[key].push(assignment);
+          }
+        );
+      }
+
+      setAiStaff(staffRows);
+      setConnections(connectionRows);
+      setAssignmentsByConnectionId(nextAssignmentsByConnectionId);
       setLogs((logData ?? []) as WhatsAppLogRow[]);
     } catch {
       setError("WhatsApp setup could not load. Please refresh and try again.");
@@ -460,17 +598,43 @@ export default function WhatsAppIntegrationPage() {
       return;
     }
 
+    const firstStaffId = aiStaff[0]?.id || "";
+
     setEditingConnectionId(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      selected_ai_staff_id: firstStaffId,
+      ai_team_staff_ids: firstStaffId ? [firstStaffId] : [],
+      first_responder_ai_staff_id: firstStaffId,
+    });
     setIsFormOpen(true);
     setActiveTab("numbers");
   }
 
   function openEditForm(connection: WhatsAppConnectionRow) {
+    const assignments = assignmentsByConnectionId[connection.id] || [];
+    const teamIds = assignments.length
+      ? assignments.map((assignment) => assignment.ai_staff_id)
+      : connection.selected_ai_staff_id
+        ? [connection.selected_ai_staff_id]
+        : [];
+    const firstResponderId =
+      assignments.find((assignment) => assignment.is_default)?.ai_staff_id ||
+      connection.selected_ai_staff_id ||
+      teamIds[0] ||
+      "";
+    const normalizedTeam = normalizeAiTeamIds({
+      teamIds,
+      firstResponderId,
+      fallbackId: connection.selected_ai_staff_id || "",
+    });
+
     setEditingConnectionId(connection.id);
     setForm({
       connection_label: connection.connection_label ?? "",
-      selected_ai_staff_id: connection.selected_ai_staff_id ?? "",
+      selected_ai_staff_id: normalizedTeam.firstResponderId,
+      ai_team_staff_ids: normalizedTeam.teamIds,
+      first_responder_ai_staff_id: normalizedTeam.firstResponderId,
       ai_enabled: connection.ai_enabled,
       auto_reply_enabled: connection.auto_reply_enabled,
       handover_enabled: connection.handover_enabled,
@@ -495,6 +659,11 @@ export default function WhatsAppIntegrationPage() {
 
     try {
       const supabase = createClient();
+      const normalizedTeam = normalizeAiTeamIds({
+        teamIds: form.ai_team_staff_ids,
+        firstResponderId: form.first_responder_ai_staff_id,
+        fallbackId: form.selected_ai_staff_id,
+      });
 
       if (form.is_primary) {
         await supabase
@@ -508,7 +677,7 @@ export default function WhatsAppIntegrationPage() {
         .from("workspace_whatsapp_connections")
         .update({
           connection_label: form.connection_label.trim() || null,
-          selected_ai_staff_id: form.selected_ai_staff_id || null,
+          selected_ai_staff_id: normalizedTeam.firstResponderId || null,
           ai_enabled: form.ai_enabled,
           auto_reply_enabled: form.auto_reply_enabled,
           handover_enabled: form.handover_enabled,
@@ -523,7 +692,40 @@ export default function WhatsAppIntegrationPage() {
         throw updateError;
       }
 
-      setSuccess("WhatsApp settings updated.");
+      const { error: deleteAssignmentError } = await supabase
+        .from("channel_ai_assignments")
+        .delete()
+        .eq("workspace_id", workspace.id)
+        .eq("channel_type", "whatsapp")
+        .eq("channel_connection_id", editingConnectionId);
+
+      if (deleteAssignmentError) {
+        throw deleteAssignmentError;
+      }
+
+      if (normalizedTeam.teamIds.length) {
+        const assignmentRows = normalizedTeam.teamIds.map((aiStaffId, index) => ({
+          workspace_id: workspace.id,
+          channel_type: "whatsapp",
+          channel_connection_id: editingConnectionId,
+          ai_staff_id: aiStaffId,
+          is_enabled: true,
+          is_default: aiStaffId === normalizedTeam.firstResponderId,
+          priority: (index + 1) * 10,
+          routing_notes: null,
+          created_by_user_id: null,
+        }));
+
+        const { error: assignmentError } = await supabase
+          .from("channel_ai_assignments")
+          .insert(assignmentRows);
+
+        if (assignmentError) {
+          throw assignmentError;
+        }
+      }
+
+      setSuccess("WhatsApp AI Team saved.");
       setIsFormOpen(false);
       setEditingConnectionId(null);
       setForm(emptyForm);
@@ -591,6 +793,12 @@ export default function WhatsAppIntegrationPage() {
               return;
             }
 
+            const normalizedTeam = normalizeAiTeamIds({
+              teamIds: form.ai_team_staff_ids,
+              firstResponderId: form.first_responder_ai_staff_id,
+              fallbackId: form.selected_ai_staff_id,
+            });
+
             const apiResponse = await fetch(
               "/api/meta/whatsapp/embedded-signup",
               {
@@ -603,7 +811,7 @@ export default function WhatsAppIntegrationPage() {
                   code,
                   workspace_id: workspace.id,
                   connection_label: form.connection_label.trim() || null,
-                  selected_ai_staff_id: form.selected_ai_staff_id || null,
+                  selected_ai_staff_id: normalizedTeam.firstResponderId || null,
                   ai_enabled: form.ai_enabled,
                   auto_reply_enabled: form.auto_reply_enabled,
                   handover_enabled: form.handover_enabled,
@@ -630,8 +838,43 @@ export default function WhatsAppIntegrationPage() {
               return;
             }
 
+            const createdConnectionId = cleanText(
+              (result as {
+                connection?: { id?: string };
+                connection_id?: string;
+                id?: string;
+              }).connection?.id ||
+                (result as { connection_id?: string }).connection_id ||
+                (result as { id?: string }).id
+            );
+
+            if (createdConnectionId && normalizedTeam.teamIds.length) {
+              const supabase = createClient();
+
+              await supabase
+                .from("channel_ai_assignments")
+                .delete()
+                .eq("workspace_id", workspace.id)
+                .eq("channel_type", "whatsapp")
+                .eq("channel_connection_id", createdConnectionId);
+
+              await supabase.from("channel_ai_assignments").insert(
+                normalizedTeam.teamIds.map((aiStaffId, index) => ({
+                  workspace_id: workspace.id,
+                  channel_type: "whatsapp",
+                  channel_connection_id: createdConnectionId,
+                  ai_staff_id: aiStaffId,
+                  is_enabled: true,
+                  is_default: aiStaffId === normalizedTeam.firstResponderId,
+                  priority: (index + 1) * 10,
+                  routing_notes: null,
+                  created_by_user_id: null,
+                }))
+              );
+            }
+
             setSuccess(
-              "WhatsApp connected. Choose AI staff, test replies, then turn auto-reply on when ready."
+              "WhatsApp connected. Choose your First Responder AI, test replies, then turn auto-reply on when ready."
             );
             setIsFormOpen(false);
             setEditingConnectionId(null);
@@ -741,8 +984,7 @@ export default function WhatsAppIntegrationPage() {
                 </h1>
 
                 <p className="mt-6 max-w-3xl text-xl font-semibold leading-9 text-slate-300">
-                  Connect your official WhatsApp number with Meta, assign AI
-                  staff, control auto-replies, keep human handover available,
+                  Connect your official WhatsApp number with Meta, assign your AI Team, control auto-replies, keep human handover available,
                   and manage every conversation from Inbox.
                 </p>
 
@@ -877,6 +1119,7 @@ export default function WhatsAppIntegrationPage() {
           <OverviewPanel
             connections={visibleConnections}
             aiStaffById={aiStaffById}
+            assignmentsByConnectionId={assignmentsByConnectionId}
             openConnectForm={openConnectForm}
             openEditForm={openEditForm}
             setActiveTab={setActiveTab}
@@ -891,6 +1134,7 @@ export default function WhatsAppIntegrationPage() {
               isLoading={isLoading}
               connections={visibleConnections}
               aiStaffById={aiStaffById}
+              assignmentsByConnectionId={assignmentsByConnectionId}
               openConnectForm={openConnectForm}
               openEditForm={openEditForm}
               canAddWhatsAppNumber={canAddWhatsAppNumber}
@@ -942,6 +1186,7 @@ export default function WhatsAppIntegrationPage() {
 function OverviewPanel({
   connections,
   aiStaffById,
+  assignmentsByConnectionId,
   openConnectForm,
   openEditForm,
   setActiveTab,
@@ -950,6 +1195,7 @@ function OverviewPanel({
 }: {
   connections: WhatsAppConnectionRow[];
   aiStaffById: Map<string, AiStaffRow>;
+  assignmentsByConnectionId: Record<string, ChannelAiAssignmentRow[]>;
   openConnectForm: () => void;
   openEditForm: (connection: WhatsAppConnectionRow) => void;
   setActiveTab: Dispatch<SetStateAction<ActiveTab>>;
@@ -993,18 +1239,23 @@ function OverviewPanel({
           />
         ) : (
           <div className="grid gap-4">
-            {connections.slice(0, 3).map((connection) => (
-              <NumberRow
-                key={connection.id}
-                connection={connection}
-                assignedAI={
-                  connection.selected_ai_staff_id
-                    ? aiStaffById.get(connection.selected_ai_staff_id)
-                    : undefined
-                }
-                openEditForm={openEditForm}
-              />
-            ))}
+            {connections.slice(0, 3).map((connection) => {
+              const teamSummary = getConnectionTeamSummary({
+                connection,
+                aiStaffById,
+                assignments: assignmentsByConnectionId[connection.id],
+              });
+
+              return (
+                <NumberRow
+                  key={connection.id}
+                  connection={connection}
+                  firstResponderAI={teamSummary.firstResponderAI}
+                  aiTeam={teamSummary.team}
+                  openEditForm={openEditForm}
+                />
+              );
+            })}
 
             <button
               type="button"
@@ -1040,7 +1291,7 @@ function OverviewPanel({
           <FlowStep
             number="2"
             title="Choose AI staff"
-            text="Assign one AI staff member to answer messages for this WhatsApp number."
+            text="Choose an AI Team and set your Admin AI or Reception AI as the First Responder."
           />
           <FlowStep
             number="3"
@@ -1088,6 +1339,7 @@ function WhatsAppNumbersInventory({
   isLoading,
   connections,
   aiStaffById,
+  assignmentsByConnectionId,
   openConnectForm,
   openEditForm,
   canAddWhatsAppNumber,
@@ -1095,6 +1347,7 @@ function WhatsAppNumbersInventory({
   isLoading: boolean;
   connections: WhatsAppConnectionRow[];
   aiStaffById: Map<string, AiStaffRow>;
+  assignmentsByConnectionId: Record<string, ChannelAiAssignmentRow[]>;
   openConnectForm: () => void;
   openEditForm: (connection: WhatsAppConnectionRow) => void;
   canAddWhatsAppNumber: boolean;
@@ -1133,18 +1386,23 @@ function WhatsAppNumbersInventory({
         />
       ) : (
         <div className="grid gap-4">
-          {connections.map((connection) => (
-            <NumberRow
-              key={connection.id}
-              connection={connection}
-              assignedAI={
-                connection.selected_ai_staff_id
-                  ? aiStaffById.get(connection.selected_ai_staff_id)
-                  : undefined
-              }
-              openEditForm={openEditForm}
-            />
-          ))}
+          {connections.map((connection) => {
+            const teamSummary = getConnectionTeamSummary({
+              connection,
+              aiStaffById,
+              assignments: assignmentsByConnectionId[connection.id],
+            });
+
+            return (
+              <NumberRow
+                key={connection.id}
+                connection={connection}
+                firstResponderAI={teamSummary.firstResponderAI}
+                aiTeam={teamSummary.team}
+                openEditForm={openEditForm}
+              />
+            );
+          })}
         </div>
       )}
     </div>
@@ -1186,11 +1444,13 @@ function EmptyNumbersState({
 
 function NumberRow({
   connection,
-  assignedAI,
+  firstResponderAI,
+  aiTeam,
   openEditForm,
 }: {
   connection: WhatsAppConnectionRow;
-  assignedAI?: AiStaffRow;
+  firstResponderAI?: AiStaffRow;
+  aiTeam: AiStaffRow[];
   openEditForm: (connection: WhatsAppConnectionRow) => void;
 }) {
   const hasIssue = Boolean(
@@ -1234,7 +1494,11 @@ function NumberRow({
           </p>
 
           <p className="mt-1 text-sm font-bold text-slate-500">
-            AI Staff: {assignedAI?.name || "Not selected"}
+            First Responder AI: {firstResponderAI?.name || "Not selected"}
+          </p>
+
+          <p className="mt-1 text-sm font-bold text-slate-500">
+            AI Team: {aiTeam.length ? `${aiTeam.length} selected` : "Not selected"}
           </p>
 
           {connection.meta_phone_number_id || connection.meta_waba_id ? (
@@ -1319,7 +1583,7 @@ function ConnectNumberSideCard({
 
       <p className="mt-5 text-lg font-semibold leading-8 text-slate-600">
         Your current plan includes {whatsappLimitLabel}. Each connected number
-        can have its own AI staff, auto-reply setting, and handover controls.
+        can have its own AI Team, First Responder AI, auto-reply setting, and handover controls.
       </p>
 
       {!metaReady ? (
@@ -1362,8 +1626,8 @@ function WhatsAppSetupForm({
   onConnectWithMeta,
   onCancel,
 }: {
-  form: typeof emptyForm;
-  setForm: Dispatch<SetStateAction<typeof emptyForm>>;
+  form: WhatsAppForm;
+  setForm: Dispatch<SetStateAction<WhatsAppForm>>;
   aiStaff: AiStaffRow[];
   isSaving: boolean;
   isConnectingMeta: boolean;
@@ -1374,6 +1638,12 @@ function WhatsAppSetupForm({
   onConnectWithMeta: () => void;
   onCancel: () => void;
 }) {
+  const selectedAiTeam = useMemo(() => {
+    return form.ai_team_staff_ids
+      .map((id) => aiStaff.find((item) => item.id === id))
+      .filter(Boolean) as AiStaffRow[];
+  }, [aiStaff, form.ai_team_staff_ids]);
+
   return (
     <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-7">
       <div className="mb-6 flex items-center gap-4">
@@ -1401,28 +1671,116 @@ function WhatsAppSetupForm({
           }
         />
 
+        <div className="grid gap-3">
+          <div>
+            <p className="text-base font-black text-slate-700">
+              WhatsApp AI Team
+            </p>
+            <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
+              Choose one or more AI staff for this number. The First Responder AI
+              should normally be your Admin AI or Reception AI.
+            </p>
+          </div>
+
+          {aiStaff.length ? (
+            <div className="grid gap-3">
+              {aiStaff.map((item) => {
+                const checked = form.ai_team_staff_ids.includes(item.id);
+
+                return (
+                  <label
+                    key={item.id}
+                    className={`flex cursor-pointer items-start gap-4 rounded-3xl border p-5 transition ${
+                      checked
+                        ? "border-[#07111F] bg-[#07111F] text-white"
+                        : "border-slate-200 bg-[#F7F9FA] text-[#07111F] hover:bg-white"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => {
+                        const nextIds = event.target.checked
+                          ? uniqueIds([...form.ai_team_staff_ids, item.id])
+                          : form.ai_team_staff_ids.filter((id) => id !== item.id);
+
+                        const nextFirstResponder =
+                          nextIds.includes(form.first_responder_ai_staff_id)
+                            ? form.first_responder_ai_staff_id
+                            : nextIds[0] || "";
+
+                        setForm((current) => ({
+                          ...current,
+                          ai_team_staff_ids: nextIds,
+                          first_responder_ai_staff_id: nextFirstResponder,
+                          selected_ai_staff_id: nextFirstResponder,
+                        }));
+                      }}
+                      className="mt-1 h-5 w-5"
+                    />
+
+                    <span>
+                      <span className="block text-lg font-black">
+                        {item.name}
+                      </span>
+                      <span
+                        className={`mt-1 block text-sm font-bold ${
+                          checked ? "text-slate-200" : "text-slate-500"
+                        }`}
+                      >
+                        {item.role} — {statusLabel(item.status)}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
+              <p className="text-base font-black">
+                Create active AI staff before assigning a WhatsApp AI Team.
+              </p>
+            </div>
+          )}
+        </div>
+
         <label className="grid gap-2">
           <span className="text-base font-black text-slate-700">
-            AI staff for this WhatsApp number
+            First Responder AI
           </span>
 
           <select
-            value={form.selected_ai_staff_id}
-            onChange={(event) =>
+            value={form.first_responder_ai_staff_id}
+            onChange={(event) => {
+              const nextId = event.target.value;
+              const normalized = normalizeAiTeamIds({
+                teamIds: form.ai_team_staff_ids,
+                firstResponderId: nextId,
+                fallbackId: nextId,
+              });
+
               setForm((current) => ({
                 ...current,
-                selected_ai_staff_id: event.target.value,
-              }))
-            }
-            className="h-14 rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
+                ai_team_staff_ids: normalized.teamIds,
+                first_responder_ai_staff_id: normalized.firstResponderId,
+                selected_ai_staff_id: normalized.firstResponderId,
+              }));
+            }}
+            disabled={!form.ai_team_staff_ids.length}
+            className="h-14 rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white disabled:opacity-60"
           >
-            <option value="">Select AI staff</option>
-            {aiStaff.map((item) => (
+            <option value="">Choose First Responder AI</option>
+            {selectedAiTeam.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name} — {item.role}
               </option>
             ))}
           </select>
+
+          <span className="text-sm font-bold text-slate-500">
+            This AI replies first before future smart routing sends the customer
+            to Sales, Support, Booking, or another specialist AI.
+          </span>
         </label>
 
         <div className="grid gap-3">
@@ -1437,7 +1795,7 @@ function WhatsAppSetupForm({
 
           <ToggleRow
             title="AI support"
-            text="Allow the selected AI staff to help with this WhatsApp number."
+            text="Allow the WhatsApp AI Team to help with this number."
             checked={form.ai_enabled}
             onChange={(value) =>
               setForm((current) => ({ ...current, ai_enabled: value }))

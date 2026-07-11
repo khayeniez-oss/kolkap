@@ -38,6 +38,17 @@ type AiStaffRow = {
   status: string;
 };
 
+type ChannelAiAssignmentRow = {
+  id: string;
+  workspace_id: string;
+  channel_type: "website_chat" | "whatsapp";
+  channel_connection_id: string;
+  ai_staff_id: string;
+  is_enabled: boolean;
+  is_default: boolean;
+  priority: number;
+};
+
 type WebsiteChatSettingsRow = {
   id: string;
   workspace_id: string;
@@ -57,6 +68,8 @@ type WebsiteChatSettingsRow = {
 
 type WebsiteChatForm = {
   selected_ai_staff_id: string;
+  ai_team_staff_ids: string[];
+  first_responder_ai_staff_id: string;
   widget_title: string;
   widget_subtitle: string;
   welcome_message: string;
@@ -102,6 +115,8 @@ const tabs: { id: ActiveTab; label: string }[] = [
 
 const defaultForm: WebsiteChatForm = {
   selected_ai_staff_id: "",
+  ai_team_staff_ids: [],
+  first_responder_ai_staff_id: "",
   widget_title: "Chat with us",
   widget_subtitle: "Ask a question and our AI assistant will help.",
   welcome_message: "Hi, how can we help you today?",
@@ -131,6 +146,32 @@ function parseAllowedDomains(value: string) {
 function formatAllowedDomains(value: string[] | null | undefined) {
   if (!value?.length) return "";
   return value.join("\n");
+}
+
+function uniqueIds(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function normalizeAiTeamIds({
+  teamIds,
+  firstResponderId,
+  fallbackId,
+}: {
+  teamIds: string[];
+  firstResponderId?: string;
+  fallbackId?: string;
+}) {
+  const ids = uniqueIds(teamIds);
+  const fallback = firstResponderId || fallbackId || ids[0] || "";
+
+  if (fallback && !ids.includes(fallback)) {
+    ids.unshift(fallback);
+  }
+
+  return {
+    teamIds: ids,
+    firstResponderId: fallback || "",
+  };
 }
 
 function statusLabel(value: string | null | undefined) {
@@ -188,8 +229,22 @@ export default function WebsiteChatIntegrationPage() {
   const workspaceId = workspace?.id || "YOUR_WORKSPACE_ID";
 
   const selectedAiStaff = useMemo(() => {
-    return aiStaffRows.find((item) => item.id === form.selected_ai_staff_id);
-  }, [aiStaffRows, form.selected_ai_staff_id]);
+    return aiStaffRows.find(
+      (item) =>
+        item.id ===
+        (form.first_responder_ai_staff_id || form.selected_ai_staff_id)
+    );
+  }, [
+    aiStaffRows,
+    form.first_responder_ai_staff_id,
+    form.selected_ai_staff_id,
+  ]);
+
+  const selectedAiTeam = useMemo(() => {
+    return form.ai_team_staff_ids
+      .map((id) => aiStaffRows.find((item) => item.id === id))
+      .filter(Boolean) as AiStaffRow[];
+  }, [aiStaffRows, form.ai_team_staff_ids]);
 
   const aiStaffById = useMemo(() => {
     return new Map(aiStaffRows.map((item) => [item.id, item]));
@@ -227,6 +282,8 @@ export default function WebsiteChatIntegrationPage() {
           .from("ai_staff")
           .select("id,name,role,status")
           .eq("workspace_id", workspace.id)
+          .is("deleted_at", null)
+          .eq("status", "active")
           .order("created_at", { ascending: false }),
 
         supabase
@@ -252,8 +309,49 @@ export default function WebsiteChatIntegrationPage() {
     setSettings(loadedSettings);
 
     if (loadedSettings) {
+      let teamIds = loadedSettings.selected_ai_staff_id
+        ? [loadedSettings.selected_ai_staff_id]
+        : [];
+      let firstResponderId = loadedSettings.selected_ai_staff_id || "";
+
+      if (loadedSettings.id) {
+        const { data: assignmentData, error: assignmentError } = await supabase
+          .from("channel_ai_assignments")
+          .select(
+            "id,workspace_id,channel_type,channel_connection_id,ai_staff_id,is_enabled,is_default,priority"
+          )
+          .eq("workspace_id", workspace.id)
+          .eq("channel_type", "website_chat")
+          .eq("channel_connection_id", loadedSettings.id)
+          .eq("is_enabled", true)
+          .order("is_default", { ascending: false })
+          .order("priority", { ascending: true });
+
+        if (assignmentError) {
+          throw assignmentError;
+        }
+
+        const assignments = (assignmentData ?? []) as ChannelAiAssignmentRow[];
+
+        if (assignments.length) {
+          teamIds = assignments.map((assignment) => assignment.ai_staff_id);
+          firstResponderId =
+            assignments.find((assignment) => assignment.is_default)?.ai_staff_id ||
+            teamIds[0] ||
+            firstResponderId;
+        }
+      }
+
+      const normalizedTeam = normalizeAiTeamIds({
+        teamIds,
+        firstResponderId,
+        fallbackId: loadedSettings.selected_ai_staff_id || "",
+      });
+
       setForm({
-        selected_ai_staff_id: loadedSettings.selected_ai_staff_id || "",
+        selected_ai_staff_id: normalizedTeam.firstResponderId,
+        ai_team_staff_ids: normalizedTeam.teamIds,
+        first_responder_ai_staff_id: normalizedTeam.firstResponderId,
         widget_title: loadedSettings.widget_title || defaultForm.widget_title,
         widget_subtitle:
           loadedSettings.widget_subtitle || defaultForm.widget_subtitle,
@@ -268,9 +366,13 @@ export default function WebsiteChatIntegrationPage() {
         ),
       });
     } else {
+      const firstStaffId = staffRows[0]?.id || "";
+
       setForm({
         ...defaultForm,
-        selected_ai_staff_id: staffRows[0]?.id || "",
+        selected_ai_staff_id: firstStaffId,
+        ai_team_staff_ids: firstStaffId ? [firstStaffId] : [],
+        first_responder_ai_staff_id: firstStaffId,
       });
     }
 
@@ -394,10 +496,16 @@ export default function WebsiteChatIntegrationPage() {
         );
       }
 
+      const normalizedTeam = normalizeAiTeamIds({
+        teamIds: form.ai_team_staff_ids,
+        firstResponderId: form.first_responder_ai_staff_id,
+        fallbackId: form.selected_ai_staff_id,
+      });
+
       const payload = {
         workspace_id: workspace.id,
         owner_user_id: user.id,
-        selected_ai_staff_id: form.selected_ai_staff_id || null,
+        selected_ai_staff_id: normalizedTeam.firstResponderId || null,
         widget_title: form.widget_title.trim(),
         widget_subtitle: form.widget_subtitle.trim(),
         welcome_message: form.welcome_message.trim(),
@@ -418,8 +526,45 @@ export default function WebsiteChatIntegrationPage() {
         throw error;
       }
 
-      setSettings(data as WebsiteChatSettingsRow);
-      setActionMessage("Website Chat settings saved.");
+      const savedSettings = data as WebsiteChatSettingsRow;
+
+      await supabase
+        .from("channel_ai_assignments")
+        .delete()
+        .eq("workspace_id", workspace.id)
+        .eq("channel_type", "website_chat")
+        .eq("channel_connection_id", savedSettings.id);
+
+      if (normalizedTeam.teamIds.length) {
+        const assignmentRows = normalizedTeam.teamIds.map((aiStaffId, index) => ({
+          workspace_id: workspace.id,
+          channel_type: "website_chat",
+          channel_connection_id: savedSettings.id,
+          ai_staff_id: aiStaffId,
+          is_enabled: true,
+          is_default: aiStaffId === normalizedTeam.firstResponderId,
+          priority: (index + 1) * 10,
+          routing_notes: null,
+          created_by_user_id: user.id,
+        }));
+
+        const { error: assignmentError } = await supabase
+          .from("channel_ai_assignments")
+          .insert(assignmentRows);
+
+        if (assignmentError) {
+          throw assignmentError;
+        }
+      }
+
+      setSettings(savedSettings);
+      setForm((current) => ({
+        ...current,
+        selected_ai_staff_id: normalizedTeam.firstResponderId,
+        ai_team_staff_ids: normalizedTeam.teamIds,
+        first_responder_ai_staff_id: normalizedTeam.firstResponderId,
+      }));
+      setActionMessage("Website Chat AI Team saved.");
     } catch (error) {
       setActionError(
         error instanceof Error
@@ -496,7 +641,7 @@ export default function WebsiteChatIntegrationPage() {
             </h1>
 
             <p className="mt-6 max-w-3xl text-xl font-semibold leading-9 text-slate-300">
-              Control your website widget, choose AI staff, manage auto-replies,
+              Control your website widget, choose your AI Team, manage auto-replies,
               review website chat activity, and prepare your channel before Go
               Live.
             </p>
@@ -590,6 +735,7 @@ export default function WebsiteChatIntegrationPage() {
           <OverviewTab
             form={form}
             selectedAiStaff={selectedAiStaff}
+            selectedAiTeam={selectedAiTeam}
             settings={settings}
             conversations={conversations}
             messages={messages}
@@ -624,6 +770,7 @@ export default function WebsiteChatIntegrationPage() {
             form={form}
             updateForm={updateForm}
             aiStaffRows={aiStaffRows}
+            selectedAiTeam={selectedAiTeam}
             isLoadingSetup={isLoadingSetup}
             saveSettings={saveSettings}
             isSaving={isSaving}
@@ -660,6 +807,7 @@ export default function WebsiteChatIntegrationPage() {
 function OverviewTab({
   form,
   selectedAiStaff,
+  selectedAiTeam,
   settings,
   conversations,
   messages,
@@ -667,6 +815,7 @@ function OverviewTab({
 }: {
   form: WebsiteChatForm;
   selectedAiStaff?: AiStaffRow;
+  selectedAiTeam: AiStaffRow[];
   settings: WebsiteChatSettingsRow | null;
   conversations: WebsiteChatConversationRow[];
   messages: WebsiteChatMessageRow[];
@@ -684,9 +833,17 @@ function OverviewTab({
 
         <StatusCard
           icon={<Bot className="h-7 w-7" />}
-          label="AI Staff"
-          value={selectedAiStaff?.name || "Not selected"}
-          note={selectedAiStaff?.role || "Choose who should help reply"}
+          label="AI Team"
+          value={
+            selectedAiTeam.length
+              ? `${selectedAiTeam.length} selected`
+              : "Not selected"
+          }
+          note={
+            selectedAiStaff
+              ? `First responder: ${selectedAiStaff.name}`
+              : "Choose your first responder AI"
+          }
         />
 
         <StatusCard
@@ -728,8 +885,16 @@ function OverviewTab({
               value={form.auto_reply_enabled ? "On" : "Off"}
             />
             <SummaryRow
-              label="Selected AI staff"
+              label="First Responder AI"
               value={selectedAiStaff?.name || "Not selected"}
+            />
+            <SummaryRow
+              label="AI Team"
+              value={
+                selectedAiTeam.length
+                  ? selectedAiTeam.map((staff) => staff.name).join(", ")
+                  : "Not selected"
+              }
             />
             <SummaryRow
               label="Allowed domains"
@@ -987,7 +1152,7 @@ function WidgetTab({
 
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
           {[
-            "Choose AI staff and save Website Chat settings.",
+            "Choose your AI Team and First Responder AI, then save Website Chat settings.",
             "Copy the Website Chat install code.",
             "Paste it before the closing body tag on your website.",
             "Send a test message from the widget.",
@@ -1132,6 +1297,7 @@ function SettingsTab({
   form,
   updateForm,
   aiStaffRows,
+  selectedAiTeam,
   isLoadingSetup,
   saveSettings,
   isSaving,
@@ -1142,6 +1308,7 @@ function SettingsTab({
     value: WebsiteChatForm[Key]
   ) => void;
   aiStaffRows: AiStaffRow[];
+  selectedAiTeam: AiStaffRow[];
   isLoadingSetup: boolean;
   saveSettings: () => void;
   isSaving: boolean;
@@ -1198,42 +1365,129 @@ function SettingsTab({
         </div>
 
         <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-          AI Staff
+          AI Team
         </p>
 
         <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
-          Choose who should reply.
+          Choose your Website Chat AI Team.
         </h2>
 
+        <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
+          Choose one or more AI staff for this channel. The First Responder AI is
+          usually your Admin AI or Reception AI because it greets the customer
+          first.
+        </p>
+
         <div className="mt-7 grid gap-5">
+          <div className="grid gap-3">
+            <p className="text-base font-black text-slate-700">
+              AI Team Members
+            </p>
+
+            {isLoadingSetup ? (
+              <div className="rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5 text-base font-black text-slate-600">
+                Loading AI staff...
+              </div>
+            ) : aiStaffRows.length ? (
+              <div className="grid gap-3">
+                {aiStaffRows.map((staff) => {
+                  const checked = form.ai_team_staff_ids.includes(staff.id);
+
+                  return (
+                    <label
+                      key={staff.id}
+                      className={`flex cursor-pointer items-start gap-4 rounded-3xl border p-5 transition ${
+                        checked
+                          ? "border-[#07111F] bg-[#07111F] text-white"
+                          : "border-slate-200 bg-[#F7F9FA] text-[#07111F] hover:bg-white"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => {
+                          const nextIds = event.target.checked
+                            ? uniqueIds([...form.ai_team_staff_ids, staff.id])
+                            : form.ai_team_staff_ids.filter(
+                                (id) => id !== staff.id
+                              );
+
+                          const nextFirstResponder =
+                            nextIds.includes(form.first_responder_ai_staff_id)
+                              ? form.first_responder_ai_staff_id
+                              : nextIds[0] || "";
+
+                          updateForm("ai_team_staff_ids", nextIds);
+                          updateForm(
+                            "first_responder_ai_staff_id",
+                            nextFirstResponder
+                          );
+                          updateForm("selected_ai_staff_id", nextFirstResponder);
+                        }}
+                        className="mt-1 h-5 w-5"
+                      />
+
+                      <span>
+                        <span className="block text-lg font-black">
+                          {staff.name}
+                        </span>
+                        <span
+                          className={`mt-1 block text-sm font-bold ${
+                            checked ? "text-slate-200" : "text-slate-500"
+                          }`}
+                        >
+                          {staff.role} — {statusLabel(staff.status)}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
+                <p className="text-base font-black">
+                  No active AI staff found.
+                </p>
+              </div>
+            )}
+          </div>
+
           <label className="grid gap-2">
             <span className="text-base font-black text-slate-700">
-              Choose AI Staff
+              First Responder AI
             </span>
 
             <select
-              value={form.selected_ai_staff_id}
-              onChange={(event) =>
-                updateForm("selected_ai_staff_id", event.target.value)
-              }
-              disabled={isLoadingSetup || !aiStaffRows.length}
+              value={form.first_responder_ai_staff_id}
+              onChange={(event) => {
+                const nextId = event.target.value;
+                const normalized = normalizeAiTeamIds({
+                  teamIds: form.ai_team_staff_ids,
+                  firstResponderId: nextId,
+                  fallbackId: nextId,
+                });
+
+                updateForm("ai_team_staff_ids", normalized.teamIds);
+                updateForm(
+                  "first_responder_ai_staff_id",
+                  normalized.firstResponderId
+                );
+                updateForm("selected_ai_staff_id", normalized.firstResponderId);
+              }}
+              disabled={isLoadingSetup || !form.ai_team_staff_ids.length}
               className="h-14 rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white disabled:opacity-60"
             >
-              {isLoadingSetup ? (
-                <option value="">Loading AI staff...</option>
-              ) : aiStaffRows.length ? (
-                <>
-                  <option value="">Select AI staff</option>
-                  {aiStaffRows.map((staff) => (
-                    <option key={staff.id} value={staff.id}>
-                      {staff.name} — {staff.role} — {statusLabel(staff.status)}
-                    </option>
-                  ))}
-                </>
-              ) : (
-                <option value="">No AI staff created yet</option>
-              )}
+              <option value="">Choose First Responder AI</option>
+              {selectedAiTeam.map((staff) => (
+                <option key={staff.id} value={staff.id}>
+                  {staff.name} — {staff.role}
+                </option>
+              ))}
             </select>
+
+            <span className="text-sm font-bold text-slate-500">
+              This should normally be your Admin AI or Reception AI.
+            </span>
           </label>
 
           {!aiStaffRows.length && !isLoadingSetup ? (
