@@ -745,7 +745,7 @@ export default function KnowledgeBasePage() {
                     rows={6}
                     value={generationDetails}
                     onChange={(event) => setGenerationDetails(event.target.value)}
-                    placeholder="Example: We are a spa in Canggu. We offer massage, waxing, cupping, body scrub, and manicure. Customers can book by WhatsApp. Create knowledge for service menu and booking rules."
+                    placeholder="Example: We are a service business in Australia. We offer appointments, customer support, pricing information, and bookings. Customers can contact us by WhatsApp or Website Chat. Create knowledge for services, opening hours, booking rules, and handover rules."
                     className="w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-semibold leading-8 outline-none transition focus:border-blue-500 focus:bg-white"
                   />
 
