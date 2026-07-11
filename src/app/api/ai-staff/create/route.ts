@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
 import { KOLKAP_AI_STAFF_CREATE_CREDITS } from "@/lib/kolkapPlan";
 import {
+  parseKnowledgeIdsFromBody,
+  replaceAiStaffKnowledgeLinks,
+} from "@/lib/kolkap-ai-staff/knowledgeLinks";
+import {
   cleanText,
   getAdminSupabase,
   getAiStaffLimitStatus,
@@ -96,6 +100,7 @@ export async function POST(req: Request) {
       6000
     );
     const status = normalizeStatus(body.status);
+    const { knowledgeIds } = parseKnowledgeIdsFromBody(body);
 
     if (!workspaceId) {
       return NextResponse.json(
@@ -217,6 +222,13 @@ export async function POST(req: Request) {
       updated_at: now,
     });
 
+    const selectedKnowledgeIds = await replaceAiStaffKnowledgeLinks({
+      workspaceId,
+      aiStaffId: staff.id,
+      knowledgeIds,
+      userId: auth.userId || null,
+    });
+
     if (status === "active") {
       await logWorkspaceUsage({
         workspaceId,
@@ -230,6 +242,7 @@ export async function POST(req: Request) {
         metadata: {
           ai_staff_id: staff.id,
           credit_rule: "ai_staff_create",
+          selected_knowledge_count: selectedKnowledgeIds.length,
         },
       });
     }
@@ -243,6 +256,7 @@ export async function POST(req: Request) {
       ai_staff_used: aiStaffUsed,
       credits_used: creditsUsed,
       credits_left_before_action: creditsLeft,
+      selected_knowledge_ids: selectedKnowledgeIds,
     });
   } catch (error) {
     console.error("AI Staff create error:", error);

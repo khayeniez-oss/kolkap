@@ -437,24 +437,8 @@ function isProbablyActiveRow(row: Record<string, unknown>) {
   );
 }
 
-async function loadKnowledgeFromTable(table: string, workspaceId: string) {
-  const supabase = getAdminSupabase();
-
-  const { data, error } = await supabase
-    .from(table)
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .limit(50);
-
-  if (error || !data?.length) {
-    return [];
-  }
-
-  const rows = (data as Array<Record<string, unknown>>).filter(
-    isProbablyActiveRow
-  );
-
-  return rows.sort((a, b) => {
+function sortKnowledgeRows(rows: Array<Record<string, unknown>>) {
+  return rows.filter(isProbablyActiveRow).sort((a, b) => {
     const priorityA = Number(a.priority || 999);
     const priorityB = Number(b.priority || 999);
 
@@ -473,7 +457,99 @@ async function loadKnowledgeFromTable(table: string, workspaceId: string) {
   });
 }
 
-async function loadKnowledge(workspaceId: string) {
+async function loadKnowledgeFromTable(table: string, workspaceId: string) {
+  const supabase = getAdminSupabase();
+
+  const { data, error } = await supabase
+    .from(table)
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .limit(50);
+
+  if (error || !data?.length) {
+    return [];
+  }
+
+  return sortKnowledgeRows(data as Array<Record<string, unknown>>);
+}
+
+async function loadSelectedKnowledgeForAiStaff({
+  workspaceId,
+  aiStaffId,
+}: {
+  workspaceId: string;
+  aiStaffId?: string | null;
+}) {
+  const cleanAiStaffId = cleanText(aiStaffId);
+
+  if (!cleanAiStaffId) {
+    return {
+      hasSelectedLinks: false,
+      items: [] as Array<Record<string, unknown>>,
+    };
+  }
+
+  const supabase = getAdminSupabase();
+
+  const { data: linkRows, error: linkError } = await supabase
+    .from("ai_staff_knowledge_links")
+    .select("knowledge_id")
+    .eq("workspace_id", workspaceId)
+    .eq("ai_staff_id", cleanAiStaffId)
+    .limit(50);
+
+  if (linkError || !linkRows?.length) {
+    return {
+      hasSelectedLinks: false,
+      items: [] as Array<Record<string, unknown>>,
+    };
+  }
+
+  const knowledgeIds = Array.from(
+    new Set(
+      linkRows
+        .map((row) => cleanText(row.knowledge_id))
+        .filter(Boolean)
+    )
+  );
+
+  if (!knowledgeIds.length) {
+    return {
+      hasSelectedLinks: true,
+      items: [] as Array<Record<string, unknown>>,
+    };
+  }
+
+  const { data: knowledgeRows, error: knowledgeError } = await supabase
+    .from("workspace_knowledge_base")
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .in("id", knowledgeIds)
+    .limit(50);
+
+  if (knowledgeError || !knowledgeRows?.length) {
+    return {
+      hasSelectedLinks: true,
+      items: [] as Array<Record<string, unknown>>,
+    };
+  }
+
+  return {
+    hasSelectedLinks: true,
+    items: sortKnowledgeRows(knowledgeRows as Array<Record<string, unknown>>),
+  };
+}
+
+async function loadKnowledge(workspaceId: string, aiStaffId?: string | null) {
+  const selectedKnowledge = await loadSelectedKnowledgeForAiStaff({
+    workspaceId,
+    aiStaffId,
+  });
+
+  if (selectedKnowledge.hasSelectedLinks) {
+    return selectedKnowledge.items;
+  }
+
   const primary = await loadKnowledgeFromTable(
     "workspace_knowledge_base",
     workspaceId
@@ -881,8 +957,7 @@ export async function runKolkapBrain(
     minimumCreditsRequired: input.minimumCreditsRequired,
   });
 
-  const [knowledgeItems, aiSettingsContext, aiStaff] = await Promise.all([
-    loadKnowledge(workspaceId),
+  const [aiSettingsContext, aiStaff] = await Promise.all([
     loadOptionalAiSettings(workspaceId),
     loadAiStaff({
       workspaceId,
@@ -890,6 +965,12 @@ export async function runKolkapBrain(
       channel,
     }),
   ]);
+
+  const selectedAiStaffId = aiStaff
+    ? cleanText(aiStaff.id) || cleanText(input.aiStaffId) || null
+    : cleanText(input.aiStaffId) || null;
+
+  const knowledgeItems = await loadKnowledge(workspaceId, selectedAiStaffId);
 
   const businessContext = buildBusinessContext(workspace);
   const knowledgeContext = buildKnowledgeContext(knowledgeItems);
@@ -909,7 +990,7 @@ export async function runKolkapBrain(
       model: "fallback",
       fallback: true,
       channel,
-      aiStaffId: aiStaff ? cleanText(aiStaff.id) || null : null,
+      aiStaffId: selectedAiStaffId,
     };
   }
 

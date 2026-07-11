@@ -5,6 +5,10 @@ import {
   KOLKAP_AI_STAFF_EDIT_CREDITS,
 } from "@/lib/kolkapPlan";
 import {
+  parseKnowledgeIdsFromBody,
+  replaceAiStaffKnowledgeLinks,
+} from "@/lib/kolkap-ai-staff/knowledgeLinks";
+import {
   cleanText,
   getAdminSupabase,
   getAiStaffLimitStatus,
@@ -62,6 +66,7 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
 
     const staffId = cleanText(body.ai_staff_id || body.id);
+    const knowledgeSelection = parseKnowledgeIdsFromBody(body);
 
     if (!staffId) {
       return NextResponse.json(
@@ -260,6 +265,17 @@ export async function POST(req: Request) {
       throw updateError;
     }
 
+    let selectedKnowledgeIds: string[] | null = null;
+
+    if (knowledgeSelection.hasKnowledgeSelection) {
+      selectedKnowledgeIds = await replaceAiStaffKnowledgeLinks({
+        workspaceId,
+        aiStaffId: staffId,
+        knowledgeIds: knowledgeSelection.knowledgeIds,
+        userId: auth.userId || null,
+      });
+    }
+
     if (creditsRequired > 0) {
       await logWorkspaceUsage({
         workspaceId,
@@ -275,6 +291,7 @@ export async function POST(req: Request) {
           credit_rule: creditRule,
           previous_status: currentStatus,
           next_status: nextStatus,
+          selected_knowledge_count: selectedKnowledgeIds?.length ?? null,
         },
       });
     }
@@ -288,6 +305,7 @@ export async function POST(req: Request) {
       ai_staff_used: aiStaffUsed,
       credits_used: creditsRequired,
       credits_left_before_action: creditsLeft,
+      selected_knowledge_ids: selectedKnowledgeIds,
     });
   } catch (error) {
     console.error("AI Staff update error:", error);
