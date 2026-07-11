@@ -12,12 +12,12 @@ import {
 import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
 import { createKolkapNotification } from "@/lib/kolkap-notifications/createNotification";
-import { KOLKAP_AI_GENERATION_MIN_CREDITS } from "@/lib/kolkapPlan";
+import { KOLKAP_WHATSAPP_REPLY_MIN_CREDITS } from "@/lib/kolkapPlan";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const CUSTOMER_WHATSAPP_REPLY_CREDIT_COST = KOLKAP_AI_GENERATION_MIN_CREDITS;
+const CUSTOMER_WHATSAPP_REPLY_CREDIT_COST = KOLKAP_WHATSAPP_REPLY_MIN_CREDITS;
 
 type MetaMessage = {
   id?: string;

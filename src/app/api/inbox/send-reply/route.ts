@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendMetaWhatsAppTextMessage } from "@/lib/whatsapp/sendMessage";
+import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
+import { KOLKAP_MANUAL_WHATSAPP_REPLY_MIN_CREDITS } from "@/lib/kolkapPlan";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,12 +46,24 @@ type WhatsAppSecretRow = {
   meta_token_expires_at: string | null;
 };
 
+type CreditBalanceRow = {
+  workspace_id: string;
+  owner_user_id: string;
+  plan_credits: number;
+  purchased_credits: number;
+  used_credits: number;
+  status: string | null;
+};
+
 type AuthResult = {
   authorized: boolean;
   userId?: string;
   userEmail?: string | null;
   response?: Response;
 };
+
+const MANUAL_INBOX_REPLY_CREDIT_COST =
+  KOLKAP_MANUAL_WHATSAPP_REPLY_MIN_CREDITS;
 
 function cleanText(value: unknown, fallback = "") {
   const text =
@@ -100,6 +114,44 @@ function toRawPayload(value: unknown): Record<string, unknown> {
   }
 
   return {};
+}
+
+function getCreditsLeft(balance: CreditBalanceRow | null) {
+  if (!balance) return 0;
+
+  return Math.max(
+    Number(balance.plan_credits || 0) +
+      Number(balance.purchased_credits || 0) -
+      Number(balance.used_credits || 0),
+    0
+  );
+}
+
+async function getCreditBalance({
+  workspaceId,
+  ownerUserId,
+}: {
+  workspaceId: string;
+  ownerUserId: string;
+}) {
+  const supabaseAdmin = getAdminSupabase();
+
+  const { data, error } = await supabaseAdmin
+    .from("workspace_credit_balances")
+    .select(
+      "workspace_id, owner_user_id, plan_credits, purchased_credits, used_credits, status"
+    )
+    .eq("workspace_id", workspaceId)
+    .eq("owner_user_id", ownerUserId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? null) as CreditBalanceRow | null;
 }
 
 async function verifyUser(req: Request): Promise<AuthResult> {
@@ -467,6 +519,27 @@ export async function POST(req: Request) {
 
     const channel = cleanText(conversation.customer_channel).toLowerCase();
 
+    const creditBalance = await getCreditBalance({
+      workspaceId: conversation.workspace_id,
+      ownerUserId: conversation.owner_user_id,
+    });
+
+    const creditsLeft = getCreditsLeft(creditBalance);
+
+    if (creditsLeft < MANUAL_INBOX_REPLY_CREDIT_COST) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Unable to send reply. Please open the web dashboard to manage your workspace.",
+          error_code: "not_enough_credits",
+          credits_left: creditsLeft,
+          credits_required: MANUAL_INBOX_REPLY_CREDIT_COST,
+        },
+        { status: 402 }
+      );
+    }
+
     if (channel !== "whatsapp") {
       const savedMessage = await insertInboxReply({
         conversation,
@@ -480,12 +553,31 @@ export async function POST(req: Request) {
         messageText,
       });
 
+      await logWorkspaceUsage({
+        workspaceId: conversation.workspace_id,
+        userId: auth.userId || null,
+        eventType: "manual_inbox_reply_sent",
+        channel: channel || "inbox",
+        sourcePage: "dashboard_inbox",
+        creditsUsed: MANUAL_INBOX_REPLY_CREDIT_COST,
+        eventCount: 1,
+        status: "success",
+        metadata: {
+          conversation_id: conversation.id,
+          delivery_channel: channel || "inbox",
+          delivery_status: "saved_only",
+          credit_rule: "manual_inbox_reply_minimum",
+        },
+      });
+
       return NextResponse.json({
         success: true,
         message: savedMessage,
         delivered: false,
         delivery_channel: channel || "inbox",
         delivery_status: "saved_only",
+        credits_used: MANUAL_INBOX_REPLY_CREDIT_COST,
+        credits_left_before_reply: creditsLeft,
         notice:
           "Reply saved in Inbox. Direct channel delivery is only connected for WhatsApp at this stage.",
       });
@@ -589,12 +681,31 @@ export async function POST(req: Request) {
         metaMessageId: sent.metaMessageId,
         messageType: "text",
         messageText,
-        creditsUsed: 0,
+        creditsUsed: MANUAL_INBOX_REPLY_CREDIT_COST,
         rawMetaPayload: {
           manual_reply: true,
           sent_by_user_id: auth.userId || null,
         },
         rawMetaResponse: toRawPayload(sent.raw),
+      });
+
+      await logWorkspaceUsage({
+        workspaceId: conversation.workspace_id,
+        userId: auth.userId || null,
+        eventType: "manual_whatsapp_reply_sent",
+        channel: "whatsapp",
+        sourcePage: "dashboard_inbox",
+        creditsUsed: MANUAL_INBOX_REPLY_CREDIT_COST,
+        eventCount: 1,
+        status: "success",
+        metadata: {
+          conversation_id: conversation.id,
+          customer_message_id: savedMessage.id,
+          meta_message_id: sent.metaMessageId,
+          delivery_channel: "whatsapp",
+          delivery_status: "sent",
+          credit_rule: "manual_whatsapp_reply_minimum",
+        },
       });
 
       return NextResponse.json({
@@ -604,6 +715,8 @@ export async function POST(req: Request) {
         delivery_channel: "whatsapp",
         delivery_status: "sent",
         meta_message_id: sent.metaMessageId,
+        credits_used: MANUAL_INBOX_REPLY_CREDIT_COST,
+        credits_left_before_reply: creditsLeft,
         notice: "Reply sent to WhatsApp and saved in Inbox.",
       });
     } catch (sendError) {
