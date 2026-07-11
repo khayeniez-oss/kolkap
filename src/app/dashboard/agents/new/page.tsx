@@ -29,6 +29,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   getKolkapPlan,
   getPlanAIStaffLabel,
+  KOLKAP_AI_STAFF_CREATE_CREDITS,
 } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
@@ -339,6 +340,7 @@ export default function NewAgentPage() {
           .from("ai_staff")
           .select("*")
           .eq("workspace_id", workspace.id)
+          .is("deleted_at", null)
           .order("created_at", { ascending: false }),
 
         supabase
@@ -374,47 +376,6 @@ export default function NewAgentPage() {
     setSelectedRole(role);
     setName(role.defaultName);
     setAiInstruction(role.defaultInstruction);
-  }
-
-  async function insertAiStaff(payload: Record<string, unknown>) {
-    const supabase = createClient();
-
-    const { data, error } = await supabase
-      .from("ai_staff")
-      .insert(payload)
-      .select("*")
-      .single();
-
-    if (!error) {
-      return data as AiStaffRow;
-    }
-
-    if (!isMissingColumnError(error.message)) {
-      throw error;
-    }
-
-    const fallbackPayload = {
-      workspace_id: payload.workspace_id,
-      owner_user_id: payload.owner_user_id,
-      name: payload.name,
-      role: payload.role,
-      channel: payload.channel,
-      status: payload.status,
-      created_at: payload.created_at,
-      updated_at: payload.updated_at,
-    };
-
-    const fallbackResult = await supabase
-      .from("ai_staff")
-      .insert(fallbackPayload)
-      .select("*")
-      .single();
-
-    if (fallbackResult.error) {
-      throw fallbackResult.error;
-    }
-
-    return fallbackResult.data as AiStaffRow;
   }
 
   async function saveAiStaff(status: "draft" | "active") {
@@ -460,46 +421,56 @@ export default function NewAgentPage() {
     }
 
     try {
-      const now = new Date().toISOString();
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      const savedStaff = await insertAiStaff({
-        workspace_id: workspace.id,
-        owner_user_id: workspace.owner_user_id,
-        name: name.trim(),
-        title: name.trim(),
-        role: selectedRole.value,
-        type: selectedRole.value,
-        channel: selectedRole.channel,
-        primary_channel: selectedRole.channel,
-        reply_language: replyLanguage,
-        language: replyLanguage,
-        reply_tone: replyTone,
-        tone: replyTone,
-        business_knowledge: businessContext.trim() || null,
-        ai_instruction: aiInstruction.trim(),
-        instruction: aiInstruction.trim(),
-        status,
-        created_at: now,
-        updated_at: now,
+      if (!session?.access_token) {
+        throw new Error("Please log in again before saving AI staff.");
+      }
+
+      const response = await fetch("/api/ai-staff/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          workspace_id: workspace.id,
+          name: name.trim(),
+          role: selectedRole.value,
+          type: selectedRole.value,
+          channel: selectedRole.channel,
+          primary_channel: selectedRole.channel,
+          reply_language: replyLanguage,
+          language: replyLanguage,
+          reply_tone: replyTone,
+          tone: replyTone,
+          business_knowledge: businessContext.trim() || null,
+          ai_instruction: aiInstruction.trim(),
+          instruction: aiInstruction.trim(),
+          status,
+        }),
       });
 
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "AI staff could not be saved.");
+      }
+
+      const savedStaff = result.staff as AiStaffRow;
       const nextRows = [savedStaff, ...aiStaffRows];
+
       setAiStaffRows(nextRows);
-
-      const supabase = createClient();
-
-      await supabase
-        .from("business_workspaces")
-        .update({
-          ai_staff_used: nextRows.length,
-          updated_at: now,
-        })
-        .eq("id", workspace.id);
 
       setActionMessage(
         status === "draft"
           ? "AI staff saved as draft."
-          : "AI staff created. Redirecting to Test AI..."
+          : `AI staff created. ${
+              result.credits_used || KOLKAP_AI_STAFF_CREATE_CREDITS
+            } credits have been used. Redirecting to Test AI...`
       );
 
       if (status === "active") {
@@ -1017,7 +988,7 @@ export default function NewAgentPage() {
                 ) : (
                   <CheckCircle2 className="h-6 w-6" />
                 )}
-                {isCreating ? "Creating..." : "Create AI Staff & Test"}
+                {isCreating ? "Creating..." : `Create AI Staff & Test for ${KOLKAP_AI_STAFF_CREATE_CREDITS} Credits`}
               </button>
             </div>
           </section>

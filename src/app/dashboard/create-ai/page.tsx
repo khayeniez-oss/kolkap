@@ -19,6 +19,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import {
   getKolkapPlan,
+  KOLKAP_AI_STAFF_CREATE_CREDITS,
   getPlanAIStaffLabel,
   getPlanCreditLabel,
   type KolkapPlanKey,
@@ -254,6 +255,7 @@ export default function CreateAIPage() {
         .from("ai_staff")
         .select("*")
         .eq("workspace_id", workspace.id)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       if (!isMounted) return;
@@ -303,12 +305,24 @@ export default function CreateAIPage() {
     setIsSaving(true);
 
     const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    const { data, error } = await supabase
-      .from("ai_staff")
-      .insert({
+    if (!session?.access_token) {
+      setSaveError("Please log in again before creating AI staff.");
+      setIsSaving(false);
+      return;
+    }
+
+    const response = await fetch("/api/ai-staff/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
         workspace_id: workspace.id,
-        owner_user_id: workspace.owner_user_id,
         name: name.trim(),
         role,
         channel,
@@ -316,27 +330,22 @@ export default function CreateAIPage() {
         reply_tone: replyTone,
         business_knowledge: businessKnowledge.trim() || null,
         ai_instruction: aiInstruction.trim(),
-        status: "draft",
-      })
-      .select("*")
-      .single();
+        status: "active",
+      }),
+    });
 
-    if (error) {
-      setSaveError(error.message || "AI staff could not be saved.");
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result.success) {
+      setSaveError(result.error || "AI staff could not be created.");
       setIsSaving(false);
       return;
     }
 
-    const savedAiStaff = data as AiStaffRow;
-    const nextCount = aiStaffRows.length + 1;
+    const savedAiStaff = result.staff as AiStaffRow;
 
-    await supabase
-      .from("business_workspaces")
-      .update({
-        ai_staff_used: nextCount,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", workspace.id);
+    setAiStaffRows((previous) => [savedAiStaff, ...previous]);
+    await loadCreditBalance();
 
     router.push(`/dashboard/test-ai?ai=${savedAiStaff.id}`);
   }
