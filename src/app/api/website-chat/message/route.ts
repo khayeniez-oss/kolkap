@@ -65,6 +65,7 @@ type WebsiteChatSettingsRow = {
 type ConversationRow = {
   id: string;
   ai_staff_id: string | null;
+  handover_requested: boolean | null;
 };
 
 const corsHeaders = {
@@ -354,7 +355,7 @@ async function findOrCreateConversation({
   if (conversationId) {
     const { data: existingConversation, error: existingError } = await supabase
       .from("customer_conversations")
-      .select("id, ai_staff_id")
+      .select("id, ai_staff_id, handover_requested")
       .eq("id", conversationId)
       .eq("workspace_id", workspace.id)
       .maybeSingle();
@@ -367,11 +368,15 @@ async function findOrCreateConversation({
       const nextAiStaffId =
         aiStaffId || existingConversation.ai_staff_id || null;
 
+      const nextHandoverRequested = Boolean(
+        existingConversation.handover_requested || handoverRequested
+      );
+
       const { error: updateError } = await supabase
         .from("customer_conversations")
         .update({
           ai_staff_id: nextAiStaffId,
-          handover_requested: handoverRequested,
+          handover_requested: nextHandoverRequested,
           last_message: customerMessage,
           last_message_at: now,
           updated_at: now,
@@ -386,6 +391,7 @@ async function findOrCreateConversation({
       return {
         id: existingConversation.id,
         ai_staff_id: nextAiStaffId,
+        handover_requested: nextHandoverRequested,
       } as ConversationRow;
     }
   }
@@ -405,7 +411,7 @@ async function findOrCreateConversation({
       last_message: customerMessage,
       last_message_at: now,
     })
-    .select("id, ai_staff_id")
+    .select("id, ai_staff_id, handover_requested")
     .single();
 
   if (insertError) {

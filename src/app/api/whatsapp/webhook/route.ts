@@ -342,6 +342,10 @@ async function findOrCreateCustomerConversation(input: {
   }
 
   if (existing?.id) {
+    const nextHandoverRequested = Boolean(
+      existing.handover_requested || input.handoverRequested
+    );
+
     const { data: updated, error: updateError } = await supabase
       .from("customer_conversations")
       .update({
@@ -349,7 +353,7 @@ async function findOrCreateCustomerConversation(input: {
         customer_name: input.customerName || existing.customer_name || null,
         status: existing.status === "closed" ? "open" : existing.status || "open",
         lead_status: existing.lead_status || "new",
-        handover_requested: input.handoverRequested,
+        handover_requested: nextHandoverRequested,
         last_message: input.customerMessage,
         last_message_at: now,
         updated_at: now,

@@ -84,6 +84,17 @@ type OpenAIChatResponse = {
   };
 };
 
+type KolkapConversationMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+type StoredCustomerMessageRow = {
+  sender_type: string | null;
+  message_text: string | null;
+  created_at: string | null;
+};
+
 const BLOCKED_WORKSPACE_STATUSES = new Set([
   "cancelled",
   "canceled",
@@ -669,6 +680,87 @@ async function loadOptionalAiSettings(workspaceId: string) {
   return results.join("\n\n");
 }
 
+async function loadConversationHistory({
+  workspaceId,
+  conversationId,
+  currentCustomerMessage,
+}: {
+  workspaceId: string;
+  conversationId?: string | null;
+  currentCustomerMessage?: string | null;
+}): Promise<KolkapConversationMessage[]> {
+  const cleanConversationId = cleanText(conversationId);
+
+  if (!cleanConversationId) {
+    return [];
+  }
+
+  const supabase = getAdminSupabase();
+
+  const { data, error } = await supabase
+    .from("customer_messages")
+    .select("sender_type, message_text, created_at")
+    .eq("workspace_id", workspaceId)
+    .eq("conversation_id", cleanConversationId)
+    .in("sender_type", ["customer", "ai", "human"])
+    .order("created_at", { ascending: false })
+    .limit(12);
+
+  if (error) {
+    throw error;
+  }
+
+  const history = ((data ?? []) as StoredCustomerMessageRow[])
+    .reverse()
+    .map<KolkapConversationMessage | null>((item) => {
+      const content = truncate(cleanText(item.message_text), 1200);
+      const senderType = cleanText(item.sender_type).toLowerCase();
+
+      if (!content) {
+        return null;
+      }
+
+      if (senderType === "customer") {
+        return {
+          role: "user",
+          content,
+        };
+      }
+
+      if (senderType === "ai" || senderType === "human") {
+        return {
+          role: "assistant",
+          content,
+        };
+      }
+
+      return null;
+    })
+    .filter(
+      (item): item is KolkapConversationMessage => item !== null
+    );
+
+  /*
+   * Website Chat and WhatsApp save the current customer message before
+   * calling the brain. Remove that final copy so the current message is
+   * not sent to OpenAI twice.
+   */
+  const currentMessage = cleanText(currentCustomerMessage);
+
+  if (currentMessage && history.length > 0) {
+    const latestMessage = history[history.length - 1];
+
+    if (
+      latestMessage.role === "user" &&
+      cleanText(latestMessage.content) === currentMessage
+    ) {
+      history.pop();
+    }
+  }
+
+  return history.slice(-10);
+}
+
 async function ensureEnoughCredits({
   workspaceId,
   minimumCreditsRequired,
@@ -797,16 +889,38 @@ Output rules:
   return `
 You are replying as the business's AI staff.
 
-Reply rules:
+Identity and safety:
 - Reply as the business, not as Kolkap.
 - Do not mention Kolkap, OpenAI, prompts, APIs, internal routing, internal workspace IDs, or Knowledge Base.
-- Reply like a helpful human team member.
-- Use the business profile, selected AI staff, and saved business knowledge.
-- If the answer is not available, ask a smart follow-up or offer to pass the conversation to the team.
+- Never falsely claim that you are a human employee.
+- Do not announce that you are an AI unless the customer directly asks.
+- If directly asked, say naturally that you are the business's AI assistant.
+
+Natural conversation style:
+- Sound like a warm, capable business team member having a real conversation.
+- Continue naturally from the recent conversation history.
+- Understand references such as "it", "that one", "the second option", "tomorrow", or "how much" using the earlier messages.
+- Do not repeat greetings, introductions, explanations, or questions that already appeared earlier.
+- Do not ask for information the customer has already provided.
+- Answer the customer's actual question first.
+- Use short, natural paragraphs instead of formal documentation-style writing.
+- Use everyday contractions naturally, such as "we're", "that's", "you'll", and "you can".
+- Avoid robotic phrases such as "Your request has been received", "We regret to inform you", "Kindly be advised", "As an AI assistant", or "Certainly" unless they genuinely fit.
+- Vary the wording naturally instead of repeating the same template.
+- Acknowledge confusion, concern, urgency, disappointment, or frustration when appropriate.
+- Use the customer's name occasionally when it feels natural, but not in every reply.
+- Ask no more than one useful follow-up question when information is genuinely missing.
+- Do not add a follow-up question when the customer's question can already be answered.
+- Keep WhatsApp and Website Chat replies easy to read on a phone.
+- Do not overload the customer with unnecessary information.
+
+Business rules:
+- Follow the selected AI staff's role, instructions, tone, and personality.
+- Use the business profile and saved business knowledge as the source of truth.
+- If the answer is unavailable, say so naturally and ask one useful follow-up question or offer human follow-up.
 - Do not invent prices, policies, guarantees, addresses, availability, legal promises, discounts, or contact details.
 - Follow handover rules, do-not-say rules, tone rules, and approved answers from the business knowledge.
-- Keep the reply clear, friendly, and useful.
-- For WhatsApp or website chat, keep replies natural and easy to read on mobile.
+- Stay friendly, clear, practical, calm, and useful.
 `.trim();
 }
 
@@ -939,9 +1053,9 @@ function fallbackContent(input: KolkapBrainInput, businessName: string) {
 
 function getOpenAiTemperature(task: KolkapBrainTask) {
   if (task === "content_studio") return 0.75;
-  if (task === "test_ai") return 0.45;
+  if (task === "test_ai") return 0.5;
 
-  return 0.35;
+  return 0.5;
 }
 
 export async function runKolkapBrain(
@@ -970,7 +1084,14 @@ export async function runKolkapBrain(
     ? cleanText(aiStaff.id) || cleanText(input.aiStaffId) || null
     : cleanText(input.aiStaffId) || null;
 
-  const knowledgeItems = await loadKnowledge(workspaceId, selectedAiStaffId);
+  const [knowledgeItems, conversationHistory] = await Promise.all([
+    loadKnowledge(workspaceId, selectedAiStaffId),
+    loadConversationHistory({
+      workspaceId,
+      conversationId: input.conversationId,
+      currentCustomerMessage: input.customerMessage,
+    }),
+  ]);
 
   const businessContext = buildBusinessContext(workspace);
   const knowledgeContext = buildKnowledgeContext(knowledgeItems);
@@ -1024,6 +1145,7 @@ ${buildTaskInstruction(input)}
       temperature: getOpenAiTemperature(input.task),
       messages: [
         { role: "system", content: systemPrompt },
+        ...conversationHistory,
         { role: "user", content: userPrompt },
       ],
     }),
