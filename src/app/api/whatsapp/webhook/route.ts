@@ -19,6 +19,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const CUSTOMER_WHATSAPP_REPLY_CREDIT_COST = KOLKAP_WHATSAPP_REPLY_MIN_CREDITS;
+const KOLKAP_INTERNAL_HANDOVER_MARKER = "[[KOLKAP_HANDOVER]]";
 
 type MetaMessage = {
   id?: string;
@@ -1084,6 +1085,95 @@ async function saveInternalWhatsAppMessage(input: {
   }
 }
 
+function stripInternalHandoverMarker(reply: string) {
+  return cleanText(reply)
+    .split(KOLKAP_INTERNAL_HANDOVER_MARKER)
+    .join("")
+    .trim();
+}
+
+function getInternalHandoverReason(customerMessage: string) {
+  const preview = cleanText(customerMessage)
+    .replace(/\s+/g, " ")
+    .slice(0, 300);
+
+  return preview
+    ? `Customer requested or required human follow-up: ${preview}`
+    : "Customer requested or required human follow-up.";
+}
+
+function buildConfirmedInternalHandoverReply(customerName?: string | null) {
+  const firstName = cleanText(customerName).split(/\s+/).filter(Boolean)[0];
+  const opening = firstName ? `Thank you, ${firstName}.` : "Thank you.";
+
+  return `${opening} I’ve passed your message to the Kolkap team and paused the AI so a colleague can take over.
+
+They can follow up with you here on WhatsApp, or by email or phone if you share those contact details.
+
+Please also send your email, business name, and any important details about what you need help with.`;
+}
+
+function buildFailedInternalHandoverReply() {
+  return `I’m sorry, I couldn’t complete the automatic handover.
+
+Please email support@kolkap.com with your name, business name, and what you need help with so the Kolkap team can assist you.`;
+}
+
+async function requestInternalKolkapHandover(input: {
+  conversation: InternalConversationRow;
+  customerWaId: string;
+  customerName?: string | null;
+  metaPhoneNumberId?: string | null;
+  metaBusinessAccountId?: string | null;
+  reason: string;
+}) {
+  const supabase = getAdminSupabase();
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("kolkap_whatsapp_conversations")
+    .update({
+      status: "handover",
+      handover_to_admin: true,
+      handover_reason: input.reason,
+      updated_at: now,
+    })
+    .eq("id", input.conversation.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data?.id) {
+    console.error(
+      "Failed to create Kolkap internal WhatsApp handover.",
+      error?.message || "Conversation was not updated."
+    );
+
+    return false;
+  }
+
+  try {
+    await saveInternalSystemMessage({
+      conversationId: input.conversation.id,
+      customerWaId: input.customerWaId,
+      customerName: input.customerName || null,
+      metaPhoneNumberId: input.metaPhoneNumberId || null,
+      metaBusinessAccountId: input.metaBusinessAccountId || null,
+      messageText: `Conversation handed over to Kolkap admin. ${input.reason}`,
+      rawPayload: {
+        handover_to_admin: true,
+        handover_reason: input.reason,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Kolkap handover was saved, but the system message could not be stored.",
+      error instanceof Error ? error.message : error
+    );
+  }
+
+  return true;
+}
+
 async function loadInternalConversationHistory(
   conversationId: string
 ): Promise<KolkapWhatsAppChatMessage[]> {
@@ -1307,6 +1397,27 @@ async function handleInternalKolkapIncomingMessage(input: {
     history,
   });
 
+  const needsHumanHandover = aiResult.reply.includes(
+    KOLKAP_INTERNAL_HANDOVER_MARKER
+  );
+
+  let replyText = stripInternalHandoverMarker(aiResult.reply);
+
+  if (needsHumanHandover) {
+    const handoverSaved = await requestInternalKolkapHandover({
+      conversation,
+      customerWaId,
+      customerName,
+      metaPhoneNumberId,
+      metaBusinessAccountId,
+      reason: getInternalHandoverReason(messageText),
+    });
+
+    replyText = handoverSaved
+      ? buildConfirmedInternalHandoverReply(customerName)
+      : buildFailedInternalHandoverReply();
+  }
+
   await sendAndSaveInternalTextReply({
     conversation,
     customerWaId,
@@ -1316,7 +1427,7 @@ async function handleInternalKolkapIncomingMessage(input: {
     inboundMessageId: messageId,
     aiReplied: true,
     aiModel: aiResult.model,
-    replyText: aiResult.reply,
+    replyText,
   });
 }
 

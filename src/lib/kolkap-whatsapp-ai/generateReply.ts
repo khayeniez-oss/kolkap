@@ -8,6 +8,7 @@ import {
 
 const KOLKAP_PRICING_URL = "https://www.kolkap.com/pricing";
 const KOLKAP_HELP_CENTRE_URL = "https://www.kolkap.com/dashboard/help";
+const KOLKAP_HANDOVER_MARKER = "[[KOLKAP_HANDOVER]]";
 
 export type KolkapWhatsAppChatMessage = {
   role: "user" | "assistant";
@@ -91,6 +92,103 @@ function isGreetingOnly(message: string) {
     "evening",
     "goodevening",
   ].includes(lower);
+}
+
+function getCustomerFirstName(value: unknown) {
+  return cleanText(value).split(/\s+/).filter(Boolean)[0] || "";
+}
+
+function hasOpeningGreeting(reply: string) {
+  return /^(hi|hello|hey)\b/i.test(cleanText(reply));
+}
+
+function ensureWarmOpening(
+  reply: string,
+  input: GenerateKolkapWhatsAppReplyInput
+) {
+  const clean = cleanText(reply);
+
+  if (!clean) return clean;
+  if (hasConversationHistory(input.history)) return clean;
+  if (hasOpeningGreeting(clean)) return clean;
+
+  const firstName = getCustomerFirstName(input.customerName);
+  const greeting = firstName
+    ? `Hi ${firstName}, thanks for reaching out.`
+    : "Hi there, thanks for reaching out.";
+
+  return `${greeting}
+
+${clean}`;
+}
+
+function isMobileAppQuestion(message: string) {
+  const lower = cleanText(message).toLowerCase();
+
+  const mentionsApp =
+    /\bapp\b/i.test(lower) ||
+    lower.includes("mobile app") ||
+    lower.includes("ios") ||
+    lower.includes("android") ||
+    lower.includes("iphone");
+
+  if (!mentionsApp) return false;
+
+  return (
+    lower.includes("kolkap") ||
+    lower.includes("do you have") ||
+    lower.includes("have an app") ||
+    lower.includes("have app") ||
+    lower.includes("is there an app") ||
+    lower.includes("download") ||
+    lower.includes("log in") ||
+    lower.includes("login") ||
+    lower.includes("use the app")
+  );
+}
+
+function mobileAppReply() {
+  return `Yes — Kolkap has a mobile companion app for existing customers with an active Kolkap account, including customers using an active free trial or paid subscription.
+
+New customers first sign up, activate their trial or subscription, and complete the main setup through:
+https://www.kolkap.com
+
+After that, they can log in to the mobile app using the same Kolkap account.
+
+What type of business are you planning to use Kolkap for?`;
+}
+
+function isHumanSupportRequest(message: string) {
+  const lower = cleanText(message).toLowerCase();
+
+  return [
+    "speak to a human",
+    "talk to a human",
+    "real person",
+    "speak to someone",
+    "talk to someone",
+    "speak with someone",
+    "team member",
+    "staff member",
+    "human support",
+    "customer service",
+    "representative",
+    "call me",
+    "contact me",
+    "complaint",
+    "payment failed",
+    "payment problem",
+    "charged twice",
+    "unauthorized charge",
+    "refund",
+    "cancel my subscription",
+  ].some((phrase) => lower.includes(phrase));
+}
+
+function handoverDraftReply() {
+  return `I understand. I can arrange for a Kolkap team member to take over this conversation.
+
+${KOLKAP_HANDOVER_MARKER}`;
 }
 
 function isKnowledgeUploadQuestion(message: string) {
@@ -267,8 +365,13 @@ That helps the AI staff answer customers based on your real business information
 Do you already have your FAQ and price list prepared, or are you still organizing them?`;
 }
 
-function greetingReply() {
-  return `Hi, welcome to Kolkap. I can help you understand how Kolkap works for WhatsApp AI, website chat, AI staff, business knowledge, pricing, and setup.
+function greetingReply(input: GenerateKolkapWhatsAppReplyInput) {
+  const firstName = getCustomerFirstName(input.customerName);
+  const greeting = firstName ? `Hi ${firstName}` : "Hi there";
+
+  return `${greeting}, welcome to Kolkap. It’s great to hear from you.
+
+I can help you understand Kolkap’s AI staff, WhatsApp AI, website chat, business knowledge, pricing, mobile app, and setup.
 
 What type of business are you looking to support with AI?`;
 }
@@ -399,8 +502,12 @@ function polishReply(reply: string, input: GenerateKolkapWhatsAppReplyInput) {
   clean = removeRepeatedGreeting(clean, allowGreeting);
   clean = removeRoboticClosings(clean);
   clean = ensurePricingLink(clean, message);
+  clean = ensureWarmOpening(clean, input);
 
-  if (shouldAddSalesQuestion(clean, message)) {
+  if (
+    !clean.includes(KOLKAP_HANDOVER_MARKER) &&
+    shouldAddSalesQuestion(clean, message)
+  ) {
     clean = `${clean}
 
 ${nextSalesQuestion(message)}`;
@@ -425,7 +532,7 @@ function fallbackReply(input: GenerateKolkapWhatsAppReplyInput) {
   }
 
   if (isGreetingOnly(message)) {
-    return greetingReply();
+    return greetingReply(input);
   }
 
   if (
@@ -516,6 +623,10 @@ Language rule:
 
 Tone rule:
 - Sound human, warm, friendly, firm, professional, and sales-smart.
+- Acknowledge the customer's emotion or intention before guiding them.
+- Use the customer's first name naturally when available, but do not repeat it in every reply.
+- Answer the customer's question before moving into a sales question.
+- Be persuasive and commercially helpful without sounding pushy.
 - Do not sound like a machine.
 - Do not over-explain.
 - Do not repeat the same introduction in every reply.
@@ -547,6 +658,15 @@ ${KOLKAP_HELP_CENTRE_URL}
 - Plan allocations, subscription pricing, and purchasing extra credits may still use the Pricing page.
 - Do not guess why credits were deducted from a specific account.
 
+Mobile app rule:
+- Kolkap has a mobile companion app.
+- It is for existing customers with an active Kolkap account, including active trial and paid subscription customers.
+- New customers sign up and complete their main setup through https://www.kolkap.com.
+- Existing customers log in to the mobile app using the same Kolkap account.
+- Main billing, subscription, top-up, plan, and account setup actions are completed through the website.
+- Never say that Kolkap has no app.
+- Do not claim public Apple App Store or Google Play Store availability unless officially confirmed.
+
 Business knowledge rule:
 - If the customer asks what they can upload or add, explain that Kolkap is designed so businesses can add business knowledge such as FAQs, services, price lists, policies, opening hours, menus, business details, and support information.
 - Explain that this helps the AI staff answer based on the business's real information.
@@ -562,11 +682,15 @@ Sales direction:
 - Ask whether they want WhatsApp, website chat, or both.
 - Ask whether their main goal is sales inquiries, support, bookings, lead capture, or all of them.
 
-Safety rule:
-- If the AI does not know the answer, be honest.
-- Do not guess.
-- Suggest human support when needed.
-- For human support, mention ${KOLKAP_WHATSAPP_SUPPORT_EMAIL}.
+Safety and handover rule:
+- If the AI does not have enough approved Kolkap information, do not guess.
+- Say that you do not want to provide incorrect information.
+- Do not claim that the enquiry has already been forwarded.
+- At the very end of the reply, add this exact hidden handover marker:
+${KOLKAP_HANDOVER_MARKER}
+- Add the marker when the customer requests a human, has a complaint, reports a payment problem, requests a refund, or asks something that cannot be answered safely.
+- The system will remove the marker before sending the WhatsApp reply.
+- For support contact information, mention ${KOLKAP_WHATSAPP_SUPPORT_EMAIL} when appropriate.
 
 Strict rules:
 - Answer about Kolkap only.
@@ -615,6 +739,30 @@ export async function generateKolkapWhatsAppReply(
 
   /*
     Hard rule:
+    Kolkap has a mobile app. This answer must not depend on the AI model.
+  */
+  if (isMobileAppQuestion(message)) {
+    return {
+      reply: polishReply(mobileAppReply(), input),
+      model: "mobile-app-rule",
+      fallback: false,
+    };
+  }
+
+  /*
+    Hard rule:
+    A direct request for a human must create a real admin handover.
+  */
+  if (isHumanSupportRequest(message)) {
+    return {
+      reply: polishReply(handoverDraftReply(), input),
+      model: "human-handover-rule",
+      fallback: false,
+    };
+  }
+
+  /*
+    Hard rule:
     Credit usage, deduction, missing-credit, and balance questions must use
     the logged-in Kolkap Help Centre. Do not provide deduction amounts here.
   */
@@ -634,7 +782,7 @@ export async function generateKolkapWhatsAppReply(
   */
   if (isKnowledgeUploadQuestion(message)) {
     return {
-      reply: knowledgeUploadReply(),
+      reply: polishReply(knowledgeUploadReply(), input),
       model: "knowledge-rule",
       fallback: false,
     };
@@ -647,7 +795,7 @@ export async function generateKolkapWhatsAppReply(
   */
   if (isPricingQuestion(message)) {
     return {
-      reply: pricingReply(),
+      reply: polishReply(pricingReply(), input),
       model: "pricing-rule",
       fallback: false,
     };
