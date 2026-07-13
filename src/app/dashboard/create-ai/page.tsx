@@ -525,7 +525,7 @@ export default function CreateAIPage() {
 
               <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
                 Saving AI staff does not use credits. Testing AI after saving
-                starts from 3 credits.
+                uses 3 credits.
               </p>
 
               <p className="mt-3 text-base font-semibold leading-7 text-slate-300">
@@ -712,7 +712,7 @@ export default function CreateAIPage() {
 
               <p className="text-center text-sm font-black leading-6 text-slate-500">
                 Saving AI staff does not use credits. Testing AI after saving
-                starts from 3 credits.
+                uses 3 credits.
               </p>
 
               <p className="text-center text-sm font-bold leading-6 text-slate-500">

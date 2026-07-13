@@ -77,9 +77,9 @@ const statusLabels: Record<string, string> = {
 const creditRules: [string, string][] = [
   ["Test AI Reply", "3 credits"],
   ["Inbox AI Reply", "3 credits"],
-  ["Content Studio Generation", "5 credits"],
-  ["Website Chat AI Reply", "from 3 credits"],
-  ["WhatsApp AI Reply", "from 5 credits"],
+  ["Content Studio Generation", "10 credits"],
+  ["Website Chat AI Reply", "3 credits"],
+  ["WhatsApp AI Reply", "5 credits"],
   ["Longer replies / campaign content", "more credits"],
 ];
 

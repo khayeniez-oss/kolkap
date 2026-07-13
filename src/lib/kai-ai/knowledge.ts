@@ -73,11 +73,11 @@ Kolkap uses credits for AI usage.
 AI replies, test replies, content generation, inbox AI suggestions, WhatsApp AI replies, website chat AI replies, and other AI actions may use credits.
 
 Current credit rules:
-- Test AI starts from 3 credits.
-- Inbox AI reply suggestions start from 3 credits.
-- Website Chat AI replies start from 3 credits.
-- Content Studio generations start from 10 credits.
-- WhatsApp AI replies start from 5 credits.
+- Test AI uses 3 credits.
+- Inbox AI reply suggestions use 3 credits.
+- Website Chat AI replies use 3 credits.
+- Content Studio generations use 10 credits.
+- WhatsApp AI replies use 5 credits.
 - Longer content, campaign content, or heavier AI actions may use more credits.
 
 Top-ups:

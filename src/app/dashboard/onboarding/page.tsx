@@ -154,9 +154,9 @@ const readinessItems = [
 ];
 
 const safetyRules = [
-  "Test AI, Inbox AI suggestions, and Website Chat AI replies start from 3 credits.",
-  "WhatsApp AI replies start from 5 credits.",
-  "Content Studio generations start from 5 credits.",
+  "Test AI, Inbox AI suggestions, and Website Chat AI replies use 3 credits.",
+  "WhatsApp AI replies use 5 credits.",
+  "Content Studio generations use 10 credits.",
   "Longer replies, campaign content, and larger tasks may use more credits.",
   "Auto-reply should pause when credits are not available.",
   "Human handover should be available for complaints, payment questions, legal questions, urgent issues, or sensitive customer cases.",

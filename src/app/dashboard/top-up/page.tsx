@@ -40,11 +40,11 @@ type CreditBalanceRow = {
 };
 
 const usageRules = [
-  "Website Chat AI reply starts from 3 credits.",
-  "Inbox AI suggestion starts from 3 credits.",
-  "Test AI reply starts from 3 credits.",
-  "WhatsApp AI reply starts from 5 credits.",
-  "Manual WhatsApp reply through Kolkap starts from 3 credits.",
+  "Website Chat AI reply uses 3 credits.",
+  "Inbox AI suggestion uses 3 credits.",
+  "Test AI reply uses 3 credits.",
+  "WhatsApp AI reply uses 5 credits.",
+  "Manual WhatsApp reply through Kolkap uses 3 credits.",
   "Longer replies, long content, and campaign packs may use more credits.",
 ];
 

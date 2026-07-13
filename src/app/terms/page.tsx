@@ -148,8 +148,8 @@ const termsSections: TermsSection[] = [
     title: "10. Credits and Top-Ups",
     text: [
       "Kolkap uses AI credits to measure AI usage. AI replies, test replies, content generation, WhatsApp AI replies, website chat AI replies, inbox AI replies, and other AI actions may consume credits.",
-      "Test AI, Inbox AI suggestions, and Website Chat AI replies start from 3 credits.",
-      "WhatsApp AI replies and Content Studio generations start from 5 credits.",
+      "Test AI, Inbox AI suggestions, and Website Chat AI replies use 3 credits.",
+      "WhatsApp AI replies use 5 credits. Content Studio generations use 10 credits.",
       "Longer replies, campaign content, long-form content, or heavier AI actions may use more credits.",
       "Monthly plan credits may refresh according to your plan and billing cycle. Top-up credits may be purchased for additional usage.",
       "Top-up purchases and unused credits are non-refundable except where required by law.",

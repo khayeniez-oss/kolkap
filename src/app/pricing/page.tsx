@@ -121,9 +121,9 @@ const planCopy: Partial<Record<KolkapPlanKey, PlanText>> = {
 const creditRules: [string, string][] = [
   ["Test AI Reply", "3 credits"],
   ["Inbox AI Reply", "3 credits"],
-  ["Content Studio content", "5 credits"],
-  ["Website Chat AI Reply", "from 3 credits"],
-  ["WhatsApp AI Reply", "from 5 credits"],
+  ["Content Studio content", "10 credits"],
+  ["Website Chat AI Reply", "3 credits"],
+  ["WhatsApp AI Reply", "5 credits"],
   ["Long content / campaign pack", "more credits"],
 ];
 
@@ -138,7 +138,7 @@ const faqs: FaqItem[] = [
   },
   {
     q: "How are credits used?",
-    a: "Credits are used whenever Kolkap generates or sends AI-powered output. Test AI and Inbox AI replies start from 3 credits, Content Studio starts from 5 credits, Website Chat starts from 3 credits, and WhatsApp AI replies start from 5 credits. Longer replies may use more credits.",
+    a: "Credits are used whenever Kolkap successfully generates or sends AI-powered output. Test AI, Inbox AI suggestions, manual WhatsApp replies, and Website Chat AI replies use 3 credits. WhatsApp AI replies use 5 credits. Content Studio generations use 10 credits.",
   },
   {
     q: "Can I top up credits?",

@@ -145,10 +145,10 @@ function getAutoReplyCostNote(channel?: string | null) {
   const normalized = String(channel || "").toLowerCase();
 
   if (normalized.includes("whatsapp")) {
-    return "WhatsApp AI replies start from 5 credits.";
+    return "WhatsApp AI replies use 5 credits.";
   }
 
-  return "Website Chat AI replies start from 3 credits.";
+  return "Website Chat AI replies use 3 credits.";
 }
 
 export default function GoLivePage() {
@@ -626,13 +626,13 @@ export default function GoLivePage() {
 
               <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
                 When auto-reply is live, every successful AI reply uses credits.
-                Website Chat replies start from 3 credits. WhatsApp replies
-                start from 5 credits. Longer replies may use more credits.
+                Website Chat replies use 3 credits. WhatsApp replies
+                use 5 credits.
               </h2>
 
               <div className="mt-6 grid gap-3 lg:grid-cols-3">
-                <CreditRuleCard text="Website Chat AI reply starts from 3 credits." />
-                <CreditRuleCard text="WhatsApp AI reply starts from 5 credits." />
+                <CreditRuleCard text="Website Chat AI reply uses 3 credits." />
+                <CreditRuleCard text="WhatsApp AI reply uses 5 credits." />
                 <CreditRuleCard text="If credits run out, auto-reply should pause until top-up or upgrade." />
               </div>
 

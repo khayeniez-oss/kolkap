@@ -800,7 +800,7 @@ export default function ContentStudioPage() {
               <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
                 Content Studio uses your logged-in business profile, saved
                 Knowledge Base, and your instructions to create business-specific
-                content. Each successful generation uses 5 credits.
+                content. Each successful generation uses 10 credits.
               </h2>
 
               {creditBalance ? (

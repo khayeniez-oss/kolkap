@@ -67,29 +67,17 @@ export const KOLKAP_WEBSITE_CHAT_REPLY_MIN_CREDITS = 3;
 export const KOLKAP_AI_GENERATION_MIN_CREDITS = 3;
 export const KOLKAP_WHATSAPP_REPLY_MIN_CREDITS = 5;
 export const KOLKAP_MANUAL_WHATSAPP_REPLY_MIN_CREDITS = 3;
+export const KOLKAP_CONTENT_STUDIO_CREDITS = 10;
 export const KOLKAP_AI_STAFF_CREATE_CREDITS = 100;
 export const KOLKAP_AI_STAFF_EDIT_CREDITS = 50;
 export const KOLKAP_GENERATE_KNOWLEDGE_CREDITS = 150;
 
-export function getWhatsAppReplyCreditCost(message = "") {
-  const length = message.trim().length;
-
-  if (length <= 250) return 5;
-  if (length <= 500) return 8;
-  if (length <= 1000) return 12;
-
-  return 18;
+export function getWhatsAppReplyCreditCost(_message = "") {
+  return KOLKAP_WHATSAPP_REPLY_MIN_CREDITS;
 }
 
-export function getAIContentCreditCost(message = "") {
-  const length = message.trim().length;
-
-  if (length <= 500) return 3;
-  if (length <= 1200) return 5;
-  if (length <= 2500) return 8;
-  if (length <= 5000) return 15;
-
-  return 25;
+export function getAIContentCreditCost(_message = "") {
+  return KOLKAP_CONTENT_STUDIO_CREDITS;
 }
 
 export const kolkapPlans: Record<KolkapPlanKey, KolkapPlan> = {
@@ -348,7 +336,7 @@ export const kolkapCreditRules: KolkapCreditRule[] = [
     label: "WhatsApp AI reply",
     credits: KOLKAP_WHATSAPP_REPLY_MIN_CREDITS,
     description:
-      "A normal AI-generated WhatsApp reply sent inside an open customer service window. Longer replies may use more credits.",
+      "A normal AI-generated WhatsApp reply sent inside an open customer service window.",
   },
   {
     label: "Manual WhatsApp reply",
@@ -363,21 +351,9 @@ export const kolkapCreditRules: KolkapCreditRule[] = [
   },
   {
     label: "Content generation",
-    credits: 5,
+    credits: KOLKAP_CONTENT_STUDIO_CREDITS,
     description:
-      "A normal content generation from Content Studio, such as a caption, announcement, promotion, or sales message.",
-  },
-  {
-    label: "Long content",
-    credits: 15,
-    description:
-      "A longer article, long-form response, or more detailed business content.",
-  },
-  {
-    label: "Campaign pack",
-    credits: 25,
-    description:
-      "A larger content pack such as campaign copy, multiple captions, or a script package.",
+      "A successful Content Studio generation, such as a caption, announcement, promotion, sales message, or script.",
   },
 ];
 

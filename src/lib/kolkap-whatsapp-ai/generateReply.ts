@@ -7,6 +7,7 @@ import {
 } from "@/lib/kolkap-whatsapp-ai/knowledge";
 
 const KOLKAP_PRICING_URL = "https://www.kolkap.com/pricing";
+const KOLKAP_HELP_CENTRE_URL = "https://www.kolkap.com/dashboard/help";
 
 export type KolkapWhatsAppChatMessage = {
   role: "user" | "assistant";
@@ -130,6 +131,76 @@ function isKnowledgeUploadQuestion(message: string) {
   return hasUploadIntent && hasKnowledgeItem;
 }
 
+function isCreditHelpQuestion(message: string) {
+  const lower = cleanText(message).toLowerCase();
+
+  const mentionsCredits =
+    /\bcredits?\b/i.test(lower) || lower.includes("kredit");
+
+  if (!mentionsCredits) return false;
+
+  const usageOrDeductionIntent = [
+    "deduct",
+    "deduction",
+    "deducted",
+    "used",
+    "usage",
+    "spent",
+    "missing",
+    "disappear",
+    "balance",
+    "charged",
+    "charge per",
+    "how many credits",
+    "why did",
+    "where did",
+    "credit history",
+    "credit activity",
+    "credit usage",
+  ].some((term) => lower.includes(term));
+
+  if (usageOrDeductionIntent) return true;
+
+  const purchaseIntent = [
+    "buy credit",
+    "buy credits",
+    "purchase credit",
+    "purchase credits",
+    "top up",
+    "top-up",
+    "topup",
+    "add credits",
+    "extra credits",
+    "credit package",
+    "credit packages",
+  ].some((term) => lower.includes(term));
+
+  const planAllocationIntent = [
+    "credits included",
+    "included credits",
+    "monthly credits",
+    "trial credits",
+    "starter",
+    "growth",
+    "professional",
+    "business ai",
+    "enterprise",
+    "which plan",
+  ].some((term) => lower.includes(term));
+
+  return !purchaseIntent && !planAllocationIntent;
+}
+
+function creditHelpReply(input: GenerateKolkapWhatsAppReplyInput) {
+  const greeting = hasConversationHistory(input.history) ? "" : "Hi there. ";
+
+  return `${greeting}For the current explanation of Kolkap credit usage and deductions, please visit the Kolkap Help Centre:
+
+${KOLKAP_HELP_CENTRE_URL}
+
+You’ll need to log in to your Kolkap account to access it. If something in your account still does not look right after checking the Help Centre, our support team can review it with you.`;
+}
+
 function isPricingQuestion(message: string) {
   const lower = cleanText(message).toLowerCase();
 
@@ -160,8 +231,6 @@ function isPricingQuestion(message: string) {
     lower.includes("annual") ||
     lower.includes("trial") ||
     lower.includes("free trial") ||
-    lower.includes("credit") ||
-    lower.includes("credits") ||
     lower.includes("top up") ||
     lower.includes("top-up") ||
     lower.includes("topup") ||
@@ -171,7 +240,13 @@ function isPricingQuestion(message: string) {
     lower.includes("paket") ||
     lower.includes("langganan") ||
     lower.includes("percobaan") ||
-    lower.includes("kredit")
+    lower.includes("buy credit") ||
+    lower.includes("buy credits") ||
+    lower.includes("purchase credit") ||
+    lower.includes("purchase credits") ||
+    lower.includes("extra credits") ||
+    lower.includes("credit package") ||
+    lower.includes("credit packages")
   );
 }
 
@@ -337,6 +412,10 @@ ${nextSalesQuestion(message)}`;
 function fallbackReply(input: GenerateKolkapWhatsAppReplyInput) {
   const message = cleanText(input.message).toLowerCase();
 
+  if (isCreditHelpQuestion(message)) {
+    return creditHelpReply(input);
+  }
+
   if (isKnowledgeUploadQuestion(message)) {
     return knowledgeUploadReply();
   }
@@ -460,6 +539,14 @@ ${KOLKAP_PRICING_URL}
 - Do not invent exact pricing if not provided in the knowledge.
 - After sharing the pricing link, ask what type of business they are planning to use Kolkap for.
 
+Credit support rule:
+- Do not provide exact feature deduction amounts through WhatsApp support.
+- For credit usage, deductions, missing credits, balance questions, or credit history, direct the customer to:
+${KOLKAP_HELP_CENTRE_URL}
+- Explain that they must log in to their Kolkap account.
+- Plan allocations, subscription pricing, and purchasing extra credits may still use the Pricing page.
+- Do not guess why credits were deducted from a specific account.
+
 Business knowledge rule:
 - If the customer asks what they can upload or add, explain that Kolkap is designed so businesses can add business knowledge such as FAQs, services, price lists, policies, opening hours, menus, business details, and support information.
 - Explain that this helps the AI staff answer based on the business's real information.
@@ -523,6 +610,19 @@ export async function generateKolkapWhatsAppReply(
         "Hi, thanks for contacting Kolkap. What type of business are you looking to support with AI?",
       model: "fallback",
       fallback: true,
+    };
+  }
+
+  /*
+    Hard rule:
+    Credit usage, deduction, missing-credit, and balance questions must use
+    the logged-in Kolkap Help Centre. Do not provide deduction amounts here.
+  */
+  if (isCreditHelpQuestion(message)) {
+    return {
+      reply: creditHelpReply(input),
+      model: "credit-help-rule",
+      fallback: false,
     };
   }
 
