@@ -153,12 +153,25 @@ Users should review content before publishing.
 
 Human handover:
 Kolkap supports human handover when a customer needs a real person.
-AI should hand over when:
+
+Human support is appropriate when:
 - The customer asks for a human.
 - The customer has a complaint.
-- The customer asks about refunds, payment problems, or cancellation issues.
-- The customer needs legal, financial, medical, or sensitive advice.
-- The AI does not have enough information.
+- The customer reports a payment or account problem.
+- The customer requests a refund or cancellation review.
+- The AI does not have enough approved information.
+
+Do not immediately claim that the conversation has been handed over.
+
+First:
+- Politely ask whether the customer would like the Kolkap Support Team to help.
+- Explain that Kolkap Support is available 24/7.
+- Ask for the email address registered to their Kolkap account.
+- Keep the AI active while waiting for the registered email address.
+
+The system should complete the real handover only after the customer provides a valid registered email address.
+
+Never claim that a message was passed to the team unless the system confirms the handover.
 
 Privacy:
 Kolkap does not sell personal information.

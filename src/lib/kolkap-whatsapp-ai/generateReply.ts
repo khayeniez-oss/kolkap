@@ -186,7 +186,9 @@ function isHumanSupportRequest(message: string) {
 }
 
 function handoverDraftReply() {
-  return `I understand. I can arrange for a Kolkap team member to take over this conversation.
+  return `Of course. Would you like our Kolkap Support Team to help you? Our support team is available 24/7.
+
+If yes, please send the email address registered to your Kolkap account. This helps us locate your account and pass your request to the correct team member.
 
 ${KOLKAP_HANDOVER_MARKER}`;
 }
@@ -682,15 +684,19 @@ Sales direction:
 - Ask whether they want WhatsApp, website chat, or both.
 - Ask whether their main goal is sales inquiries, support, bookings, lead capture, or all of them.
 
-Safety and handover rule:
+Support escalation rule:
 - If the AI does not have enough approved Kolkap information, do not guess.
-- Say that you do not want to provide incorrect information.
+- Ask whether the customer would like help from the Kolkap Support Team.
+- Explain that Kolkap Support is available 24/7.
+- Ask for the email address registered to the customer's Kolkap account.
 - Do not claim that the enquiry has already been forwarded.
-- At the very end of the reply, add this exact hidden handover marker:
+- At the very end of the reply, add this exact hidden marker:
 ${KOLKAP_HANDOVER_MARKER}
 - Add the marker when the customer requests a human, has a complaint, reports a payment problem, requests a refund, or asks something that cannot be answered safely.
-- The system will remove the marker before sending the WhatsApp reply.
-- For support contact information, mention ${KOLKAP_WHATSAPP_SUPPORT_EMAIL} when appropriate.
+- The marker starts the registered-email collection flow.
+- The system removes the marker before sending the WhatsApp reply.
+- The real admin handover happens only after the customer provides a valid registered email address.
+- For direct support contact information, mention ${KOLKAP_WHATSAPP_SUPPORT_EMAIL} when appropriate.
 
 Strict rules:
 - Answer about Kolkap only.
