@@ -367,22 +367,24 @@ export default function ResetPasswordPage() {
                 </button>
               </form>
 
-              <div className="mt-8 rounded-3xl border border-blue-100 bg-blue-50 p-5">
-                <div className="flex items-start gap-4">
-                  <ShieldCheck className="mt-1 h-7 w-7 shrink-0 text-blue-700" />
+              {!isCheckingLink && !linkError ? (
+                <div className="mt-8 rounded-3xl border border-blue-100 bg-blue-50 p-5">
+                  <div className="flex items-start gap-4">
+                    <ShieldCheck className="mt-1 h-7 w-7 shrink-0 text-blue-700" />
 
-                  <div>
-                    <p className="text-xl font-black text-blue-950">
-                      Security note
-                    </p>
+                    <div>
+                      <p className="text-xl font-black text-blue-950">
+                        Protect your account
+                      </p>
 
-                    <p className="mt-2 text-lg font-semibold leading-8 text-blue-800">
-                      This page only works when opened from a valid password
-                      reset email link.
-                    </p>
+                      <p className="mt-2 text-lg font-semibold leading-8 text-blue-800">
+                        Choose a password that is unique to Kolkap and do not
+                        share it with anyone.
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : null}
 
               <div className="mt-8 grid gap-4">
                 {passwordRules.map((rule) => (
