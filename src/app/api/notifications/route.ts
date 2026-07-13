@@ -150,21 +150,14 @@ async function findWorkspaceForUser(userId: string, userEmail?: string | null) {
 
 function getAccessOrFilter({
   userId,
-  workspaceId,
 }: {
   userId: string;
   workspaceId?: string | null;
 }) {
-  const filters = [
+  return [
     `recipient_user_id.eq.${userId}`,
-    `owner_user_id.eq.${userId}`,
-  ];
-
-  if (workspaceId) {
-    filters.push(`workspace_id.eq.${workspaceId}`);
-  }
-
-  return filters.join(",");
+    `and(recipient_user_id.is.null,owner_user_id.eq.${userId})`,
+  ].join(",");
 }
 
 function getPageNumber(value?: string | null) {
@@ -411,6 +404,7 @@ export async function PATCH(req: Request) {
       .from("kolkap_notifications")
       .update(updates)
       .eq("id", notificationId)
+      .or(accessFilter)
       .select(NOTIFICATION_SELECT)
       .single();
 

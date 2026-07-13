@@ -179,6 +179,69 @@ export default function KolkapUserHeader() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, isCheckingAuth, isLoggedIn]);
 
+  useEffect(() => {
+    if (isCheckingAuth || !isLoggedIn) return;
+
+    const supabase = createClient();
+    let isActive = true;
+    const channels: Array<ReturnType<typeof supabase.channel>> = [];
+
+    async function subscribeToNotificationChanges() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const userId = session?.user?.id;
+      const accessToken = session?.access_token;
+
+      if (!isActive || !userId || !accessToken) return;
+
+      const refreshCount = () => {
+        loadUnreadCount(accessToken);
+      };
+
+      const recipientChannel = supabase
+        .channel(`web-header-notifications-recipient-${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "kolkap_notifications",
+            filter: `recipient_user_id=eq.${userId}`,
+          },
+          refreshCount
+        )
+        .subscribe();
+
+      const ownerChannel = supabase
+        .channel(`web-header-notifications-owner-${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "kolkap_notifications",
+            filter: `owner_user_id=eq.${userId}`,
+          },
+          refreshCount
+        )
+        .subscribe();
+
+      channels.push(recipientChannel, ownerChannel);
+    }
+
+    subscribeToNotificationChanges();
+
+    return () => {
+      isActive = false;
+      channels.forEach((channel) => {
+        supabase.removeChannel(channel);
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCheckingAuth, isLoggedIn]);
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-6 lg:px-8">

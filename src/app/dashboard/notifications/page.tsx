@@ -360,6 +360,66 @@ export default function DashboardNotificationsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, page]);
 
+  useEffect(() => {
+    const supabase = createClient();
+    let isActive = true;
+    const channels: Array<ReturnType<typeof supabase.channel>> = [];
+
+    async function subscribeToNotificationChanges() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const userId = session?.user?.id;
+
+      if (!isActive || !userId) return;
+
+      const refreshNotifications = () => {
+        loadNotifications(filter, page, false);
+      };
+
+      const recipientChannel = supabase
+        .channel(`web-notifications-page-recipient-${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "kolkap_notifications",
+            filter: `recipient_user_id=eq.${userId}`,
+          },
+          refreshNotifications
+        )
+        .subscribe();
+
+      const ownerChannel = supabase
+        .channel(`web-notifications-page-owner-${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "kolkap_notifications",
+            filter: `owner_user_id=eq.${userId}`,
+          },
+          refreshNotifications
+        )
+        .subscribe();
+
+      channels.push(recipientChannel, ownerChannel);
+    }
+
+    subscribeToNotificationChanges();
+
+    return () => {
+      isActive = false;
+      channels.forEach((channel) => {
+        supabase.removeChannel(channel);
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, page]);
+
   return (
     <main className="min-h-screen bg-[#F7F9FA] px-5 py-8 text-[#07111F]">
       <section className="mx-auto grid max-w-7xl gap-6">
