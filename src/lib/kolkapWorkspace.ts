@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 export type KolkapWorkspace = {
   id: string;
@@ -60,6 +60,58 @@ function cleanEmail(value: string | null | undefined) {
   return String(value || "")
     .trim()
     .toLowerCase();
+}
+
+function cleanProfileName(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+async function ensureKolkapProfile(supabase: SupabaseClient, user: User) {
+  const email = cleanEmail(user.email);
+  const fullName = cleanProfileName(user.user_metadata?.full_name);
+  const now = new Date().toISOString();
+
+  const profileName = fullName || email || "Kolkap User";
+
+  const { data: existingProfile, error: profileLoadError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileLoadError) {
+    throw profileLoadError;
+  }
+
+  if (existingProfile?.id) {
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        email: email || null,
+        full_name: profileName,
+        updated_at: now,
+      })
+      .eq("id", user.id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return;
+  }
+
+  const { error: insertError } = await supabase.from("profiles").insert({
+    id: user.id,
+    email: email || null,
+    role: "customer",
+    full_name: profileName,
+    created_at: now,
+    updated_at: now,
+  });
+
+  if (insertError) {
+    throw insertError;
+  }
 }
 
 async function findOwnedWorkspace(
@@ -169,6 +221,8 @@ export async function ensureKolkapWorkspace(
   if (!user) {
     return null;
   }
+
+  await ensureKolkapProfile(supabase, user);
 
   const ownedWorkspace = await findOwnedWorkspace(supabase, user.id);
 
