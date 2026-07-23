@@ -56,6 +56,12 @@ export type KolkapWorkspace = {
   updated_at: string;
 };
 
+type BillablePlanKey =
+  | "starter"
+  | "growth"
+  | "professional"
+  | "business";
+
 function cleanEmail(value: string | null | undefined) {
   return String(value || "")
     .trim()
@@ -66,16 +72,34 @@ function cleanProfileName(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-async function ensureKolkapProfile(supabase: SupabaseClient, user: User) {
-  const email = cleanEmail(user.email);
-  const fullName = cleanProfileName(user.user_metadata?.full_name);
-  const now = new Date().toISOString();
+function normalizePlanKey(value: unknown): BillablePlanKey {
+  const planKey = String(value || "")
+    .trim()
+    .toLowerCase();
 
-  const profileName = fullName || email || "Kolkap User";
+  if (
+    planKey === "starter" ||
+    planKey === "growth" ||
+    planKey === "professional" ||
+    planKey === "business"
+  ) {
+    return planKey;
+  }
+
+  return "starter";
+}
+
+async function ensureKolkapProfile(
+  supabase: SupabaseClient,
+  user: User
+) {
+  const email = cleanEmail(user.email);
+  const metadataName = cleanProfileName(user.user_metadata?.full_name);
+  const now = new Date().toISOString();
 
   const { data: existingProfile, error: profileLoadError } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, full_name")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -84,6 +108,10 @@ async function ensureKolkapProfile(supabase: SupabaseClient, user: User) {
   }
 
   if (existingProfile?.id) {
+    const existingName = cleanProfileName(existingProfile.full_name);
+    const profileName =
+      metadataName || existingName || email || "Kolkap User";
+
     const { error: updateError } = await supabase
       .from("profiles")
       .update({
@@ -99,6 +127,8 @@ async function ensureKolkapProfile(supabase: SupabaseClient, user: User) {
 
     return;
   }
+
+  const profileName = metadataName || email || "Kolkap User";
 
   const { error: insertError } = await supabase.from("profiles").insert({
     id: user.id,
@@ -188,22 +218,28 @@ async function ensureZeroCreditBalance(input: {
     .maybeSingle();
 
   if (existingError) {
-    return;
+    throw existingError;
   }
 
   if (existingBalance?.id) {
     return;
   }
 
-  await supabase.from("workspace_credit_balances").insert({
-    workspace_id: workspaceId,
-    owner_user_id: ownerUserId,
-    plan_name: planKey,
-    plan_credits: 0,
-    purchased_credits: 0,
-    used_credits: 0,
-    status: "draft",
-  });
+  const { error: insertError } = await supabase
+    .from("workspace_credit_balances")
+    .insert({
+      workspace_id: workspaceId,
+      owner_user_id: ownerUserId,
+      plan_name: normalizePlanKey(planKey),
+      plan_credits: 0,
+      purchased_credits: 0,
+      used_credits: 0,
+      status: "inactive",
+    });
+
+  if (insertError && insertError.code !== "23505") {
+    throw insertError;
+  }
 }
 
 export async function ensureKolkapWorkspace(
@@ -227,6 +263,13 @@ export async function ensureKolkapWorkspace(
   const ownedWorkspace = await findOwnedWorkspace(supabase, user.id);
 
   if (ownedWorkspace?.id) {
+    await ensureZeroCreditBalance({
+      supabase,
+      workspaceId: ownedWorkspace.id,
+      ownerUserId: ownedWorkspace.owner_user_id,
+      planKey: ownedWorkspace.plan_key,
+    });
+
     return ownedWorkspace;
   }
 
@@ -236,15 +279,11 @@ export async function ensureKolkapWorkspace(
     return teamWorkspace;
   }
 
-  const fullName =
-    typeof user.user_metadata?.full_name === "string"
-      ? user.user_metadata.full_name.trim()
-      : "";
-
-  const businessType =
-    typeof user.user_metadata?.business_type === "string"
-      ? user.user_metadata.business_type.trim()
-      : null;
+  const fullName = cleanProfileName(user.user_metadata?.full_name);
+  const businessType = cleanProfileName(user.user_metadata?.business_type);
+  const selectedPlan = normalizePlanKey(
+    user.user_metadata?.selected_plan
+  );
 
   const now = new Date().toISOString();
 
@@ -262,7 +301,7 @@ export async function ensureKolkapWorkspace(
       country: null,
       timezone: "Australia/Sydney",
 
-      plan_key: "starter",
+      plan_key: selectedPlan,
       plan_status: "draft",
       billing_status: "not_started",
 
@@ -314,6 +353,15 @@ export async function ensureKolkapWorkspace(
         supabase,
         user.id
       );
+
+      if (workspaceAfterDuplicate?.id) {
+        await ensureZeroCreditBalance({
+          supabase,
+          workspaceId: workspaceAfterDuplicate.id,
+          ownerUserId: workspaceAfterDuplicate.owner_user_id,
+          planKey: workspaceAfterDuplicate.plan_key,
+        });
+      }
 
       return workspaceAfterDuplicate;
     }
