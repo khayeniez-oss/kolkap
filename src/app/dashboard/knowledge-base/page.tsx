@@ -1,33 +1,62 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
+import {
+  AlertCircle,
+  Archive,
   ArrowLeft,
+  ArrowRight,
   BookOpen,
   Brain,
+  BriefcaseBusiness,
+  Check,
   CheckCircle2,
+  ChevronLeft,
+  CircleDollarSign,
+  Clock3,
+  Contact,
+  Truck,
   Edit3,
   ExternalLink,
+  File,
+  FileCheck2,
   FileText,
   Filter,
+  HelpCircle,
   Link2,
+  Loader2,
+  Package,
   Plus,
   RefreshCcw,
+  RotateCcw,
   Save,
   Search,
   ShieldCheck,
   Sparkles,
   Tags,
   Trash2,
+  Upload,
   WalletCards,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { KOLKAP_GENERATE_KNOWLEDGE_CREDITS, getKolkapPlan } from "@/lib/kolkapPlan";
+import {
+  KOLKAP_GENERATE_KNOWLEDGE_CREDITS,
+  getKolkapPlan,
+} from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 const MAX_CONTENT_LENGTH = 4000;
 const MAX_SOURCE_NOTE_LENGTH = 1000;
+const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
 
 type KnowledgeRow = {
   id: string;
@@ -44,6 +73,7 @@ type KnowledgeRow = {
   source_type: string;
   source_url: string | null;
   source_note: string | null;
+  source_document_id?: string | null;
   last_checked_at: string | null;
   last_synced_at: string | null;
   sync_status: string;
@@ -53,40 +83,142 @@ type KnowledgeRow = {
   updated_at: string;
 };
 
+type KnowledgeDocument = {
+  id: string;
+  workspace_id: string;
+  owner_user_id: string;
+  file_name: string;
+  storage_path: string;
+  mime_type: string;
+  file_size: number;
+  status: "uploaded" | "processing" | "ready" | "failed" | "archived";
+  extracted_text: string | null;
+  processing_error: string | null;
+  processed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type Option = {
   value: string;
   label: string;
 };
 
-const categoryOptions: Option[] = [
+type WizardStep = 1 | 2 | 3 | 4;
+
+type GeneratedKnowledge = {
+  title: string;
+  category: string;
+  language: string;
+  tags: string[];
+  content: string;
+  source_type?: string;
+  source_note?: string | null;
+  source_document_ids?: string[];
+};
+
+const categoryOptions = [
+  {
+    value: "business_info",
+    label: "Business Information",
+    description: "Business name, background, location and what you do.",
+    icon: BriefcaseBusiness,
+  },
+  {
+    value: "product_service",
+    label: "Products & Services",
+    description: "What you sell, provide or help customers with.",
+    icon: Package,
+  },
+  {
+    value: "pricing",
+    label: "Pricing",
+    description: "Prices, packages, fees, inclusions and payment details.",
+    icon: CircleDollarSign,
+  },
+  {
+    value: "opening_hours",
+    label: "Opening Hours",
+    description: "Operating hours, appointment times and availability.",
+    icon: Clock3,
+  },
+  {
+    value: "faq",
+    label: "FAQs",
+    description: "Common customer questions and the correct answers.",
+    icon: HelpCircle,
+  },
+  {
+    value: "policy",
+    label: "Policies",
+    description: "Refunds, cancellations, privacy and business rules.",
+    icon: ShieldCheck,
+  },
+  {
+    value: "delivery",
+    label: "Delivery",
+    description: "Delivery areas, timing, fees and fulfilment rules.",
+    icon: Truck,
+  },
+  {
+    value: "contact_details",
+    label: "Contact Details",
+    description: "Phone, email, address, website and social channels.",
+    icon: Contact,
+  },
+  {
+    value: "custom_note",
+    label: "Custom",
+    description: "Anything else your AI should know.",
+    icon: Sparkles,
+  },
+];
+
+const libraryCategoryOptions: Option[] = [
   { value: "business_info", label: "Business Information" },
-  { value: "faq", label: "FAQ" },
-  { value: "product_service", label: "Product / Service" },
-  { value: "pricing", label: "Pricing / Packages" },
-  { value: "policy", label: "Policy" },
+  { value: "product_service", label: "Products & Services" },
+  { value: "pricing", label: "Pricing" },
+  { value: "opening_hours", label: "Opening Hours" },
+  { value: "faq", label: "FAQs" },
+  { value: "policy", label: "Policies" },
+  { value: "delivery", label: "Delivery" },
+  { value: "contact_details", label: "Contact Details" },
   { value: "sales_instruction", label: "Sales Instruction" },
   { value: "handover_rule", label: "Handover Rule" },
   { value: "do_not_say", label: "Do Not Say" },
   { value: "important_link", label: "Important Link" },
-  { value: "custom_note", label: "Custom Note" },
-];
-
-const sourceTypeOptions: Option[] = [
-  { value: "manual", label: "Write business information" },
-  { value: "generate_ai", label: "Generate with AI" },
-  { value: "url", label: "Add important URL" },
+  { value: "custom_note", label: "Custom" },
 ];
 
 const languageOptions: Option[] = [
   { value: "en", label: "English" },
 ];
 
-const syncStatusOptions: Record<string, string> = {
-  not_synced: "Not Synced",
-  pending: "Pending",
-  synced: "Synced",
-  failed: "Failed",
-};
+const wizardSteps = [
+  {
+    step: 1,
+    title: "Choose topics",
+    description: "Select what your AI should learn.",
+  },
+  {
+    step: 2,
+    title: "Add information",
+    description: "Write details, upload files or add a website.",
+  },
+  {
+    step: 3,
+    title: "Build with AI",
+    description: "Kolkap organises the information.",
+  },
+  {
+    step: 4,
+    title: "Review & save",
+    description: "Check everything before teaching your AI.",
+  },
+];
+
+const acceptedFileTypes =
+  ".pdf,.docx,.txt,.csv,.xls,.xlsx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 function getOptionLabel(options: Option[], value: string) {
   return options.find((option) => option.value === value)?.label || value;
@@ -105,9 +237,7 @@ function formatDate(value: string | null, fallback: string) {
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
-    return fallback;
-  }
+  if (Number.isNaN(date.getTime())) return fallback;
 
   return date.toLocaleString("en-AU", {
     day: "2-digit",
@@ -116,6 +246,22 @@ function formatDate(value: string | null, fallback: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatFileSize(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
+
+  const units = ["B", "KB", "MB", "GB"];
+  const unitIndex = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1
+  );
+
+  const value = bytes / 1024 ** unitIndex;
+
+  return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${
+    units[unitIndex]
+  }`;
 }
 
 function isValidUrl(value: string) {
@@ -131,55 +277,133 @@ function getCategoryPriority(category: string) {
   if (category === "faq") return 3;
   if (category === "sales_instruction") return 3;
   if (category === "important_link") return 3;
+  if (category === "delivery") return 3;
+  if (category === "opening_hours") return 3;
+  if (category === "contact_details") return 3;
   if (category === "business_info") return 4;
 
   return 4;
+}
+
+function buildGuidedPrompt({
+  selectedCategories,
+  businessOverview,
+  productsServices,
+  pricingDetails,
+  openingHours,
+  faqDetails,
+  policyDetails,
+  deliveryDetails,
+  contactDetails,
+  customDetails,
+  websiteUrl,
+}: {
+  selectedCategories: string[];
+  businessOverview: string;
+  productsServices: string;
+  pricingDetails: string;
+  openingHours: string;
+  faqDetails: string;
+  policyDetails: string;
+  deliveryDetails: string;
+  contactDetails: string;
+  customDetails: string;
+  websiteUrl: string;
+}) {
+  const sections = [
+    ["Selected topics", selectedCategories.map((value) =>
+      getOptionLabel(libraryCategoryOptions, value)
+    ).join(", ")],
+    ["Business information", businessOverview],
+    ["Products and services", productsServices],
+    ["Pricing", pricingDetails],
+    ["Opening hours", openingHours],
+    ["Frequently asked questions", faqDetails],
+    ["Policies", policyDetails],
+    ["Delivery", deliveryDetails],
+    ["Contact details", contactDetails],
+    ["Other important information", customDetails],
+    ["Official website or reference URL", websiteUrl],
+  ].filter(([, value]) => value.trim());
+
+  return sections
+    .map(([heading, value]) => `${heading}:\n${value.trim()}`)
+    .join("\n\n");
+}
+
+function getDocumentStatusStyle(status: KnowledgeDocument["status"]) {
+  if (status === "ready") {
+    return "border-green-200 bg-green-50 text-green-700";
+  }
+
+  if (status === "failed") {
+    return "border-red-200 bg-red-50 text-red-700";
+  }
+
+  if (status === "archived") {
+    return "border-slate-200 bg-slate-100 text-slate-600";
+  }
+
+  return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
 export default function KnowledgeBasePage() {
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeRow[]>([]);
+  const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
   const [pageError, setPageError] = useState("");
+  const [documentError, setDocumentError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
-  const [editingId, setEditingId] = useState("");
-  const [sourceType, setSourceType] = useState("manual");
-  const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("business_info");
-  const [entryLanguage, setEntryLanguage] = useState("en");
-  const [tagsText, setTagsText] = useState("");
-  const [content, setContent] = useState("");
-  const [sourceUrl, setSourceUrl] = useState("");
-  const [sourceNote, setSourceNote] = useState("");
-  const [generationDetails, setGenerationDetails] = useState("");
+  const [wizardStep, setWizardStep] = useState<WizardStep>(1);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [businessOverview, setBusinessOverview] = useState("");
+  const [productsServices, setProductsServices] = useState("");
+  const [pricingDetails, setPricingDetails] = useState("");
+  const [openingHours, setOpeningHours] = useState("");
+  const [faqDetails, setFaqDetails] = useState("");
+  const [policyDetails, setPolicyDetails] = useState("");
+  const [deliveryDetails, setDeliveryDetails] = useState("");
+  const [contactDetails, setContactDetails] = useState("");
+  const [customDetails, setCustomDetails] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState("");
+
+  const [generatedKnowledge, setGeneratedKnowledge] =
+    useState<GeneratedKnowledge | null>(null);
   const [isGeneratingKnowledge, setIsGeneratingKnowledge] = useState(false);
+  const [isSavingGenerated, setIsSavingGenerated] = useState(false);
+
+  const [editingId, setEditingId] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editCategory, setEditCategory] = useState("business_info");
+  const [editTagsText, setEditTagsText] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editSourceUrl, setEditSourceUrl] = useState("");
+  const [editSourceNote, setEditSourceNote] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
-
-  const [isSaving, setIsSaving] = useState(false);
   const [savingItemId, setSavingItemId] = useState("");
+  const [managingDocumentId, setManagingDocumentId] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
-
-  const characterCount = content.length;
-  const noteCount = sourceNote.length;
-
-  const isOverLimit = characterCount > MAX_CONTENT_LENGTH;
-  const isCloseToLimit =
-    characterCount >= 3700 && characterCount <= MAX_CONTENT_LENGTH;
-  const isNoteOverLimit = noteCount > MAX_SOURCE_NOTE_LENGTH;
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadKnowledge() {
       if (!workspace?.id) {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
         return;
       }
 
@@ -213,7 +437,73 @@ export default function KnowledgeBasePage() {
     return () => {
       isMounted = false;
     };
-  }, [workspace, reloadKey]);
+  }, [workspace?.id, reloadKey]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDocuments() {
+      if (!workspace?.id) {
+        if (isMounted) setIsLoadingDocuments(false);
+        return;
+      }
+
+      setIsLoadingDocuments(true);
+      setDocumentError("");
+
+      try {
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const headers: Record<string, string> = {};
+
+        if (session?.access_token) {
+          headers.Authorization = `Bearer ${session.access_token}`;
+        }
+
+        const response = await fetch(
+          `/api/knowledge/documents?workspace_id=${encodeURIComponent(
+            workspace.id
+          )}`,
+          {
+            method: "GET",
+            headers,
+            cache: "no-store",
+          }
+        );
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.error || "Uploaded documents could not be loaded."
+          );
+        }
+
+        if (!isMounted) return;
+
+        setDocuments((result.documents ?? []) as KnowledgeDocument[]);
+      } catch (error) {
+        if (!isMounted) return;
+
+        setDocumentError(
+          error instanceof Error
+            ? error.message
+            : "Uploaded documents could not be loaded."
+        );
+      } finally {
+        if (isMounted) setIsLoadingDocuments(false);
+      }
+    }
+
+    loadDocuments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [workspace?.id, reloadKey]);
 
   const filteredKnowledge = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
@@ -236,139 +526,457 @@ export default function KnowledgeBasePage() {
     });
   }, [knowledgeItems, searchTerm, filterCategory]);
 
+  const readyDocuments = useMemo(
+    () => documents.filter((document) => document.status === "ready"),
+    [documents]
+  );
+
   const aiReadyCount = knowledgeItems.filter(
     (item) => item.status === "active"
   ).length;
 
-  const summaryCards = [
-    {
-      label: "Current Plan",
-      value: currentPlan.name,
-      note: currentPlan.priceLabel,
-      icon: WalletCards,
-    },
-    {
-      label: "Knowledge Items",
-      value: `${knowledgeItems.length}`,
-      note: `${filteredKnowledge.length} shown`,
-      icon: BookOpen,
-    },
-    {
-      label: "AI Ready",
-      value: `${aiReadyCount}`,
-      note: "Ready for AI",
-      icon: Brain,
-    },
-  ];
+  const guidedPrompt = useMemo(
+    () =>
+      buildGuidedPrompt({
+        selectedCategories,
+        businessOverview,
+        productsServices,
+        pricingDetails,
+        openingHours,
+        faqDetails,
+        policyDetails,
+        deliveryDetails,
+        contactDetails,
+        customDetails,
+        websiteUrl,
+      }),
+    [
+      selectedCategories,
+      businessOverview,
+      productsServices,
+      pricingDetails,
+      openingHours,
+      faqDetails,
+      policyDetails,
+      deliveryDetails,
+      contactDetails,
+      customDetails,
+      websiteUrl,
+    ]
+  );
 
-  function resetForm() {
-    setEditingId("");
-    setSourceType("manual");
-    setTitle("");
-    setCategory("business_info");
-    setEntryLanguage("en");
-    setTagsText("");
-    setContent("");
-    setSourceUrl("");
-    setSourceNote("");
-    setGenerationDetails("");
+  const hasWrittenInformation = guidedPrompt.trim().length >= 10;
+  const canGenerate =
+    selectedCategories.length > 0 &&
+    (hasWrittenInformation || selectedDocumentIds.length > 0);
+
+
+  function toggleCategory(categoryValue: string) {
+    setSelectedCategories((current) =>
+      current.includes(categoryValue)
+        ? current.filter((value) => value !== categoryValue)
+        : [...current, categoryValue]
+    );
+  }
+
+  function toggleDocument(documentId: string) {
+    setSelectedDocumentIds((current) =>
+      current.includes(documentId)
+        ? current.filter((value) => value !== documentId)
+        : [...current, documentId]
+    );
+  }
+
+  function clearWizard() {
+    setWizardStep(1);
+    setSelectedCategories([]);
+    setBusinessOverview("");
+    setProductsServices("");
+    setPricingDetails("");
+    setOpeningHours("");
+    setFaqDetails("");
+    setPolicyDetails("");
+    setDeliveryDetails("");
+    setContactDetails("");
+    setCustomDetails("");
+    setWebsiteUrl("");
+    setSelectedDocumentIds([]);
+    setGeneratedKnowledge(null);
+    setUploadMessage("");
     setActionError("");
   }
 
-  function startEdit(item: KnowledgeRow) {
-    setEditingId(item.id);
-    setSourceType(item.source_type || "manual");
-    setTitle(item.title);
-    setCategory(item.category);
-    setEntryLanguage("en");
-    setTagsText((item.tags || []).join(", "));
-    setContent(item.source_type === "url" ? "" : item.content);
-    setSourceUrl(item.source_url || "");
-    setSourceNote(item.source_note || "");
-    setGenerationDetails("");
-    setActionMessage("");
+  function moveToNextStep() {
     setActionError("");
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    if (wizardStep === 1) {
+      if (selectedCategories.length === 0) {
+        setActionError("Choose at least one topic for your AI to learn.");
+        return;
+      }
+
+      setWizardStep(2);
+      return;
+    }
+
+    if (wizardStep === 2) {
+      if (!hasWrittenInformation && selectedDocumentIds.length === 0) {
+        setActionError(
+          "Add some business information or select at least one uploaded document."
+        );
+        return;
+      }
+
+      if (websiteUrl.trim() && !isValidUrl(websiteUrl)) {
+        setActionError(
+          "Please enter a valid website URL starting with http:// or https://."
+        );
+        return;
+      }
+
+      setWizardStep(3);
+      return;
+    }
+
+    if (wizardStep === 3 && generatedKnowledge) {
+      setWizardStep(4);
+    }
+  }
+
+  function moveToPreviousStep() {
+    setActionError("");
+
+    if (wizardStep > 1) {
+      setWizardStep((wizardStep - 1) as WizardStep);
+    }
+  }
+
+  async function getAuthHeaders(includeContentType = false) {
+    const supabase = createClient();
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const headers: Record<string, string> = {};
+
+    if (includeContentType) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`;
+    }
+
+    return headers;
+  }
+
+  async function handleDocumentUpload(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    event.target.value = "";
+
+    if (!file || !workspace?.id) return;
+
+    setUploadMessage("");
+    setDocumentError("");
+    setActionError("");
+
+    if (file.size > MAX_UPLOAD_SIZE) {
+      setDocumentError("Documents must be 10 MB or smaller.");
+      return;
+    }
+
+    setIsUploadingDocument(true);
+
+    try {
+      const headers = await getAuthHeaders();
+      const formData = new FormData();
+
+      formData.append("workspace_id", workspace.id);
+      formData.append("file", file);
+
+      const response = await fetch(
+        "/api/knowledge/documents/upload",
+        {
+          method: "POST",
+          headers,
+          body: formData,
+        }
+      );
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result.success) {
+        if (result.document?.id) {
+          setReloadKey((value) => value + 1);
+        }
+
+        throw new Error(
+          result.error || "The document could not be uploaded."
+        );
+      }
+
+      const uploadedDocument =
+        result.document as KnowledgeDocument;
+
+      setDocuments((current) => [
+        uploadedDocument,
+        ...current.filter(
+          (document) => document.id !== uploadedDocument.id
+        ),
+      ]);
+
+      if (uploadedDocument.status === "ready") {
+        setSelectedDocumentIds((current) =>
+          current.includes(uploadedDocument.id)
+            ? current
+            : [...current, uploadedDocument.id]
+        );
+      }
+
+      setUploadMessage(
+        `${uploadedDocument.file_name} is ready for Kolkap AI.`
+      );
+    } catch (error) {
+      setDocumentError(
+        error instanceof Error
+          ? error.message
+          : "The document could not be uploaded."
+      );
+    } finally {
+      setIsUploadingDocument(false);
+    }
+  }
+
+  async function updateDocumentStatus(
+    document: KnowledgeDocument,
+    status: "ready" | "archived"
+  ) {
+    setManagingDocumentId(document.id);
+    setDocumentError("");
+    setUploadMessage("");
+
+    try {
+      const headers = await getAuthHeaders(true);
+
+      const response = await fetch(
+        `/api/knowledge/documents/${encodeURIComponent(
+          document.id
+        )}`,
+        {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ status }),
+        }
+      );
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "The document could not be updated."
+        );
+      }
+
+      const updatedDocument =
+        result.document as KnowledgeDocument;
+
+      setDocuments((current) =>
+        status === "archived"
+          ? current.filter((item) => item.id !== document.id)
+          : current.map((item) =>
+              item.id === document.id
+                ? { ...item, ...updatedDocument }
+                : item
+            )
+      );
+
+      if (status === "archived") {
+        setSelectedDocumentIds((current) =>
+          current.filter((value) => value !== document.id)
+        );
+
+        setUploadMessage(`${document.file_name} was archived.`);
+      } else {
+        setUploadMessage(`${document.file_name} was restored.`);
+      }
+    } catch (error) {
+      setDocumentError(
+        error instanceof Error
+          ? error.message
+          : "The document could not be updated."
+      );
+    } finally {
+      setManagingDocumentId("");
+    }
+  }
+
+  async function deleteDocument(document: KnowledgeDocument) {
+    const shouldDelete = window.confirm(
+      `Delete ${document.file_name}? This removes the uploaded file permanently.`
+    );
+
+    if (!shouldDelete) return;
+
+    setManagingDocumentId(document.id);
+    setDocumentError("");
+    setUploadMessage("");
+
+    try {
+      const headers = await getAuthHeaders();
+
+      const response = await fetch(
+        `/api/knowledge/documents/${encodeURIComponent(
+          document.id
+        )}`,
+        {
+          method: "DELETE",
+          headers,
+        }
+      );
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || "The document could not be deleted."
+        );
+      }
+
+      setDocuments((current) =>
+        current.filter((item) => item.id !== document.id)
+      );
+
+      setSelectedDocumentIds((current) =>
+        current.filter((value) => value !== document.id)
+      );
+
+      setUploadMessage(`${document.file_name} was deleted.`);
+    } catch (error) {
+      setDocumentError(
+        error instanceof Error
+          ? error.message
+          : "The document could not be deleted."
+      );
+    } finally {
+      setManagingDocumentId("");
+    }
   }
 
   async function handleGenerateKnowledge() {
     setActionMessage("");
     setActionError("");
 
-    if (!workspace) {
+    if (!workspace?.id) {
       setActionError("Business knowledge could not be generated.");
       return;
     }
 
-    if (!generationDetails.trim() || generationDetails.trim().length < 10) {
-      setActionError("Please add details for the knowledge you want to generate.");
+    if (selectedCategories.length === 0) {
+      setActionError("Choose at least one topic for your AI to learn.");
+      setWizardStep(1);
+      return;
+    }
+
+    if (!hasWrittenInformation && selectedDocumentIds.length === 0) {
+      setActionError(
+        "Add some business information or select an uploaded document."
+      );
+      setWizardStep(2);
+      return;
+    }
+
+    if (websiteUrl.trim() && !isValidUrl(websiteUrl)) {
+      setActionError(
+        "Please enter a valid website URL starting with http:// or https://."
+      );
+      setWizardStep(2);
       return;
     }
 
     setIsGeneratingKnowledge(true);
 
     try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const headers = await getAuthHeaders(true);
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-
-      if (session?.access_token) {
-        headers.Authorization = `Bearer ${session.access_token}`;
-      }
+      const primaryCategory =
+        selectedCategories.length === 1
+          ? selectedCategories[0]
+          : "custom_note";
 
       const response = await fetch("/api/knowledge/generate", {
         method: "POST",
         headers,
         body: JSON.stringify({
           workspace_id: workspace.id,
-          title: title.trim(),
-          category,
+          title:
+            selectedCategories.length === 1
+              ? getOptionLabel(
+                  libraryCategoryOptions,
+                  primaryCategory
+                )
+              : "Business Knowledge",
+          category: primaryCategory,
           language: "en",
-          tags: tagsText,
-          details: generationDetails.trim(),
+          tags: selectedCategories,
+          details: guidedPrompt,
+          document_ids: selectedDocumentIds,
         }),
       });
 
       const result = await response.json().catch(() => ({}));
 
       if (!response.ok || !result.success) {
-        setActionError(
-          result.error || "Business knowledge could not be generated."
+        throw new Error(
+          result.error ||
+            "Business knowledge could not be generated."
         );
-        setIsGeneratingKnowledge(false);
-        return;
       }
 
       const generated = result.generated || {};
 
-      setTitle(String(generated.title || title || "Generated Knowledge"));
-      setCategory(String(generated.category || category || "custom_note"));
-      setEntryLanguage("en");
-      setTagsText(
-        Array.isArray(generated.tags)
-          ? generated.tags.join(", ")
-          : String(generated.tags || tagsText || "")
-      );
-      setContent(String(generated.content || ""));
-      setSourceUrl("");
-      setSourceNote("");
+      setGeneratedKnowledge({
+        title: String(
+          generated.title || "Generated Business Knowledge"
+        ),
+        category: String(
+          generated.category || primaryCategory || "custom_note"
+        ),
+        language: "en",
+        tags: Array.isArray(generated.tags)
+          ? generated.tags.map(String)
+          : selectedCategories,
+        content: String(generated.content || ""),
+        source_type: String(
+          generated.source_type ||
+            (selectedDocumentIds.length ? "document" : "manual")
+        ),
+        source_note:
+          generated.source_note == null
+            ? null
+            : String(generated.source_note),
+        source_document_ids: Array.isArray(
+          generated.source_document_ids
+        )
+          ? generated.source_document_ids.map(String)
+          : selectedDocumentIds,
+      });
+
+      setWizardStep(4);
 
       setActionMessage(
-        `Generated knowledge is ready. ${result.credits_used || KOLKAP_GENERATE_KNOWLEDGE_CREDITS} credits have been used. Review it, edit if needed, then save.`
+        `Kolkap AI built your draft successfully. ${
+          result.credits_used ||
+          KOLKAP_GENERATE_KNOWLEDGE_CREDITS
+        } credits were used. Review it before saving.`
       );
-    } catch (generateError) {
+    } catch (error) {
       setActionError(
-        generateError instanceof Error
-          ? generateError.message
+        error instanceof Error
+          ? error.message
           : "Business knowledge could not be generated."
       );
     } finally {
@@ -376,111 +984,78 @@ export default function KnowledgeBasePage() {
     }
   }
 
-  async function handleSaveKnowledge(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSaveGeneratedKnowledge() {
+    if (!workspace || !generatedKnowledge) return;
 
     setActionMessage("");
     setActionError("");
 
-    if (!workspace) {
-      setActionError("Business knowledge could not be saved.");
+    if (!generatedKnowledge.title.trim()) {
+      setActionError("Please add a title before saving.");
       return;
     }
 
-    if (!title.trim()) {
+    if (!generatedKnowledge.content.trim()) {
       setActionError(
-        sourceType === "url"
-          ? "Please add a title and important URL."
-          : "Please add a title and business knowledge content."
+        "Generated knowledge content cannot be empty."
       );
       return;
     }
 
-    if (sourceType !== "url" && !content.trim()) {
-      setActionError("Please add a title and business knowledge content.");
+    if (
+      generatedKnowledge.content.length >
+      MAX_CONTENT_LENGTH
+    ) {
+      setActionError(
+        "Business knowledge content must be 4,000 characters or less."
+      );
       return;
     }
 
-    if (sourceType !== "url" && content.length > MAX_CONTENT_LENGTH) {
-      setActionError("Business knowledge content must be 4,000 characters or less.");
-      return;
-    }
-
-    if (sourceType === "url" && !sourceUrl.trim()) {
-      setActionError("Please add a title and important URL.");
-      return;
-    }
-
-    if (sourceType === "url" && !isValidUrl(sourceUrl)) {
-      setActionError("Please add a valid URL starting with http:// or https://.");
-      return;
-    }
-
-    if (sourceType === "url" && sourceNote.length > MAX_SOURCE_NOTE_LENGTH) {
-      setActionError("URL note must be 1,000 characters or less.");
-      return;
-    }
-
-    setIsSaving(true);
+    setIsSavingGenerated(true);
 
     const supabase = createClient();
     const now = new Date().toISOString();
-
-    const cleanUrl = sourceUrl.trim();
-    const cleanNote = sourceNote.trim();
-
-    const finalContent =
-      sourceType === "url"
-        ? cleanNote ||
-          `Important company URL: ${cleanUrl}. AI should use this official page when answering related customer questions.`
-        : content.trim();
-
-    const finalSourceType = sourceType === "url" ? "url" : "manual";
+    const sourceDocumentIds =
+      generatedKnowledge.source_document_ids || [];
 
     const payload = {
       workspace_id: workspace.id,
       owner_user_id: workspace.owner_user_id,
-      title: title.trim(),
-      category,
-      content: finalContent,
-      priority: getCategoryPriority(category),
+      title: generatedKnowledge.title.trim(),
+      category: generatedKnowledge.category,
+      content: generatedKnowledge.content.trim(),
+      priority: getCategoryPriority(
+        generatedKnowledge.category
+      ),
       ai_usage: "customer_answer",
       language: "en",
-      tags: normalizeTags(tagsText),
+      tags: generatedKnowledge.tags.slice(0, 12),
       status: "active",
-      source_type: finalSourceType,
-      source_url: sourceType === "url" ? cleanUrl : null,
-      source_note: sourceType === "url" ? cleanNote || null : null,
+      source_type:
+        sourceDocumentIds.length > 0
+          ? "document"
+          : websiteUrl.trim()
+            ? "url"
+            : "manual",
+      source_url: websiteUrl.trim() || null,
+      source_note:
+        generatedKnowledge.source_note ||
+        (sourceDocumentIds.length > 0
+          ? readyDocuments
+              .filter((document) =>
+                sourceDocumentIds.includes(document.id)
+              )
+              .map((document) => document.file_name)
+              .join(", ") || null
+          : null),
+      source_document_id:
+        sourceDocumentIds.length === 1
+          ? sourceDocumentIds[0]
+          : null,
       sync_status: "not_synced",
       updated_at: now,
     };
-
-    if (editingId) {
-      const { data, error } = await supabase
-        .from("workspace_knowledge_base")
-        .update(payload)
-        .eq("id", editingId)
-        .eq("workspace_id", workspace.id)
-        .select("*")
-        .single();
-
-      if (error) {
-        setActionError(error.message || "Business knowledge could not be updated.");
-        setIsSaving(false);
-        return;
-      }
-
-      setKnowledgeItems((current) =>
-        current.map((item) =>
-          item.id === editingId ? (data as KnowledgeRow) : item
-        )
-      );
-
-      setActionMessage("Business knowledge updated successfully.");
-      resetForm();
-      setIsSaving(false);
-      return;
-    }
 
     const { data, error } = await supabase
       .from("workspace_knowledge_base")
@@ -489,15 +1064,148 @@ export default function KnowledgeBasePage() {
       .single();
 
     if (error) {
-      setActionError(error.message || "Business knowledge could not be saved.");
-      setIsSaving(false);
+      setActionError(
+        error.message ||
+          "Business knowledge could not be saved."
+      );
+      setIsSavingGenerated(false);
       return;
     }
 
-    setKnowledgeItems((current) => [data as KnowledgeRow, ...current]);
-    setActionMessage("Business knowledge saved successfully.");
-    resetForm();
-    setIsSaving(false);
+    setKnowledgeItems((current) => [
+      data as KnowledgeRow,
+      ...current,
+    ]);
+
+    setActionMessage(
+      "Your AI has learned this business knowledge."
+    );
+
+    clearWizard();
+    setWizardStep(1);
+    setIsSavingGenerated(false);
+  }
+
+  function startEdit(item: KnowledgeRow) {
+    setEditingId(item.id);
+    setEditTitle(item.title);
+    setEditCategory(item.category);
+    setEditTagsText((item.tags || []).join(", "));
+    setEditContent(item.content);
+    setEditSourceUrl(item.source_url || "");
+    setEditSourceNote(item.source_note || "");
+    setActionMessage("");
+    setActionError("");
+
+    window.setTimeout(() => {
+      document
+        .getElementById("knowledge-library")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    }, 50);
+  }
+
+  function cancelEdit() {
+    setEditingId("");
+    setEditTitle("");
+    setEditCategory("business_info");
+    setEditTagsText("");
+    setEditContent("");
+    setEditSourceUrl("");
+    setEditSourceNote("");
+    setActionError("");
+  }
+
+  async function handleSaveEdit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    if (!workspace?.id || !editingId) return;
+
+    setActionMessage("");
+    setActionError("");
+
+    if (!editTitle.trim() || !editContent.trim()) {
+      setActionError(
+        "Please add a title and business knowledge content."
+      );
+      return;
+    }
+
+    if (editContent.length > MAX_CONTENT_LENGTH) {
+      setActionError(
+        "Business knowledge content must be 4,000 characters or less."
+      );
+      return;
+    }
+
+    if (
+      editSourceUrl.trim() &&
+      !isValidUrl(editSourceUrl)
+    ) {
+      setActionError(
+        "Please add a valid URL starting with http:// or https://."
+      );
+      return;
+    }
+
+    if (
+      editSourceNote.length >
+      MAX_SOURCE_NOTE_LENGTH
+    ) {
+      setActionError(
+        "Source note must be 1,000 characters or less."
+      );
+      return;
+    }
+
+    setIsSavingEdit(true);
+
+    const supabase = createClient();
+    const now = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from("workspace_knowledge_base")
+      .update({
+        title: editTitle.trim(),
+        category: editCategory,
+        content: editContent.trim(),
+        priority: getCategoryPriority(editCategory),
+        tags: normalizeTags(editTagsText),
+        source_url: editSourceUrl.trim() || null,
+        source_note: editSourceNote.trim() || null,
+        updated_at: now,
+      })
+      .eq("id", editingId)
+      .eq("workspace_id", workspace.id)
+      .select("*")
+      .single();
+
+    if (error) {
+      setActionError(
+        error.message ||
+          "Business knowledge could not be updated."
+      );
+      setIsSavingEdit(false);
+      return;
+    }
+
+    setKnowledgeItems((current) =>
+      current.map((item) =>
+        item.id === editingId
+          ? (data as KnowledgeRow)
+          : item
+      )
+    );
+
+    cancelEdit();
+    setActionMessage(
+      "Business knowledge updated successfully."
+    );
+    setIsSavingEdit(false);
   }
 
   async function markReviewed(itemId: string) {
@@ -522,23 +1230,34 @@ export default function KnowledgeBasePage() {
       .single();
 
     if (error) {
-      setActionError(error.message || "Business knowledge could not be updated.");
+      setActionError(
+        error.message ||
+          "Business knowledge could not be updated."
+      );
       setSavingItemId("");
       return;
     }
 
     setKnowledgeItems((current) =>
-      current.map((item) => (item.id === itemId ? (data as KnowledgeRow) : item))
+      current.map((item) =>
+        item.id === itemId
+          ? (data as KnowledgeRow)
+          : item
+      )
     );
 
-    setActionMessage("Business knowledge marked as reviewed.");
+    setActionMessage(
+      "Business knowledge marked as reviewed."
+    );
     setSavingItemId("");
   }
 
   async function deleteKnowledge(itemId: string) {
     if (!workspace) return;
 
-    const shouldDelete = window.confirm("Delete this business knowledge item?");
+    const shouldDelete = window.confirm(
+      "Delete this business knowledge item?"
+    );
 
     if (!shouldDelete) return;
 
@@ -555,7 +1274,10 @@ export default function KnowledgeBasePage() {
       .eq("workspace_id", workspace.id);
 
     if (error) {
-      setActionError(error.message || "Business knowledge could not be deleted.");
+      setActionError(
+        error.message ||
+          "Business knowledge could not be deleted."
+      );
       setSavingItemId("");
       return;
     }
@@ -564,16 +1286,47 @@ export default function KnowledgeBasePage() {
       current.filter((item) => item.id !== itemId)
     );
 
+    if (editingId === itemId) {
+      cancelEdit();
+    }
+
     setActionMessage("Business knowledge deleted.");
     setSavingItemId("");
   }
+
+  const summaryCards = [
+    {
+      label: "Current Plan",
+      value: currentPlan.name,
+      note: currentPlan.priceLabel,
+      icon: WalletCards,
+    },
+    {
+      label: "Knowledge Items",
+      value: `${knowledgeItems.length}`,
+      note: `${filteredKnowledge.length} currently shown`,
+      icon: BookOpen,
+    },
+    {
+      label: "AI Ready",
+      value: `${aiReadyCount}`,
+      note: "Active knowledge available to your AI",
+      icon: Brain,
+    },
+    {
+      label: "Documents",
+      value: `${readyDocuments.length}`,
+      note: "Uploaded files ready to use",
+      icon: FileCheck2,
+    },
+  ];
 
   if (workspaceState.isLoading) {
     return (
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
-            Loading your business knowledge...
+            Loading Teach Your AI...
           </div>
         </section>
       </main>
@@ -586,8 +1339,9 @@ export default function KnowledgeBasePage() {
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
             <p className="text-xl font-black">
-              Business Knowledge could not load.
+              Teach Your AI could not load.
             </p>
+
             <p className="mt-2 text-base font-semibold">
               {workspaceState.error}
             </p>
@@ -598,624 +1352,1412 @@ export default function KnowledgeBasePage() {
   }
 
   return (
-    <main className="bg-[#F7F9FA] text-[#07111F]">
-      <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8 lg:py-14">
-        <div className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9 lg:p-10">
-          <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <Link
-              href="/dashboard"
-              className="inline-flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              Back to Dashboard
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => setReloadKey((value) => value + 1)}
-              className="inline-flex w-fit items-center justify-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-base font-black text-white transition hover:bg-white/10"
-            >
-              <RefreshCcw className="h-5 w-5" />
-              Refresh
-            </button>
-          </div>
-
-          <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
-            <Brain className="h-5 w-5" />
-            Business Knowledge
-          </div>
-
-          <h1 className="max-w-5xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-            Add the business knowledge your AI staff should use.
-          </h1>
-
-          <p className="mt-6 max-w-4xl text-xl font-semibold leading-9 text-slate-300">
-            Save your services, prices, FAQs, policies, opening hours, handover
-            rules, important links, and customer instructions so your AI staff
-            can answer more accurately.
-          </p>
-        </div>
-
-        <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {summaryCards.map((card) => {
-            const Icon = card.icon;
-
-            return (
-              <div
-                key={card.label}
-                className="rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5"
-              >
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-                  <Icon className="h-7 w-7" />
+    <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-8 text-[#07111F] sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-7xl space-y-8">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={acceptedFileTypes}
+          onChange={handleDocumentUpload}
+          className="hidden"
+        />
+        <div className="overflow-hidden rounded-[2.2rem] border border-slate-200 bg-white shadow-sm shadow-slate-900/5">
+          <div className="bg-[linear-gradient(135deg,#07111F_0%,#12263F_52%,#1E3A5F_100%)] px-6 py-8 text-white sm:px-8 lg:px-10">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-3xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white/85">
+                  <Brain className="h-4 w-4" />
+                  Teach Your AI
                 </div>
 
-                <p className="text-lg font-black text-slate-500">
-                  {card.label}
-                </p>
+                <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">
+                  Give your AI the right business knowledge.
+                </h1>
 
-                <p className="mt-2 text-3xl font-black tracking-[-0.04em]">
-                  {card.value}
-                </p>
-
-                <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
-                  {card.note}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-
-        <section className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
-              <Sparkles className="h-8 w-8" />
-            </div>
-
-            <div>
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                Business Knowledge Tip
-              </p>
-
-              <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
-                Keep each item specific. Add one item for pricing, one for
-                refund policy, one for handover rules, one for services, and one
-                for important company links.
-              </h2>
-            </div>
-          </div>
-        </section>
-
-        <div className="mb-8 grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-          <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
-            <div className="mb-7">
-              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-                <Plus className="h-8 w-8" />
-              </div>
-
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                {editingId ? "Edit Business Knowledge" : "Add Business Knowledge"}
-              </p>
-
-              <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                Write it manually, generate it with AI, or add an important company URL.
-                Generated knowledge can be reviewed and edited before saving.
-              </h2>
-            </div>
-
-            <form onSubmit={handleSaveKnowledge} className="grid gap-5">
-              <SelectInput
-                label="Information Type"
-                value={sourceType}
-                onChange={setSourceType}
-                options={sourceTypeOptions}
-              />
-
-              <div
-                className={`rounded-3xl border p-5 ${
-                  sourceType === "generate_ai"
-                    ? "border-purple-100 bg-purple-50 text-purple-950"
-                    : sourceType === "url"
-                      ? "border-blue-100 bg-blue-50 text-blue-950"
-                      : "border-slate-200 bg-[#F7F9FA] text-slate-700"
-                }`}
-              >
-                <p className="text-base font-black">
-                  {sourceType === "generate_ai"
-                    ? "Generate with AI"
-                    : sourceType === "url"
-                      ? "Add important URL"
-                      : "Write business information"}
-                </p>
-                <p className="mt-2 text-sm font-bold leading-6">
-                  {sourceType === "generate_ai"
-                    ? `Use this when you want Kolkap to turn rough business notes into clean AI-ready knowledge. This uses ${KOLKAP_GENERATE_KNOWLEDGE_CREDITS} credits only after generation succeeds.`
-                    : sourceType === "url"
-                      ? "Use this when your business already has an official page, such as pricing, FAQ, terms, policy, or service page."
-                      : "Use this when you want to write the business information directly."}
+                <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-white/75 sm:text-lg">
+                  Add your business information, upload documents, or use your
+                  website. Kolkap AI will organise it into clear knowledge your
+                  AI staff can use when speaking with customers.
                 </p>
               </div>
 
-              {sourceType === "generate_ai" ? (
-                <label className="grid gap-2">
-                  <span className="text-base font-black text-slate-700">
-                    Tell Kolkap what knowledge to create
-                  </span>
-
-                  <textarea
-                    rows={6}
-                    value={generationDetails}
-                    onChange={(event) => setGenerationDetails(event.target.value)}
-                    placeholder="Example: We are a service business in Australia. We offer appointments, customer support, pricing information, and bookings. Customers can contact us by WhatsApp or Website Chat. Create knowledge for services, opening hours, booking rules, and handover rules."
-                    className="w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-semibold leading-8 outline-none transition focus:border-blue-500 focus:bg-white"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={handleGenerateKnowledge}
-                    disabled={isGeneratingKnowledge || !generationDetails.trim()}
-                    className="inline-flex items-center justify-center gap-3 rounded-full bg-purple-600 px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Sparkles className="h-6 w-6" />
-                    {isGeneratingKnowledge
-                      ? "Generating..."
-                      : `Generate Knowledge with AI — ${KOLKAP_GENERATE_KNOWLEDGE_CREDITS} Credits`}
-                  </button>
-
-                  <p className="text-sm font-bold leading-6 text-slate-500">
-                    Review the generated knowledge below before saving it.
-                  </p>
-                </label>
-              ) : null}
-
-              <TextInput
-                label="Title"
-                value={title}
-                onChange={setTitle}
-                placeholder="Example: Delivery Policy, Pricing Page, Common Questions"
-              />
-
-              <SelectInput
-                label="Category"
-                value={category}
-                onChange={setCategory}
-                options={categoryOptions}
-              />
-
-              <div className="grid gap-2">
-                <span className="text-base font-black text-slate-700">
-                  Language
-                </span>
-
-                <div className="rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 text-lg font-black text-[#07111F]">
-                  English
-                </div>
-              </div>
-
-              <TextInput
-                label="Tags"
-                value={tagsText}
-                onChange={setTagsText}
-                placeholder="Example: pricing, delivery, support"
-              />
-
-              {sourceType === "url" ? (
-                <>
-                  <TextInput
-                    label="Important URL"
-                    value={sourceUrl}
-                    onChange={setSourceUrl}
-                    placeholder="https://yourcompany.com/pricing"
-                  />
-
-                  <label className="grid gap-2">
-                    <span className="text-base font-black text-slate-700">
-                      How should the AI use this URL?
-                    </span>
-
-                    <textarea
-                      rows={5}
-                      value={sourceNote}
-                      maxLength={MAX_SOURCE_NOTE_LENGTH + 100}
-                      onChange={(event) => setSourceNote(event.target.value)}
-                      placeholder="Example: AI should use this page when customers ask about prices, packages, subscription rules, or payment terms."
-                      className={`w-full rounded-2xl border px-5 py-4 text-lg font-semibold leading-8 outline-none transition ${
-                        isNoteOverLimit
-                          ? "border-red-300 bg-red-50"
-                          : "border-slate-200 bg-[#F7F9FA] focus:border-blue-500 focus:bg-white"
-                      }`}
-                    />
-
-                    <span
-                      className={`text-sm font-black ${
-                        isNoteOverLimit ? "text-red-600" : "text-slate-500"
-                      }`}
-                    >
-                      {noteCount} / {MAX_SOURCE_NOTE_LENGTH} characters
-                    </span>
-                  </label>
-                </>
-              ) : (
-                <label className="grid gap-2">
-                  <span className="text-base font-black text-slate-700">
-                    Business Knowledge Content
-                  </span>
-
-                  <textarea
-                    rows={10}
-                    value={content}
-                    maxLength={MAX_CONTENT_LENGTH + 200}
-                    onChange={(event) => setContent(event.target.value)}
-                    placeholder="Write factual information about your business, services, location, pricing, policies, customer rules, opening hours, handover rules, and other details your AI staff should use when replying to customers."
-                    className={`w-full rounded-2xl border px-5 py-4 text-lg font-semibold leading-8 outline-none transition ${
-                      isOverLimit
-                        ? "border-red-300 bg-red-50"
-                        : "border-slate-200 bg-[#F7F9FA] focus:border-blue-500 focus:bg-white"
-                    }`}
-                  />
-
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <span
-                      className={`text-sm font-black ${
-                        isOverLimit
-                          ? "text-red-600"
-                          : isCloseToLimit
-                            ? "text-amber-600"
-                            : "text-slate-500"
-                      }`}
-                    >
-                      {characterCount} / {MAX_CONTENT_LENGTH} characters
-                    </span>
-
-                    {isCloseToLimit ? (
-                      <span className="text-sm font-black text-amber-600">
-                        You are close to the 4,000 character limit.
-                      </span>
-                    ) : null}
-
-                    {isOverLimit ? (
-                      <span className="text-sm font-black text-red-600">
-                        Business knowledge content must be 4,000 characters or
-                        less.
-                      </span>
-                    ) : null}
-                  </div>
-                </label>
-              )}
-
-              {actionMessage ? (
-                <div className="rounded-3xl border border-green-200 bg-green-50 p-5 text-green-800">
-                  <p className="flex items-center gap-3 text-base font-black">
-                    <CheckCircle2 className="h-5 w-5" />
-                    {actionMessage}
-                  </p>
-                </div>
-              ) : null}
-
-              {actionError ? (
-                <div className="rounded-3xl border border-red-200 bg-red-50 p-5 text-red-700">
-                  <p className="text-base font-black">{actionError}</p>
-                </div>
-              ) : null}
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="submit"
-                  disabled={isSaving || isGeneratingKnowledge || isOverLimit || isNoteOverLimit}
-                  className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Save className="h-6 w-6" />
-                  {isSaving
-                    ? "Saving..."
-                    : editingId
-                      ? "Update Business Knowledge"
-                      : sourceType === "generate_ai"
-                        ? "Save Generated Knowledge"
-                        : "Save Business Knowledge"}
-                </button>
-
+              <div className="flex flex-wrap gap-3">
                 <Link
-                  href="/education/knowledge-base-guide"
-                  className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-8 py-5 text-xl font-black text-[#07111F] transition hover:-translate-y-0.5"
+                  href="/dashboard/agents"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-black text-white transition hover:bg-white/15"
                 >
-                  <Sparkles className="h-6 w-6" />
-                  See Sample Knowledge
+                  <ChevronLeft className="h-4 w-4" />
+                  Your AI
                 </Link>
 
-                {editingId ? (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-white px-8 py-5 text-xl font-black text-[#07111F] sm:col-span-2"
-                  >
-                    Cancel Edit
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={clearWizard}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-black text-[#07111F] transition hover:bg-slate-100"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Start Again
+                </button>
               </div>
-            </form>
-          </section>
-
-          <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
-            <div className="mb-7">
-              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-                <Filter className="h-8 w-8" />
-              </div>
-
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                Saved Business Knowledge
-              </p>
-
-              <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                Manage the business information and important URLs your AI staff
-                can use to answer customers correctly.
-              </h2>
             </div>
+          </div>
 
-            <div className="grid gap-4">
-              <label className="grid gap-2">
-                <span className="text-base font-black text-slate-700">
-                  Search
-                </span>
+          <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4 sm:p-6 lg:p-8">
+            {summaryCards.map((card) => {
+              const Icon = card.icon;
 
-                <div className="flex h-14 items-center gap-3 rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5">
-                  <Search className="h-5 w-5 text-slate-500" />
+              return (
+                <div
+                  key={card.label}
+                  className="rounded-[1.6rem] border border-slate-200 bg-[#FBFCFD] p-5"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="rounded-2xl bg-[#07111F] p-3 text-white">
+                      <Icon className="h-5 w-5" />
+                    </div>
 
-                  <input
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Search business knowledge..."
-                    className="h-full w-full bg-transparent text-lg font-semibold outline-none"
-                  />
+                    <span className="text-2xl font-black text-[#07111F]">
+                      {card.value}
+                    </span>
+                  </div>
+
+                  <p className="mt-4 text-sm font-black text-[#07111F]">
+                    {card.label}
+                  </p>
+
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                    {card.note}
+                  </p>
                 </div>
-              </label>
+              );
+            })}
+          </div>
+        </div>
 
-              <SelectInput
-                label="Filter Category"
-                value={filterCategory}
-                onChange={setFilterCategory}
-                options={[
-                  { value: "all", label: "All Categories" },
-                  ...categoryOptions,
-                ]}
-              />
+        {(actionMessage || actionError) && (
+          <div
+            className={`rounded-[1.4rem] border px-5 py-4 text-sm font-bold ${
+              actionError
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-green-200 bg-green-50 text-green-700"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              {actionError ? (
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              ) : (
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+              )}
+
+              <p>{actionError || actionMessage}</p>
             </div>
+          </div>
+        )}
 
-            {pageError ? (
-              <div className="mt-5 rounded-3xl border border-red-200 bg-red-50 p-5 text-red-700">
-                <p className="text-base font-black">{pageError}</p>
-              </div>
-            ) : null}
+        <section className="rounded-[2.2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5 sm:p-6 lg:p-8">
+          <div className="border-b border-slate-200 pb-7">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FF2E93]">
+                  Guided training centre
+                </p>
 
-            {isLoading ? (
-              <div className="mt-6 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-6 text-lg font-black">
-                Loading business knowledge...
-              </div>
-            ) : filteredKnowledge.length === 0 ? (
-              <div className="mt-6 rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-8">
-                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-[#07111F]">
-                  <FileText className="h-8 w-8" />
-                </div>
+                <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
+                  Build knowledge with Kolkap AI
+                </h2>
 
-                <h3 className="text-4xl font-black tracking-[-0.05em]">
-                  No business knowledge yet.
-                </h3>
-
-                <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
-                  Add your first item so your AI staff can start learning about
-                  your business.
+                <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                  Complete the steps below. Nothing is saved to your AI until
+                  you review and approve the final draft.
                 </p>
               </div>
-            ) : (
-              <div className="mt-6 grid gap-5">
-                {filteredKnowledge.map((item) => {
-                  const isSavingItem = savingItemId === item.id;
-                  const tags = Array.isArray(item.tags) ? item.tags : [];
 
-                  return (
-                    <div
-                      key={item.id}
-                      className="rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-5"
-                    >
-                      <div className="flex flex-col gap-4">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="min-w-0">
-                            <h3 className="text-2xl font-black tracking-[-0.04em]">
-                              {item.title}
-                            </h3>
+              <div className="rounded-2xl border border-slate-200 bg-[#FBFCFD] px-4 py-3">
+                <p className="text-xs font-bold text-slate-500">
+                  Knowledge generation
+                </p>
+                <p className="mt-1 text-sm font-black text-[#07111F]">
+                  {KOLKAP_GENERATE_KNOWLEDGE_CREDITS} credits per generation
+                </p>
+              </div>
+            </div>
 
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <Badge
-                                text={
-                                  item.source_type === "url"
-                                    ? "Add important URL"
-                                    : "Write business information"
-                                }
-                              />
-                              <Badge
-                                text={getOptionLabel(
-                                  categoryOptions,
-                                  item.category
-                                )}
-                              />
-                              <Badge
-                                text={getOptionLabel(
-                                  languageOptions,
-                                  item.language
-                                )}
-                              />
-                            </div>
-                          </div>
+            <div className="mt-7 grid gap-3 md:grid-cols-4">
+              {wizardSteps.map((item) => {
+                const isCurrent = wizardStep === item.step;
+                const isComplete = wizardStep > item.step;
 
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => startEdit(item)}
-                              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-black text-[#07111F]"
-                            >
-                              <Edit3 className="h-4 w-4" />
-                              Edit
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={isSavingItem}
-                              onClick={() => markReviewed(item.id)}
-                              className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 disabled:opacity-60"
-                            >
-                              <ShieldCheck className="h-4 w-4" />
-                              Mark Reviewed
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={isSavingItem}
-                              onClick={() => deleteKnowledge(item.id)}
-                              className="inline-flex items-center justify-center gap-2 rounded-full bg-red-50 px-4 py-3 text-sm font-black text-red-700 disabled:opacity-60"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-
-                        {item.source_type === "url" && item.source_url ? (
-                          <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5">
-                            <p className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-blue-700">
-                              <Link2 className="h-4 w-4" />
-                              Source
-                            </p>
-
-                            <a
-                              href={item.source_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex break-all text-lg font-black text-blue-700 hover:underline"
-                            >
-                              {item.source_url}
-                            </a>
-
-                            {item.source_note ? (
-                              <p className="mt-4 whitespace-pre-wrap text-base font-semibold leading-8 text-slate-700">
-                                {item.source_note}
-                              </p>
-                            ) : null}
-
-                            <div className="mt-4 flex flex-wrap gap-2">
-                              <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-blue-700">
-                                Sync Status:{" "}
-                                {syncStatusOptions[item.sync_status] ||
-                                  item.sync_status}
-                              </span>
-
-                              <a
-                                href={item.source_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-black text-blue-700"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                                Open URL
-                              </a>
-                            </div>
-                          </div>
+                return (
+                  <div
+                    key={item.step}
+                    className={`rounded-[1.4rem] border p-4 transition ${
+                      isCurrent
+                        ? "border-[#FF2E93] bg-pink-50"
+                        : isComplete
+                          ? "border-green-200 bg-green-50"
+                          : "border-slate-200 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${
+                          isCurrent
+                            ? "bg-[#FF2E93] text-white"
+                            : isComplete
+                              ? "bg-green-600 text-white"
+                              : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {isComplete ? (
+                          <Check className="h-4 w-4" />
                         ) : (
-                          <p className="whitespace-pre-wrap text-base font-semibold leading-8 text-slate-700">
-                            {item.content}
-                          </p>
+                          item.step
                         )}
+                      </div>
 
-                        {tags.length ? (
-                          <div className="flex flex-wrap gap-2">
-                            {tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-black text-slate-600"
-                              >
-                                <Tags className="h-3 w-3" />
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-
-                        <div className="rounded-2xl bg-white p-4 text-sm font-bold text-slate-500">
-                          Last reviewed:{" "}
-                          {formatDate(
-                            item.last_reviewed_at,
-                            "Not reviewed yet"
-                          )}
-                        </div>
+                      <div>
+                        <p className="text-sm font-black text-[#07111F]">
+                          {item.title}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                          {item.description}
+                        </p>
                       </div>
                     </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {wizardStep === 1 && (
+            <div className="pt-7">
+              <div className="max-w-2xl">
+                <h3 className="text-xl font-black">
+                  What should your AI learn?
+                </h3>
+
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                  Select one or more topics. You can teach several areas in one
+                  session.
+                </p>
+              </div>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {categoryOptions.map((category) => {
+                  const Icon = category.icon;
+                  const isSelected = selectedCategories.includes(
+                    category.value
+                  );
+
+                  return (
+                    <button
+                      key={category.value}
+                      type="button"
+                      onClick={() => toggleCategory(category.value)}
+                      className={`relative rounded-[1.6rem] border p-5 text-left transition ${
+                        isSelected
+                          ? "border-[#FF2E93] bg-pink-50 shadow-sm"
+                          : "border-slate-200 bg-[#FBFCFD] hover:border-slate-300 hover:bg-white"
+                      }`}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div
+                          className={`rounded-2xl p-3 ${
+                            isSelected
+                              ? "bg-[#FF2E93] text-white"
+                              : "bg-[#07111F] text-white"
+                          }`}
+                        >
+                          <Icon className="h-5 w-5" />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="font-black text-[#07111F]">
+                            {category.label}
+                          </p>
+
+                          <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                            {category.description}
+                          </p>
+                        </div>
+
+                        <div
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                            isSelected
+                              ? "border-[#FF2E93] bg-[#FF2E93] text-white"
+                              : "border-slate-300 bg-white text-transparent"
+                          }`}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </div>
+                      </div>
+                    </button>
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {wizardStep === 2 && (
+            <div className="space-y-8 pt-7">
+              <div>
+                <h3 className="text-xl font-black">
+                  Add the information your AI should know
+                </h3>
+
+                <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+                  Use any combination of written answers, uploaded documents,
+                  and a website reference.
+                </p>
+              </div>
+
+              <div className="grid gap-5 xl:grid-cols-3">
+                <div className="rounded-[1.6rem] border border-slate-200 bg-[#FBFCFD] p-5">
+                  <div className="flex items-center gap-3">
+                    <Edit3 className="h-5 w-5 text-[#FF2E93]" />
+                    <div>
+                      <p className="font-black">Write it yourself</p>
+                      <p className="text-xs font-semibold text-slate-500">
+                        Answer the guided questions below.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[1.6rem] border border-slate-200 bg-[#FBFCFD] p-5">
+                  <div className="flex items-center gap-3">
+                    <Upload className="h-5 w-5 text-[#FF2E93]" />
+                    <div>
+                      <p className="font-black">Upload documents</p>
+                      <p className="text-xs font-semibold text-slate-500">
+                        PDF, DOCX, TXT, CSV, XLS or XLSX.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[1.6rem] border border-slate-200 bg-[#FBFCFD] p-5">
+                  <div className="flex items-center gap-3">
+                    <Link2 className="h-5 w-5 text-[#FF2E93]" />
+                    <div>
+                      <p className="font-black">Use a website</p>
+                      <p className="text-xs font-semibold text-slate-500">
+                        Add the official source URL for reference.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+                <div className="space-y-5 rounded-[1.8rem] border border-slate-200 p-5 sm:p-6">
+                  <div>
+                    <h4 className="text-lg font-black">
+                      Guided business questions
+                    </h4>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                      Only complete the sections relevant to the topics you
+                      selected.
+                    </p>
+                  </div>
+
+                  {selectedCategories.includes("business_info") && (
+                    <GuidedTextarea
+                      label="Tell us about your business"
+                      description="Business name, what you do, where you operate, who you help, and what makes the business different."
+                      value={businessOverview}
+                      onChange={setBusinessOverview}
+                      placeholder="Example: Kolkap is an Australian AI staff platform helping small businesses manage customer conversations..."
+                    />
+                  )}
+
+                  {selectedCategories.includes("product_service") && (
+                    <GuidedTextarea
+                      label="What products or services do you offer?"
+                      description="Include names, descriptions, variations, inclusions, and who each option is suitable for."
+                      value={productsServices}
+                      onChange={setProductsServices}
+                      placeholder="List each product or service clearly..."
+                    />
+                  )}
+
+                  {selectedCategories.includes("pricing") && (
+                    <GuidedTextarea
+                      label="What should your AI know about pricing?"
+                      description="Include prices, packages, fees, deposits, taxes, discounts, payment methods, and what is included."
+                      value={pricingDetails}
+                      onChange={setPricingDetails}
+                      placeholder="Example: Starter is $79 per month and includes..."
+                    />
+                  )}
+
+                  {selectedCategories.includes("opening_hours") && (
+                    <GuidedTextarea
+                      label="What are your opening hours?"
+                      description="Include normal hours, public holiday hours, appointment rules, and response times."
+                      value={openingHours}
+                      onChange={setOpeningHours}
+                      placeholder="Example: Monday to Friday, 9:00 am to 5:00 pm..."
+                    />
+                  )}
+
+                  {selectedCategories.includes("faq") && (
+                    <GuidedTextarea
+                      label="What questions do customers ask most often?"
+                      description="Write each question with the correct approved answer."
+                      value={faqDetails}
+                      onChange={setFaqDetails}
+                      placeholder="Q: Do you offer a free trial?&#10;A: Yes, every plan includes..."
+                    />
+                  )}
+
+                  {selectedCategories.includes("policy") && (
+                    <GuidedTextarea
+                      label="What policies should your AI follow?"
+                      description="Refunds, cancellation, privacy, rescheduling, returns, warranties, and other rules."
+                      value={policyDetails}
+                      onChange={setPolicyDetails}
+                      placeholder="Example: Cancellations require 24 hours notice..."
+                    />
+                  )}
+
+                  {selectedCategories.includes("delivery") && (
+                    <GuidedTextarea
+                      label="How does delivery or fulfilment work?"
+                      description="Include service areas, delivery times, fees, collection, shipping, and exceptions."
+                      value={deliveryDetails}
+                      onChange={setDeliveryDetails}
+                      placeholder="Example: We deliver across Sydney within..."
+                    />
+                  )}
+
+                  {selectedCategories.includes("contact_details") && (
+                    <GuidedTextarea
+                      label="How can customers contact your business?"
+                      description="Add official phone numbers, email addresses, location, website, WhatsApp, and social channels."
+                      value={contactDetails}
+                      onChange={setContactDetails}
+                      placeholder="Phone:&#10;Email:&#10;Address:&#10;Website:"
+                    />
+                  )}
+
+                  {selectedCategories.includes("custom_note") && (
+                    <GuidedTextarea
+                      label="What else should your AI know?"
+                      description="Add any special instructions, exceptions, important context, or business-specific details."
+                      value={customDetails}
+                      onChange={setCustomDetails}
+                      placeholder="Add any other important information..."
+                    />
+                  )}
+
+                  <div>
+                    <label className="text-sm font-black text-[#07111F]">
+                      Official website or source URL
+                    </label>
+
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                      This will be saved as a reference source. It does not
+                      automatically crawl the website in this version.
+                    </p>
+
+                    <div className="relative mt-3">
+                      <Link2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                      <input
+                        type="url"
+                        value={websiteUrl}
+                        onChange={(event) =>
+                          setWebsiteUrl(event.target.value)
+                        }
+                        placeholder="https://yourbusiness.com"
+                        className="w-full rounded-2xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-[#FF2E93]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-5">
+                  <div className="rounded-[1.8rem] border border-slate-200 p-5 sm:p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h4 className="text-lg font-black">
+                          Upload business documents
+                        </h4>
+                        <p className="mt-1 text-sm font-semibold text-slate-500">
+                          Maximum file size: 10 MB.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={isUploadingDocument}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#07111F] px-4 py-3 text-sm font-black text-white transition hover:bg-[#13243A] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isUploadingDocument ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4" />
+                        )}
+
+                        {isUploadingDocument
+                          ? "Processing..."
+                          : "Upload Document"}
+                      </button>
+                    </div>
+
+                    {uploadMessage && (
+                      <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
+                        {uploadMessage}
+                      </div>
+                    )}
+
+                    {documentError && (
+                      <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                        {documentError}
+                      </div>
+                    )}
+
+                    <div className="mt-5 space-y-3">
+                      {isLoadingDocuments ? (
+                        <div className="rounded-2xl border border-dashed border-slate-300 p-5 text-sm font-bold text-slate-500">
+                          Loading documents...
+                        </div>
+                      ) : readyDocuments.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+                          <FileText className="mx-auto h-8 w-8 text-slate-400" />
+                          <p className="mt-3 text-sm font-black">
+                            No documents uploaded yet
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            Upload a file and Kolkap will extract the readable
+                            text.
+                          </p>
+                        </div>
+                      ) : (
+                        readyDocuments.map((document) => {
+                          const isSelected =
+                            selectedDocumentIds.includes(document.id);
+
+                          return (
+                            <button
+                              key={document.id}
+                              type="button"
+                              onClick={() => toggleDocument(document.id)}
+                              className={`w-full rounded-2xl border p-4 text-left transition ${
+                                isSelected
+                                  ? "border-[#FF2E93] bg-pink-50"
+                                  : "border-slate-200 bg-[#FBFCFD] hover:border-slate-300"
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="rounded-xl bg-white p-2 text-[#07111F] shadow-sm">
+                                  <File className="h-4 w-4" />
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-black">
+                                    {document.file_name}
+                                  </p>
+                                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                                    {formatFileSize(document.file_size)} ·{" "}
+                                    {formatDate(
+                                      document.processed_at,
+                                      "Ready"
+                                    )}
+                                  </p>
+                                </div>
+
+                                <div
+                                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                                    isSelected
+                                      ? "border-[#FF2E93] bg-[#FF2E93] text-white"
+                                      : "border-slate-300 bg-white text-transparent"
+                                  }`}
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.8rem] border border-slate-200 bg-[#07111F] p-5 text-white sm:p-6">
+                    <Sparkles className="h-7 w-7 text-[#FF70B4]" />
+
+                    <h4 className="mt-4 text-lg font-black">
+                      What Kolkap AI will do
+                    </h4>
+
+                    <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-white/75">
+                      <p>Organise your information into a clean knowledge draft.</p>
+                      <p>Remove unnecessary repetition and improve clarity.</p>
+                      <p>Keep uploaded documents as reference material only.</p>
+                      <p>Let you review and edit everything before saving.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {wizardStep === 3 && (
+            <div className="pt-7">
+              <div className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
+                <div className="rounded-[1.8rem] border border-slate-200 p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="rounded-2xl bg-[#07111F] p-3 text-white">
+                      <Sparkles className="h-6 w-6" />
+                    </div>
+
+                    <div>
+                      <h3 className="text-xl font-black">
+                        Ready to build your knowledge draft
+                      </h3>
+
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                        Kolkap AI will use the information and documents you
+                        selected. The draft will not be saved automatically.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <ReviewBlock
+                      label="Topics selected"
+                      value={`${selectedCategories.length}`}
+                      detail={selectedCategories
+                        .map((value) =>
+                          getOptionLabel(
+                            libraryCategoryOptions,
+                            value
+                          )
+                        )
+                        .join(", ")}
+                    />
+
+                    <ReviewBlock
+                      label="Documents selected"
+                      value={`${selectedDocumentIds.length}`}
+                      detail={
+                        selectedDocumentIds.length
+                          ? readyDocuments
+                              .filter((document) =>
+                                selectedDocumentIds.includes(
+                                  document.id
+                                )
+                              )
+                              .map((document) => document.file_name)
+                              .join(", ")
+                          : "No uploaded document selected"
+                      }
+                    />
+
+                    <ReviewBlock
+                      label="Written information"
+                      value={`${guidedPrompt.length}`}
+                      detail="characters prepared for generation"
+                    />
+
+                    <ReviewBlock
+                      label="Credits"
+                      value={`${KOLKAP_GENERATE_KNOWLEDGE_CREDITS}`}
+                      detail="used after a successful generation"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={!canGenerate || isGeneratingKnowledge}
+                    onClick={handleGenerateKnowledge}
+                    className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FF2E93] px-5 py-4 text-sm font-black text-white transition hover:bg-[#E91E82] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isGeneratingKnowledge ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-5 w-5" />
+                    )}
+
+                    {isGeneratingKnowledge
+                      ? "Kolkap AI is building..."
+                      : "Build Knowledge with Kolkap AI"}
+                  </button>
+                </div>
+
+                <div className="rounded-[1.8rem] border border-slate-200 bg-[#FBFCFD] p-6">
+                  <h4 className="font-black">Information summary</h4>
+
+                  <div className="mt-4 max-h-[420px] overflow-y-auto whitespace-pre-wrap rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold leading-6 text-slate-600">
+                    {guidedPrompt ||
+                      "No written information was added. Kolkap AI will use the selected documents."}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {wizardStep === 4 && generatedKnowledge && (
+            <div className="space-y-6 pt-7">
+              <div>
+                <h3 className="text-xl font-black">
+                  Review the generated knowledge
+                </h3>
+
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                  Edit anything that needs correcting. Save only when the
+                  information is accurate and approved.
+                </p>
+              </div>
+
+              <div className="grid gap-5 lg:grid-cols-2">
+                <div>
+                  <label className="text-sm font-black">Knowledge title</label>
+
+                  <input
+                    value={generatedKnowledge.title}
+                    onChange={(event) =>
+                      setGeneratedKnowledge((current) =>
+                        current
+                          ? {
+                              ...current,
+                              title: event.target.value,
+                            }
+                          : current
+                      )
+                    }
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#FF2E93]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-black">Category</label>
+
+                  <select
+                    value={generatedKnowledge.category}
+                    onChange={(event) =>
+                      setGeneratedKnowledge((current) =>
+                        current
+                          ? {
+                              ...current,
+                              category: event.target.value,
+                            }
+                          : current
+                      )
+                    }
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#FF2E93]"
+                  >
+                    {libraryCategoryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-black">Tags</label>
+
+                <input
+                  value={generatedKnowledge.tags.join(", ")}
+                  onChange={(event) =>
+                    setGeneratedKnowledge((current) =>
+                      current
+                        ? {
+                            ...current,
+                            tags: normalizeTags(event.target.value),
+                          }
+                        : current
+                    )
+                  }
+                  placeholder="pricing, services, support"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#FF2E93]"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between gap-4">
+                  <label className="text-sm font-black">
+                    Business knowledge
+                  </label>
+
+                  <span
+                    className={`text-xs font-bold ${
+                      generatedKnowledge.content.length >
+                      MAX_CONTENT_LENGTH
+                        ? "text-red-600"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {generatedKnowledge.content.length}/
+                    {MAX_CONTENT_LENGTH}
+                  </span>
+                </div>
+
+                <textarea
+                  value={generatedKnowledge.content}
+                  onChange={(event) =>
+                    setGeneratedKnowledge((current) =>
+                      current
+                        ? {
+                            ...current,
+                            content: event.target.value,
+                          }
+                        : current
+                    )
+                  }
+                  rows={18}
+                  className="mt-2 w-full rounded-[1.6rem] border border-slate-200 px-4 py-4 text-sm font-semibold leading-7 outline-none transition focus:border-[#FF2E93]"
+                />
+              </div>
+
+              {generatedKnowledge.source_note && (
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
+                  <span className="font-black">Source note:</span>{" "}
+                  {generatedKnowledge.source_note}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setWizardStep(2)}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-black text-[#07111F] transition hover:bg-slate-50"
+                >
+                  <Edit3 className="h-4 w-4" />
+                  Change Sources
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleGenerateKnowledge}
+                  disabled={isGeneratingKnowledge}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-black text-[#07111F] transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  {isGeneratingKnowledge ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="h-4 w-4" />
+                  )}
+                  Generate Again
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveGeneratedKnowledge}
+                  disabled={isSavingGenerated}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#07111F] px-5 py-3.5 text-sm font-black text-white transition hover:bg-[#13243A] disabled:opacity-60"
+                >
+                  {isSavingGenerated ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Save and Teach My AI
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8 flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              onClick={moveToPreviousStep}
+              disabled={wizardStep === 1}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </button>
+
+            {wizardStep < 3 && (
+              <button
+                type="button"
+                onClick={moveToNextStep}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#07111F] px-5 py-3 text-sm font-black text-white transition hover:bg-[#13243A]"
+              >
+                Continue
+                <ArrowRight className="h-4 w-4" />
+              </button>
             )}
-          </section>
-        </div>
+          </div>
+        </section>
+
+        <section
+          id="knowledge-library"
+          className="rounded-[2.2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5 sm:p-6 lg:p-8"
+        >
+          <div className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FF2E93]">
+                Knowledge library
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black">
+                What your AI already knows
+              </h2>
+
+              <p className="mt-2 text-sm font-semibold text-slate-500">
+                Search, review, edit, or delete saved business knowledge.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                <input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search knowledge"
+                  className="w-full rounded-2xl border border-slate-200 py-3 pl-11 pr-4 text-sm font-semibold outline-none transition focus:border-[#FF2E93] sm:w-64"
+                />
+              </div>
+
+              <div className="relative">
+                <Filter className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                <select
+                  value={filterCategory}
+                  onChange={(event) =>
+                    setFilterCategory(event.target.value)
+                  }
+                  className="w-full appearance-none rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-10 text-sm font-semibold outline-none transition focus:border-[#FF2E93] sm:w-56"
+                >
+                  <option value="all">All categories</option>
+
+                  {libraryCategoryOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {editingId && (
+            <form
+              onSubmit={handleSaveEdit}
+              className="mt-6 rounded-[1.8rem] border border-[#FF2E93] bg-pink-50 p-5 sm:p-6"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-black uppercase tracking-[0.14em] text-[#C21870]">
+                    Editing knowledge
+                  </p>
+                  <h3 className="mt-1 text-xl font-black">
+                    Update this information
+                  </h3>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="rounded-xl border border-pink-200 bg-white p-2 text-slate-600 transition hover:bg-pink-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                <FormField label="Title">
+                  <input
+                    value={editTitle}
+                    onChange={(event) =>
+                      setEditTitle(event.target.value)
+                    }
+                    className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#FF2E93]"
+                  />
+                </FormField>
+
+                <FormField label="Category">
+                  <select
+                    value={editCategory}
+                    onChange={(event) =>
+                      setEditCategory(event.target.value)
+                    }
+                    className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#FF2E93]"
+                  >
+                    {libraryCategoryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+
+                <FormField label="Tags">
+                  <input
+                    value={editTagsText}
+                    onChange={(event) =>
+                      setEditTagsText(event.target.value)
+                    }
+                    placeholder="pricing, delivery, FAQ"
+                    className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#FF2E93]"
+                  />
+                </FormField>
+
+                <FormField label="Source URL">
+                  <input
+                    value={editSourceUrl}
+                    onChange={(event) =>
+                      setEditSourceUrl(event.target.value)
+                    }
+                    placeholder="https://..."
+                    className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#FF2E93]"
+                  />
+                </FormField>
+              </div>
+
+              <div className="mt-5">
+                <FormField label="Source note">
+                  <textarea
+                    value={editSourceNote}
+                    onChange={(event) =>
+                      setEditSourceNote(event.target.value)
+                    }
+                    rows={3}
+                    className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#FF2E93]"
+                  />
+                </FormField>
+              </div>
+
+              <div className="mt-5">
+                <div className="flex items-center justify-between gap-4">
+                  <label className="text-sm font-black">
+                    Business knowledge
+                  </label>
+
+                  <span
+                    className={`text-xs font-bold ${
+                      editContent.length > MAX_CONTENT_LENGTH
+                        ? "text-red-600"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    {editContent.length}/{MAX_CONTENT_LENGTH}
+                  </span>
+                </div>
+
+                <textarea
+                  value={editContent}
+                  onChange={(event) =>
+                    setEditContent(event.target.value)
+                  }
+                  rows={12}
+                  className="mt-2 w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold leading-7 outline-none focus:border-[#FF2E93]"
+                />
+              </div>
+
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="rounded-2xl border border-pink-200 bg-white px-5 py-3 text-sm font-black"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#07111F] px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+                >
+                  {isSavingEdit ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="mt-6">
+            {isLoading ? (
+              <div className="rounded-[1.6rem] border border-dashed border-slate-300 p-8 text-center text-sm font-bold text-slate-500">
+                Loading business knowledge...
+              </div>
+            ) : pageError ? (
+              <div className="rounded-[1.6rem] border border-red-200 bg-red-50 p-6 text-sm font-bold text-red-700">
+                {pageError}
+              </div>
+            ) : filteredKnowledge.length === 0 ? (
+              <div className="rounded-[1.6rem] border border-dashed border-slate-300 p-10 text-center">
+                <BookOpen className="mx-auto h-10 w-10 text-slate-400" />
+                <p className="mt-4 text-lg font-black">
+                  No knowledge found
+                </p>
+                <p className="mt-2 text-sm font-semibold text-slate-500">
+                  Teach your AI above or adjust your search and filter.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-5 xl:grid-cols-2">
+                {filteredKnowledge.map((item) => (
+                  <KnowledgeCard
+                    key={item.id}
+                    item={item}
+                    isBusy={savingItemId === item.id}
+                    onEdit={() => startEdit(item)}
+                    onReview={() => markReviewed(item.id)}
+                    onDelete={() => deleteKnowledge(item.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-[2.2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5 sm:p-6 lg:p-8">
+          <div className="flex flex-col gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FF2E93]">
+                Document manager
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black">
+                Uploaded business files
+              </h2>
+
+              <p className="mt-2 text-sm font-semibold text-slate-500">
+                Manage source files used to build knowledge.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              disabled={isUploadingDocument}
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#07111F] px-5 py-3 text-sm font-black text-white transition hover:bg-[#13243A] disabled:opacity-60"
+            >
+              <Plus className="h-4 w-4" />
+              Add Document
+            </button>
+          </div>
+
+          <div className="mt-6">
+            {isLoadingDocuments ? (
+              <div className="rounded-[1.6rem] border border-dashed border-slate-300 p-8 text-center text-sm font-bold text-slate-500">
+                Loading documents...
+              </div>
+            ) : documents.length === 0 ? (
+              <div className="rounded-[1.6rem] border border-dashed border-slate-300 p-10 text-center">
+                <FileText className="mx-auto h-10 w-10 text-slate-400" />
+                <p className="mt-4 text-lg font-black">
+                  No uploaded documents
+                </p>
+                <p className="mt-2 text-sm font-semibold text-slate-500">
+                  Upload a business file to begin.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {documents.map((document) => (
+                  <div
+                    key={document.id}
+                    className="flex flex-col gap-4 rounded-[1.5rem] border border-slate-200 bg-[#FBFCFD] p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex min-w-0 items-start gap-4">
+                      <div className="rounded-2xl bg-[#07111F] p-3 text-white">
+                        <FileText className="h-5 w-5" />
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="truncate font-black">
+                          {document.file_name}
+                        </p>
+
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+                          <span>{formatFileSize(document.file_size)}</span>
+                          <span>•</span>
+                          <span>
+                            {formatDate(
+                              document.created_at,
+                              "Upload date unavailable"
+                            )}
+                          </span>
+
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-[11px] font-black capitalize ${getDocumentStatusStyle(
+                              document.status
+                            )}`}
+                          >
+                            {document.status}
+                          </span>
+                        </div>
+
+                        {document.processing_error && (
+                          <p className="mt-2 text-xs font-bold text-red-600">
+                            {document.processing_error}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {document.status === "archived" ? (
+                        <button
+                          type="button"
+                          disabled={managingDocumentId === document.id}
+                          onClick={() =>
+                            updateDocumentStatus(document, "ready")
+                          }
+                          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black"
+                        >
+                          <RefreshCcw className="h-3.5 w-3.5" />
+                          Restore
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={managingDocumentId === document.id}
+                          onClick={() =>
+                            updateDocumentStatus(document, "archived")
+                          }
+                          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black"
+                        >
+                          <Archive className="h-3.5 w-3.5" />
+                          Archive
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={managingDocumentId === document.id}
+                        onClick={() => deleteDocument(document)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700"
+                      >
+                        {managingDocumentId === document.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
       </section>
     </main>
   );
 }
 
-function Badge({ text }: { text: string }) {
-  return (
-    <span className="rounded-full bg-white px-4 py-2 text-xs font-black text-[#07111F]">
-      {text}
-    </span>
-  );
-}
-
-function TextInput({
+function GuidedTextarea({
   label,
+  description,
   value,
   onChange,
   placeholder,
 }: {
   label: string;
+  description: string;
   value: string;
   onChange: (value: string) => void;
-  placeholder?: string;
+  placeholder: string;
 }) {
   return (
-    <label className="grid gap-2">
-      <span className="text-base font-black text-slate-700">{label}</span>
+    <div>
+      <label className="text-sm font-black text-[#07111F]">
+        {label}
+      </label>
 
-      <input
+      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+        {description}
+      </p>
+
+      <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        rows={5}
         placeholder={placeholder}
-        className="h-14 w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 text-lg font-semibold outline-none transition focus:border-blue-500 focus:bg-white"
+        className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 outline-none transition placeholder:text-slate-400 focus:border-[#FF2E93]"
       />
-    </label>
+    </div>
   );
 }
 
-function SelectInput({
+function ReviewBlock({
   label,
   value,
-  onChange,
-  options,
+  detail,
 }: {
   label: string;
   value: string;
-  onChange: (value: string) => void;
-  options: Option[];
+  detail: string;
 }) {
   return (
-    <label className="grid min-w-0 gap-2">
-      <span className="text-base font-black text-slate-700">{label}</span>
+    <div className="rounded-2xl border border-slate-200 bg-[#FBFCFD] p-4">
+      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+        {label}
+      </p>
 
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-14 w-full rounded-2xl border border-slate-200 bg-[#F7F9FA] px-4 text-lg font-black outline-none transition focus:border-blue-500 focus:bg-white"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+      <p className="mt-2 text-2xl font-black">{value}</p>
+
+      <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+        {detail}
+      </p>
+    </div>
+  );
+}
+
+function FormField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-black">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function KnowledgeCard({
+  item,
+  isBusy,
+  onEdit,
+  onReview,
+  onDelete,
+}: {
+  item: KnowledgeRow;
+  isBusy: boolean;
+  onEdit: () => void;
+  onReview: () => void;
+  onDelete: () => void;
+}) {
+  const tags = Array.isArray(item.tags) ? item.tags : [];
+
+  return (
+    <article className="rounded-[1.7rem] border border-slate-200 bg-[#FBFCFD] p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-black text-slate-600">
+              {getOptionLabel(
+                libraryCategoryOptions,
+                item.category
+              )}
+            </span>
+
+            <span
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${
+                item.status === "active"
+                  ? "border-green-200 bg-green-50 text-green-700"
+                  : "border-slate-200 bg-slate-100 text-slate-600"
+              }`}
+            >
+              {item.status}
+            </span>
+          </div>
+
+          <h3 className="mt-4 text-lg font-black leading-6">
+            {item.title}
+          </h3>
+        </div>
+
+        <div className="rounded-2xl bg-[#07111F] p-3 text-white">
+          <BookOpen className="h-5 w-5" />
+        </div>
+      </div>
+
+      <p className="mt-4 line-clamp-6 whitespace-pre-wrap text-sm font-semibold leading-7 text-slate-600">
+        {item.content}
+      </p>
+
+      {tags.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600"
+            >
+              <Tags className="h-3 w-3" />
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-5 space-y-2 border-t border-slate-200 pt-4 text-xs font-semibold text-slate-500">
+        <p>
+          Updated:{" "}
+          <span className="font-black text-slate-700">
+            {formatDate(item.updated_at, "Unknown")}
+          </span>
+        </p>
+
+        <p>
+          Last reviewed:{" "}
+          <span className="font-black text-slate-700">
+            {formatDate(item.last_reviewed_at, "Not reviewed yet")}
+          </span>
+        </p>
+
+        {item.source_url && (
+          <a
+            href={item.source_url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 font-black text-blue-700 hover:underline"
+          >
+            Open source
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={onEdit}
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black"
+        >
+          <Edit3 className="h-3.5 w-3.5" />
+          Edit
+        </button>
+
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={onReview}
+          className="inline-flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-black text-green-700"
+        >
+          {isBusy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-3.5 w-3.5" />
+          )}
+          Mark Reviewed
+        </button>
+
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={onDelete}
+          className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete
+        </button>
+      </div>
+    </article>
   );
 }
