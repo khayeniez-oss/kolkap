@@ -39,7 +39,7 @@ function safeNumber(value: unknown, fallback = 0) {
     return fallback;
   }
 
-  return numberValue;
+  return Math.floor(numberValue);
 }
 
 function safeEventCount(value: unknown) {
@@ -53,50 +53,53 @@ function safeEventCount(value: unknown) {
 }
 
 export async function logWorkspaceUsage(input: LogWorkspaceUsageInput) {
-  try {
-    if (!input.workspaceId) return;
+  if (!input.workspaceId) {
+    throw new Error("Workspace ID is required to record usage.");
+  }
 
-    const supabase = getAdminSupabase();
+  const supabase = getAdminSupabase();
 
-    const { data: workspace, error: workspaceError } = await supabase
-      .from("business_workspaces")
-      .select("owner_user_id")
-      .eq("id", input.workspaceId)
-      .maybeSingle();
+  const { data: workspace, error: workspaceError } = await supabase
+    .from("business_workspaces")
+    .select("owner_user_id")
+    .eq("id", input.workspaceId)
+    .maybeSingle();
 
-    if (workspaceError || !workspace?.owner_user_id) {
-      console.error("Usage log skipped. Workspace owner not found.", {
-        workspaceId: input.workspaceId,
-        error: workspaceError?.message,
-      });
+  if (workspaceError) {
+    throw new Error(
+      `Workspace owner could not be loaded: ${workspaceError.message}`
+    );
+  }
 
-      return;
-    }
+  if (!workspace?.owner_user_id) {
+    throw new Error("Workspace owner could not be found.");
+  }
 
-    const creditsUsed = safeNumber(input.creditsUsed, 0);
-    const eventCount = safeEventCount(input.eventCount);
-    const status = input.status || "success";
+  const creditsUsed = safeNumber(input.creditsUsed, 0);
+  const eventCount = safeEventCount(input.eventCount);
+  const status = input.status || "success";
 
-    const { error } = await supabase.from("workspace_usage_events").insert({
-      workspace_id: input.workspaceId,
-      owner_user_id: workspace.owner_user_id,
-      user_id: input.userId || null,
-      event_type: input.eventType,
-      channel: input.channel,
-      source_page: input.sourcePage,
-      credits_used: creditsUsed,
-      event_count: eventCount,
-      status,
-      metadata: input.metadata || {},
+  const { error } = await supabase.rpc("record_workspace_usage", {
+    p_workspace_id: input.workspaceId,
+    p_owner_user_id: workspace.owner_user_id,
+    p_user_id: input.userId || null,
+    p_event_type: input.eventType,
+    p_channel: input.channel,
+    p_source_page: input.sourcePage,
+    p_credits_used: creditsUsed,
+    p_event_count: eventCount,
+    p_status: status,
+    p_metadata: input.metadata || {},
+  });
+
+  if (error) {
+    console.error("Workspace usage recording failed.", {
+      workspaceId: input.workspaceId,
+      eventType: input.eventType,
+      creditsUsed,
+      error: error.message,
     });
 
-    if (error) {
-      console.error("Usage log failed.", error.message);
-    }
-  } catch (error) {
-    console.error(
-      "Usage log error.",
-      error instanceof Error ? error.message : error
-    );
+    throw new Error(`Usage could not be recorded: ${error.message}`);
   }
 }

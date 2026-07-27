@@ -71,6 +71,7 @@ export const KOLKAP_CONTENT_STUDIO_CREDITS = 10;
 export const KOLKAP_AI_STAFF_CREATE_CREDITS = 100;
 export const KOLKAP_AI_STAFF_EDIT_CREDITS = 50;
 export const KOLKAP_GENERATE_KNOWLEDGE_CREDITS = 150;
+export const KOLKAP_WEBSITE_IMPORT_CREDITS = 500;
 
 export function getWhatsAppReplyCreditCost(_message = "") {
   return KOLKAP_WHATSAPP_REPLY_MIN_CREDITS;

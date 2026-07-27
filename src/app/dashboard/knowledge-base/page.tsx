@@ -50,6 +50,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import {
   KOLKAP_GENERATE_KNOWLEDGE_CREDITS,
+  KOLKAP_WEBSITE_IMPORT_CREDITS,
   getKolkapPlan,
 } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
@@ -113,8 +114,15 @@ type GeneratedKnowledge = {
   tags: string[];
   content: string;
   source_type?: string;
+  source_url?: string | null;
   source_note?: string | null;
   source_document_ids?: string[];
+};
+
+type WebsiteImportSummary = {
+  confidence: "high" | "medium" | "low";
+  missing_information: string[];
+  recommendation: string;
 };
 
 const categoryOptions = [
@@ -379,6 +387,15 @@ export default function KnowledgeBasePage() {
 
   const [generatedKnowledge, setGeneratedKnowledge] =
     useState<GeneratedKnowledge | null>(null);
+  const [generatedWebsiteItems, setGeneratedWebsiteItems] = useState<
+    GeneratedKnowledge[]
+  >([]);
+  const [selectedWebsiteItemIndexes, setSelectedWebsiteItemIndexes] = useState<
+    number[]
+  >([]);
+  const [websiteImportSummary, setWebsiteImportSummary] =
+    useState<WebsiteImportSummary | null>(null);
+  const [websitePagesAnalysed, setWebsitePagesAnalysed] = useState(0);
   const [isGeneratingKnowledge, setIsGeneratingKnowledge] = useState(false);
   const [isSavingGenerated, setIsSavingGenerated] = useState(false);
 
@@ -565,10 +582,26 @@ export default function KnowledgeBasePage() {
     ]
   );
 
-  const hasWrittenInformation = guidedPrompt.trim().length >= 10;
+  const manualInformation = [
+    businessOverview,
+    productsServices,
+    pricingDetails,
+    openingHours,
+    faqDetails,
+    policyDetails,
+    deliveryDetails,
+    contactDetails,
+    customDetails,
+  ]
+    .join("\n")
+    .trim();
+
+  const hasWrittenInformation = manualInformation.length >= 10;
+  const hasWebsiteImport = websiteUrl.trim().length > 0;
   const canGenerate =
-    selectedCategories.length > 0 &&
-    (hasWrittenInformation || selectedDocumentIds.length > 0);
+    hasWebsiteImport ||
+    (selectedCategories.length > 0 &&
+      (hasWrittenInformation || selectedDocumentIds.length > 0));
 
 
   function toggleCategory(categoryValue: string) {
@@ -602,6 +635,10 @@ export default function KnowledgeBasePage() {
     setWebsiteUrl("");
     setSelectedDocumentIds([]);
     setGeneratedKnowledge(null);
+    setGeneratedWebsiteItems([]);
+    setSelectedWebsiteItemIndexes([]);
+    setWebsiteImportSummary(null);
+    setWebsitePagesAnalysed(0);
     setUploadMessage("");
     setActionError("");
   }
@@ -620,16 +657,20 @@ export default function KnowledgeBasePage() {
     }
 
     if (wizardStep === 2) {
-      if (!hasWrittenInformation && selectedDocumentIds.length === 0) {
+      if (
+        !hasWebsiteImport &&
+        !hasWrittenInformation &&
+        selectedDocumentIds.length === 0
+      ) {
         setActionError(
-          "Add some business information or select at least one uploaded document."
+          "Add business information, select an uploaded document, or enter a website."
         );
         return;
       }
 
-      if (websiteUrl.trim() && !isValidUrl(websiteUrl)) {
+      if (hasWebsiteImport && !/^https:\/\/.+/i.test(websiteUrl.trim())) {
         setActionError(
-          "Please enter a valid website URL starting with http:// or https://."
+          "Website imports require a valid URL starting with https://."
         );
         return;
       }
@@ -638,7 +679,10 @@ export default function KnowledgeBasePage() {
       return;
     }
 
-    if (wizardStep === 3 && generatedKnowledge) {
+    if (
+      wizardStep === 3 &&
+      (generatedKnowledge || generatedWebsiteItems.length > 0)
+    ) {
       setWizardStep(4);
     }
   }
@@ -875,13 +919,17 @@ export default function KnowledgeBasePage() {
       return;
     }
 
-    if (selectedCategories.length === 0) {
+    if (!hasWebsiteImport && selectedCategories.length === 0) {
       setActionError("Choose at least one topic for your AI to learn.");
       setWizardStep(1);
       return;
     }
 
-    if (!hasWrittenInformation && selectedDocumentIds.length === 0) {
+    if (
+      !hasWebsiteImport &&
+      !hasWrittenInformation &&
+      selectedDocumentIds.length === 0
+    ) {
       setActionError(
         "Add some business information or select an uploaded document."
       );
@@ -889,9 +937,9 @@ export default function KnowledgeBasePage() {
       return;
     }
 
-    if (websiteUrl.trim() && !isValidUrl(websiteUrl)) {
+    if (hasWebsiteImport && !/^https:\/\/.+/i.test(websiteUrl.trim())) {
       setActionError(
-        "Please enter a valid website URL starting with http:// or https://."
+        "Website imports require a valid URL starting with https://."
       );
       setWizardStep(2);
       return;
@@ -901,6 +949,83 @@ export default function KnowledgeBasePage() {
 
     try {
       const headers = await getAuthHeaders(true);
+
+      if (hasWebsiteImport) {
+        const response = await fetch("/api/knowledge/import", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            workspace_id: workspace.id,
+            source: "website",
+            url: websiteUrl.trim(),
+          }),
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || !result.success) {
+          throw new Error(
+            result.error || "Website knowledge could not be imported."
+          );
+        }
+
+        const importedItems = Array.isArray(result.generated_items)
+          ? result.generated_items.map((item: Record<string, unknown>) => ({
+              title: String(item.title || "Imported Website Knowledge"),
+              category: String(item.category || "custom_note"),
+              language: "en",
+              tags: Array.isArray(item.tags) ? item.tags.map(String) : [],
+              content: String(item.content || ""),
+              source_type: "url",
+              source_url:
+                item.source_url == null
+                  ? String(result.website_url || websiteUrl.trim())
+                  : String(item.source_url),
+              source_note:
+                item.source_note == null ? null : String(item.source_note),
+              source_document_ids: [],
+            }))
+          : [];
+
+        if (!importedItems.length) {
+          throw new Error(
+            "The website did not produce any usable knowledge drafts."
+          );
+        }
+
+        setGeneratedKnowledge(null);
+        setGeneratedWebsiteItems(importedItems);
+        setSelectedWebsiteItemIndexes(
+          importedItems.map((_: GeneratedKnowledge, index: number) => index)
+        );
+        setWebsitePagesAnalysed(Number(result.pages_analysed || 0));
+        setWebsiteImportSummary({
+          confidence:
+            result.summary?.confidence === "high" ||
+            result.summary?.confidence === "medium" ||
+            result.summary?.confidence === "low"
+              ? result.summary.confidence
+              : "medium",
+          missing_information: Array.isArray(
+            result.summary?.missing_information
+          )
+            ? result.summary.missing_information.map(String)
+            : [],
+          recommendation: String(
+            result.summary?.recommendation ||
+              "Review the imported drafts before saving them."
+          ),
+        });
+        setWizardStep(4);
+        setActionMessage(
+          `Kolkap analysed ${Number(
+            result.pages_analysed || 0
+          )} website pages and prepared ${importedItems.length} knowledge drafts. ${
+            result.credits_used || KOLKAP_WEBSITE_IMPORT_CREDITS
+          } credits were used.`
+        );
+        return;
+      }
 
       const primaryCategory =
         selectedCategories.length === 1
@@ -937,6 +1062,11 @@ export default function KnowledgeBasePage() {
       }
 
       const generated = result.generated || {};
+
+      setGeneratedWebsiteItems([]);
+      setSelectedWebsiteItemIndexes([]);
+      setWebsiteImportSummary(null);
+      setWebsitePagesAnalysed(0);
 
       setGeneratedKnowledge({
         title: String(
@@ -982,6 +1112,108 @@ export default function KnowledgeBasePage() {
     } finally {
       setIsGeneratingKnowledge(false);
     }
+  }
+
+  function toggleWebsiteItem(index: number) {
+    setSelectedWebsiteItemIndexes((current) =>
+      current.includes(index)
+        ? current.filter((value) => value !== index)
+        : [...current, index]
+    );
+  }
+
+  function updateWebsiteItem(
+    index: number,
+    updates: Partial<GeneratedKnowledge>
+  ) {
+    setGeneratedWebsiteItems((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, ...updates } : item
+      )
+    );
+  }
+
+  async function handleSaveWebsiteKnowledge() {
+    if (!workspace || generatedWebsiteItems.length === 0) return;
+
+    setActionMessage("");
+    setActionError("");
+
+    const selectedItems = generatedWebsiteItems.filter((_, index) =>
+      selectedWebsiteItemIndexes.includes(index)
+    );
+
+    if (!selectedItems.length) {
+      setActionError("Select at least one website knowledge item to save.");
+      return;
+    }
+
+    const invalidItem = selectedItems.find(
+      (item) =>
+        !item.title.trim() ||
+        !item.content.trim() ||
+        item.content.length > MAX_CONTENT_LENGTH
+    );
+
+    if (invalidItem) {
+      setActionError(
+        "Every selected item needs a title and content of 4,000 characters or less."
+      );
+      return;
+    }
+
+    setIsSavingGenerated(true);
+
+    const supabase = createClient();
+    const now = new Date().toISOString();
+
+    const payloads = selectedItems.map((item) => ({
+      workspace_id: workspace.id,
+      owner_user_id: workspace.owner_user_id,
+      title: item.title.trim(),
+      category: item.category,
+      content: item.content.trim(),
+      priority: getCategoryPriority(item.category),
+      ai_usage: "customer_answer",
+      language: "en",
+      tags: item.tags.slice(0, 12),
+      status: "active",
+      source_type: "url",
+      source_url: item.source_url || websiteUrl.trim() || null,
+      source_note: item.source_note || null,
+      source_document_id: null,
+      sync_status: "not_synced",
+      updated_at: now,
+    }));
+
+    const { data, error } = await supabase
+      .from("workspace_knowledge_base")
+      .insert(payloads)
+      .select("*");
+
+    if (error) {
+      setActionError(
+        error.message || "Website knowledge could not be saved."
+      );
+      setIsSavingGenerated(false);
+      return;
+    }
+
+    setKnowledgeItems((current) => [
+      ...((data ?? []) as KnowledgeRow[]),
+      ...current,
+    ]);
+
+    const savedCount = data?.length || selectedItems.length;
+
+    clearWizard();
+    setWizardStep(1);
+    setActionMessage(
+      `${savedCount} website knowledge item${
+        savedCount === 1 ? "" : "s"
+      } saved. Your AI can now use this information.`
+    );
+    setIsSavingGenerated(false);
   }
 
   async function handleSaveGeneratedKnowledge() {
@@ -1308,9 +1540,9 @@ export default function KnowledgeBasePage() {
       icon: BookOpen,
     },
     {
-      label: "AI Ready",
+      label: "Active Knowledge",
       value: `${aiReadyCount}`,
-      note: "Active knowledge available to your AI",
+      note: "Knowledge items available to your AI",
       icon: Brain,
     },
     {
@@ -1458,7 +1690,7 @@ export default function KnowledgeBasePage() {
           <div className="border-b border-slate-200 pb-7">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FF2E93]">
+                <p className="text-sm font-black uppercase tracking-[0.16em] text-[#4DBD16]">
                   Guided training centre
                 </p>
 
@@ -1477,7 +1709,9 @@ export default function KnowledgeBasePage() {
                   Knowledge generation
                 </p>
                 <p className="mt-1 text-sm font-black text-[#07111F]">
-                  {KOLKAP_GENERATE_KNOWLEDGE_CREDITS} credits per generation
+                  {hasWebsiteImport
+                    ? `${KOLKAP_WEBSITE_IMPORT_CREDITS} credits per website import`
+                    : `${KOLKAP_GENERATE_KNOWLEDGE_CREDITS} credits per generation`}
                 </p>
               </div>
             </div>
@@ -1492,7 +1726,7 @@ export default function KnowledgeBasePage() {
                     key={item.step}
                     className={`rounded-[1.4rem] border p-4 transition ${
                       isCurrent
-                        ? "border-[#FF2E93] bg-pink-50"
+                        ? "border-[#7CFF3D] bg-[#F2FFE9]"
                         : isComplete
                           ? "border-green-200 bg-green-50"
                           : "border-slate-200 bg-white"
@@ -1502,7 +1736,7 @@ export default function KnowledgeBasePage() {
                       <div
                         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-black ${
                           isCurrent
-                            ? "bg-[#FF2E93] text-white"
+                            ? "bg-[#7CFF3D] text-[#07111F]"
                             : isComplete
                               ? "bg-green-600 text-white"
                               : "bg-slate-100 text-slate-500"
@@ -1557,7 +1791,7 @@ export default function KnowledgeBasePage() {
                       onClick={() => toggleCategory(category.value)}
                       className={`relative rounded-[1.6rem] border p-5 text-left transition ${
                         isSelected
-                          ? "border-[#FF2E93] bg-pink-50 shadow-sm"
+                          ? "border-[#7CFF3D] bg-[#F2FFE9] shadow-sm"
                           : "border-slate-200 bg-[#FBFCFD] hover:border-slate-300 hover:bg-white"
                       }`}
                     >
@@ -1565,7 +1799,7 @@ export default function KnowledgeBasePage() {
                         <div
                           className={`rounded-2xl p-3 ${
                             isSelected
-                              ? "bg-[#FF2E93] text-white"
+                              ? "bg-[#7CFF3D] text-[#07111F]"
                               : "bg-[#07111F] text-white"
                           }`}
                         >
@@ -1585,7 +1819,7 @@ export default function KnowledgeBasePage() {
                         <div
                           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
                             isSelected
-                              ? "border-[#FF2E93] bg-[#FF2E93] text-white"
+                              ? "border-[#7CFF3D] bg-[#7CFF3D] text-[#07111F]"
                               : "border-slate-300 bg-white text-transparent"
                           }`}
                         >
@@ -1615,7 +1849,7 @@ export default function KnowledgeBasePage() {
               <div className="grid gap-5 xl:grid-cols-3">
                 <div className="rounded-[1.6rem] border border-slate-200 bg-[#FBFCFD] p-5">
                   <div className="flex items-center gap-3">
-                    <Edit3 className="h-5 w-5 text-[#FF2E93]" />
+                    <Edit3 className="h-5 w-5 text-[#4DBD16]" />
                     <div>
                       <p className="font-black">Write it yourself</p>
                       <p className="text-xs font-semibold text-slate-500">
@@ -1627,7 +1861,7 @@ export default function KnowledgeBasePage() {
 
                 <div className="rounded-[1.6rem] border border-slate-200 bg-[#FBFCFD] p-5">
                   <div className="flex items-center gap-3">
-                    <Upload className="h-5 w-5 text-[#FF2E93]" />
+                    <Upload className="h-5 w-5 text-[#4DBD16]" />
                     <div>
                       <p className="font-black">Upload documents</p>
                       <p className="text-xs font-semibold text-slate-500">
@@ -1639,11 +1873,11 @@ export default function KnowledgeBasePage() {
 
                 <div className="rounded-[1.6rem] border border-slate-200 bg-[#FBFCFD] p-5">
                   <div className="flex items-center gap-3">
-                    <Link2 className="h-5 w-5 text-[#FF2E93]" />
+                    <Link2 className="h-5 w-5 text-[#4DBD16]" />
                     <div>
                       <p className="font-black">Use a website</p>
                       <p className="text-xs font-semibold text-slate-500">
-                        Add the official source URL for reference.
+                        Import and organise your public website.
                       </p>
                     </div>
                   </div>
@@ -1758,8 +1992,8 @@ export default function KnowledgeBasePage() {
                     </label>
 
                     <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-                      This will be saved as a reference source. It does not
-                      automatically crawl the website in this version.
+                      Kolkap will securely analyse up to 20 public pages and build
+                      separate knowledge drafts for you to review.
                     </p>
 
                     <div className="relative mt-3">
@@ -1772,7 +2006,7 @@ export default function KnowledgeBasePage() {
                           setWebsiteUrl(event.target.value)
                         }
                         placeholder="https://yourbusiness.com"
-                        className="w-full rounded-2xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-[#FF2E93]"
+                        className="w-full rounded-2xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm font-semibold outline-none transition placeholder:text-slate-400 focus:border-[#7CFF3D]"
                       />
                     </div>
                   </div>
@@ -1848,7 +2082,7 @@ export default function KnowledgeBasePage() {
                               onClick={() => toggleDocument(document.id)}
                               className={`w-full rounded-2xl border p-4 text-left transition ${
                                 isSelected
-                                  ? "border-[#FF2E93] bg-pink-50"
+                                  ? "border-[#7CFF3D] bg-[#F2FFE9]"
                                   : "border-slate-200 bg-[#FBFCFD] hover:border-slate-300"
                               }`}
                             >
@@ -1873,7 +2107,7 @@ export default function KnowledgeBasePage() {
                                 <div
                                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
                                     isSelected
-                                      ? "border-[#FF2E93] bg-[#FF2E93] text-white"
+                                      ? "border-[#7CFF3D] bg-[#7CFF3D] text-[#07111F]"
                                       : "border-slate-300 bg-white text-transparent"
                                   }`}
                                 >
@@ -1888,7 +2122,7 @@ export default function KnowledgeBasePage() {
                   </div>
 
                   <div className="rounded-[1.8rem] border border-slate-200 bg-[#07111F] p-5 text-white sm:p-6">
-                    <Sparkles className="h-7 w-7 text-[#FF70B4]" />
+                    <Sparkles className="h-7 w-7 text-[#7CFF3D]" />
 
                     <h4 className="mt-4 text-lg font-black">
                       What Kolkap AI will do
@@ -1966,8 +2200,16 @@ export default function KnowledgeBasePage() {
 
                     <ReviewBlock
                       label="Credits"
-                      value={`${KOLKAP_GENERATE_KNOWLEDGE_CREDITS}`}
-                      detail="used after a successful generation"
+                      value={`${
+                        hasWebsiteImport
+                          ? KOLKAP_WEBSITE_IMPORT_CREDITS
+                          : KOLKAP_GENERATE_KNOWLEDGE_CREDITS
+                      }`}
+                      detail={
+                        hasWebsiteImport
+                          ? "used after a successful website import"
+                          : "used after a successful generation"
+                      }
                     />
                   </div>
 
@@ -1975,7 +2217,7 @@ export default function KnowledgeBasePage() {
                     type="button"
                     disabled={!canGenerate || isGeneratingKnowledge}
                     onClick={handleGenerateKnowledge}
-                    className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FF2E93] px-5 py-4 text-sm font-black text-white transition hover:bg-[#E91E82] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#7CFF3D] px-5 py-4 text-sm font-black text-[#07111F] transition hover:bg-[#68E82F] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isGeneratingKnowledge ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -1984,8 +2226,12 @@ export default function KnowledgeBasePage() {
                     )}
 
                     {isGeneratingKnowledge
-                      ? "Kolkap AI is building..."
-                      : "Build Knowledge with Kolkap AI"}
+                      ? hasWebsiteImport
+                        ? "Kolkap is analysing your website..."
+                        : "Kolkap AI is building..."
+                      : hasWebsiteImport
+                        ? "Import Website with Kolkap AI"
+                        : "Build Knowledge with Kolkap AI"}
                   </button>
                 </div>
 
@@ -1993,177 +2239,440 @@ export default function KnowledgeBasePage() {
                   <h4 className="font-black">Information summary</h4>
 
                   <div className="mt-4 max-h-[420px] overflow-y-auto whitespace-pre-wrap rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold leading-6 text-slate-600">
-                    {guidedPrompt ||
-                      "No written information was added. Kolkap AI will use the selected documents."}
+                    {hasWebsiteImport
+                      ? `Website import: ${websiteUrl.trim()}\n\nKolkap will analyse up to 20 public pages and create separate drafts. Written answers and documents are not combined with a website import.`
+                      : guidedPrompt ||
+                        "No written information was added. Kolkap AI will use the selected documents."}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {wizardStep === 4 && generatedKnowledge && (
-            <div className="space-y-6 pt-7">
-              <div>
-                <h3 className="text-xl font-black">
-                  Review the generated knowledge
-                </h3>
+          {wizardStep === 4 &&
+            (generatedKnowledge || generatedWebsiteItems.length > 0) && (
+              <div className="space-y-6 pt-7">
+                {generatedWebsiteItems.length > 0 ? (
+                  <>
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <h3 className="text-xl font-black">
+                          Review website knowledge
+                        </h3>
 
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                  Edit anything that needs correcting. Save only when the
-                  information is accurate and approved.
-                </p>
-              </div>
+                        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
+                          Kolkap analysed {websitePagesAnalysed} public website
+                          page{websitePagesAnalysed === 1 ? "" : "s"} and
+                          prepared {generatedWebsiteItems.length} focused
+                          knowledge drafts. Select only the items you approve.
+                        </p>
+                      </div>
 
-              <div className="grid gap-5 lg:grid-cols-2">
-                <div>
-                  <label className="text-sm font-black">Knowledge title</label>
+                      <div className="rounded-2xl border border-[#7CFF3D] bg-[#F2FFE9] px-4 py-3">
+                        <p className="text-xs font-black uppercase tracking-[0.12em] text-[#318A0B]">
+                          Selected to save
+                        </p>
+                        <p className="mt-1 text-2xl font-black">
+                          {selectedWebsiteItemIndexes.length}/
+                          {generatedWebsiteItems.length}
+                        </p>
+                      </div>
+                    </div>
 
-                  <input
-                    value={generatedKnowledge.title}
-                    onChange={(event) =>
-                      setGeneratedKnowledge((current) =>
-                        current
-                          ? {
-                              ...current,
-                              title: event.target.value,
-                            }
-                          : current
-                      )
-                    }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#FF2E93]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-black">Category</label>
-
-                  <select
-                    value={generatedKnowledge.category}
-                    onChange={(event) =>
-                      setGeneratedKnowledge((current) =>
-                        current
-                          ? {
-                              ...current,
-                              category: event.target.value,
-                            }
-                          : current
-                      )
-                    }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#FF2E93]"
-                  >
-                    {libraryCategoryOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-black">Tags</label>
-
-                <input
-                  value={generatedKnowledge.tags.join(", ")}
-                  onChange={(event) =>
-                    setGeneratedKnowledge((current) =>
-                      current
-                        ? {
-                            ...current,
-                            tags: normalizeTags(event.target.value),
+                    {websiteImportSummary && (
+                      <div className="grid gap-4 lg:grid-cols-3">
+                        <ReviewBlock
+                          label="Confidence"
+                          value={
+                            websiteImportSummary.confidence
+                              .charAt(0)
+                              .toUpperCase() +
+                            websiteImportSummary.confidence.slice(1)
                           }
-                        : current
-                    )
-                  }
-                  placeholder="pricing, services, support"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#FF2E93]"
-                />
-              </div>
+                          detail="Based on the public information found"
+                        />
 
-              <div>
-                <div className="flex items-center justify-between gap-4">
-                  <label className="text-sm font-black">
-                    Business knowledge
-                  </label>
-
-                  <span
-                    className={`text-xs font-bold ${
-                      generatedKnowledge.content.length >
-                      MAX_CONTENT_LENGTH
-                        ? "text-red-600"
-                        : "text-slate-400"
-                    }`}
-                  >
-                    {generatedKnowledge.content.length}/
-                    {MAX_CONTENT_LENGTH}
-                  </span>
-                </div>
-
-                <textarea
-                  value={generatedKnowledge.content}
-                  onChange={(event) =>
-                    setGeneratedKnowledge((current) =>
-                      current
-                        ? {
-                            ...current,
-                            content: event.target.value,
+                        <ReviewBlock
+                          label="Missing information"
+                          value={`${websiteImportSummary.missing_information.length}`}
+                          detail={
+                            websiteImportSummary.missing_information.length
+                              ? websiteImportSummary.missing_information.join(
+                                  ", "
+                                )
+                              : "No important gaps were identified"
                           }
-                        : current
-                    )
-                  }
-                  rows={18}
-                  className="mt-2 w-full rounded-[1.6rem] border border-slate-200 px-4 py-4 text-sm font-semibold leading-7 outline-none transition focus:border-[#FF2E93]"
-                />
+                        />
+
+                        <ReviewBlock
+                          label="Recommendation"
+                          value="Review"
+                          detail={websiteImportSummary.recommendation}
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      {generatedWebsiteItems.map((item, index) => {
+                        const isSelected =
+                          selectedWebsiteItemIndexes.includes(index);
+
+                        return (
+                          <article
+                            key={`${item.title}-${index}`}
+                            className={`rounded-[1.8rem] border p-5 transition sm:p-6 ${
+                              isSelected
+                                ? "border-[#7CFF3D] bg-[#F8FFF3]"
+                                : "border-slate-200 bg-[#FBFCFD] opacity-75"
+                            }`}
+                          >
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-black text-slate-600">
+                                    {getOptionLabel(
+                                      libraryCategoryOptions,
+                                      item.category
+                                    )}
+                                  </span>
+
+                                  <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-black text-blue-700">
+                                    Website import
+                                  </span>
+                                </div>
+
+                                <p className="mt-3 text-xs font-semibold text-slate-500">
+                                  Draft {index + 1} of{" "}
+                                  {generatedWebsiteItems.length}
+                                </p>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => toggleWebsiteItem(index)}
+                                className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition ${
+                                  isSelected
+                                    ? "border-[#7CFF3D] bg-[#7CFF3D] text-[#07111F]"
+                                    : "border-slate-200 bg-white text-slate-600"
+                                }`}
+                              >
+                                {isSelected ? (
+                                  <Check className="h-3.5 w-3.5" />
+                                ) : (
+                                  <Plus className="h-3.5 w-3.5" />
+                                )}
+                                {isSelected ? "Selected" : "Select"}
+                              </button>
+                            </div>
+
+                            <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                              <div>
+                                <label className="text-sm font-black">
+                                  Knowledge title
+                                </label>
+
+                                <input
+                                  value={item.title}
+                                  onChange={(event) =>
+                                    updateWebsiteItem(index, {
+                                      title: event.target.value,
+                                    })
+                                  }
+                                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#7CFF3D]"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-sm font-black">
+                                  Category
+                                </label>
+
+                                <select
+                                  value={item.category}
+                                  onChange={(event) =>
+                                    updateWebsiteItem(index, {
+                                      category: event.target.value,
+                                    })
+                                  }
+                                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#7CFF3D]"
+                                >
+                                  {libraryCategoryOptions.map((option) => (
+                                    <option
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="mt-5">
+                              <label className="text-sm font-black">Tags</label>
+
+                              <input
+                                value={item.tags.join(", ")}
+                                onChange={(event) =>
+                                  updateWebsiteItem(index, {
+                                    tags: normalizeTags(event.target.value),
+                                  })
+                                }
+                                placeholder="services, pricing, support"
+                                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#7CFF3D]"
+                              />
+                            </div>
+
+                            <div className="mt-5">
+                              <div className="flex items-center justify-between gap-4">
+                                <label className="text-sm font-black">
+                                  Business knowledge
+                                </label>
+
+                                <span
+                                  className={`text-xs font-bold ${
+                                    item.content.length > MAX_CONTENT_LENGTH
+                                      ? "text-red-600"
+                                      : "text-slate-400"
+                                  }`}
+                                >
+                                  {item.content.length}/{MAX_CONTENT_LENGTH}
+                                </span>
+                              </div>
+
+                              <textarea
+                                value={item.content}
+                                onChange={(event) =>
+                                  updateWebsiteItem(index, {
+                                    content: event.target.value,
+                                  })
+                                }
+                                rows={10}
+                                className="mt-2 w-full rounded-[1.6rem] border border-slate-200 bg-white px-4 py-4 text-sm font-semibold leading-7 outline-none transition focus:border-[#7CFF3D]"
+                              />
+                            </div>
+
+                            {item.source_note && (
+                              <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
+                                <span className="font-black">
+                                  Source note:
+                                </span>{" "}
+                                {item.source_note}
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setWizardStep(2)}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-black text-[#07111F] transition hover:bg-slate-50"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                        Change Website
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleGenerateKnowledge}
+                        disabled={isGeneratingKnowledge}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-black text-[#07111F] transition hover:bg-slate-50 disabled:opacity-60"
+                      >
+                        {isGeneratingKnowledge ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCcw className="h-4 w-4" />
+                        )}
+                        Import Again
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveWebsiteKnowledge}
+                        disabled={
+                          isSavingGenerated ||
+                          selectedWebsiteItemIndexes.length === 0
+                        }
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#07111F] px-5 py-3.5 text-sm font-black text-white transition hover:bg-[#13243A] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isSavingGenerated ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4" />
+                        )}
+                        Save Selected and Teach My AI
+                      </button>
+                    </div>
+                  </>
+                ) : generatedKnowledge ? (
+                  <>
+                    <div>
+                      <h3 className="text-xl font-black">
+                        Review the generated knowledge
+                      </h3>
+
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                        Edit anything that needs correcting. Save only when the
+                        information is accurate and approved.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-5 lg:grid-cols-2">
+                      <div>
+                        <label className="text-sm font-black">
+                          Knowledge title
+                        </label>
+
+                        <input
+                          value={generatedKnowledge.title}
+                          onChange={(event) =>
+                            setGeneratedKnowledge((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    title: event.target.value,
+                                  }
+                                : current
+                            )
+                          }
+                          className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#7CFF3D]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-black">Category</label>
+
+                        <select
+                          value={generatedKnowledge.category}
+                          onChange={(event) =>
+                            setGeneratedKnowledge((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    category: event.target.value,
+                                  }
+                                : current
+                            )
+                          }
+                          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#7CFF3D]"
+                        >
+                          {libraryCategoryOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-black">Tags</label>
+
+                      <input
+                        value={generatedKnowledge.tags.join(", ")}
+                        onChange={(event) =>
+                          setGeneratedKnowledge((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  tags: normalizeTags(event.target.value),
+                                }
+                              : current
+                          )
+                        }
+                        placeholder="pricing, services, support"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3.5 text-sm font-semibold outline-none transition focus:border-[#7CFF3D]"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between gap-4">
+                        <label className="text-sm font-black">
+                          Business knowledge
+                        </label>
+
+                        <span
+                          className={`text-xs font-bold ${
+                            generatedKnowledge.content.length >
+                            MAX_CONTENT_LENGTH
+                              ? "text-red-600"
+                              : "text-slate-400"
+                          }`}
+                        >
+                          {generatedKnowledge.content.length}/
+                          {MAX_CONTENT_LENGTH}
+                        </span>
+                      </div>
+
+                      <textarea
+                        value={generatedKnowledge.content}
+                        onChange={(event) =>
+                          setGeneratedKnowledge((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  content: event.target.value,
+                                }
+                              : current
+                          )
+                        }
+                        rows={18}
+                        className="mt-2 w-full rounded-[1.6rem] border border-slate-200 px-4 py-4 text-sm font-semibold leading-7 outline-none transition focus:border-[#7CFF3D]"
+                      />
+                    </div>
+
+                    {generatedKnowledge.source_note && (
+                      <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
+                        <span className="font-black">Source note:</span>{" "}
+                        {generatedKnowledge.source_note}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setWizardStep(2)}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-black text-[#07111F] transition hover:bg-slate-50"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                        Change Sources
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleGenerateKnowledge}
+                        disabled={isGeneratingKnowledge}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-black text-[#07111F] transition hover:bg-slate-50 disabled:opacity-60"
+                      >
+                        {isGeneratingKnowledge ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCcw className="h-4 w-4" />
+                        )}
+                        Generate Again
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveGeneratedKnowledge}
+                        disabled={isSavingGenerated}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#07111F] px-5 py-3.5 text-sm font-black text-white transition hover:bg-[#13243A] disabled:opacity-60"
+                      >
+                        {isSavingGenerated ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4" />
+                        )}
+                        Save and Teach My AI
+                      </button>
+                    </div>
+                  </>
+                ) : null}
               </div>
-
-              {generatedKnowledge.source_note && (
-                <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
-                  <span className="font-black">Source note:</span>{" "}
-                  {generatedKnowledge.source_note}
-                </div>
-              )}
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => setWizardStep(2)}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-black text-[#07111F] transition hover:bg-slate-50"
-                >
-                  <Edit3 className="h-4 w-4" />
-                  Change Sources
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleGenerateKnowledge}
-                  disabled={isGeneratingKnowledge}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-black text-[#07111F] transition hover:bg-slate-50 disabled:opacity-60"
-                >
-                  {isGeneratingKnowledge ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCcw className="h-4 w-4" />
-                  )}
-                  Generate Again
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSaveGeneratedKnowledge}
-                  disabled={isSavingGenerated}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#07111F] px-5 py-3.5 text-sm font-black text-white transition hover:bg-[#13243A] disabled:opacity-60"
-                >
-                  {isSavingGenerated ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  Save and Teach My AI
-                </button>
-              </div>
-            </div>
-          )}
-
+            )}
           <div className="mt-8 flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
@@ -2194,7 +2703,7 @@ export default function KnowledgeBasePage() {
         >
           <div className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FF2E93]">
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#4DBD16]">
                 Knowledge library
               </p>
 
@@ -2215,7 +2724,7 @@ export default function KnowledgeBasePage() {
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Search knowledge"
-                  className="w-full rounded-2xl border border-slate-200 py-3 pl-11 pr-4 text-sm font-semibold outline-none transition focus:border-[#FF2E93] sm:w-64"
+                  className="w-full rounded-2xl border border-slate-200 py-3 pl-11 pr-4 text-sm font-semibold outline-none transition focus:border-[#7CFF3D] sm:w-64"
                 />
               </div>
 
@@ -2227,7 +2736,7 @@ export default function KnowledgeBasePage() {
                   onChange={(event) =>
                     setFilterCategory(event.target.value)
                   }
-                  className="w-full appearance-none rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-10 text-sm font-semibold outline-none transition focus:border-[#FF2E93] sm:w-56"
+                  className="w-full appearance-none rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-10 text-sm font-semibold outline-none transition focus:border-[#7CFF3D] sm:w-56"
                 >
                   <option value="all">All categories</option>
 
@@ -2244,11 +2753,11 @@ export default function KnowledgeBasePage() {
           {editingId && (
             <form
               onSubmit={handleSaveEdit}
-              className="mt-6 rounded-[1.8rem] border border-[#FF2E93] bg-pink-50 p-5 sm:p-6"
+              className="mt-6 rounded-[1.8rem] border border-[#7CFF3D] bg-[#F2FFE9] p-5 sm:p-6"
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-black uppercase tracking-[0.14em] text-[#C21870]">
+                  <p className="text-sm font-black uppercase tracking-[0.14em] text-[#318A0B]">
                     Editing knowledge
                   </p>
                   <h3 className="mt-1 text-xl font-black">
@@ -2259,7 +2768,7 @@ export default function KnowledgeBasePage() {
                 <button
                   type="button"
                   onClick={cancelEdit}
-                  className="rounded-xl border border-pink-200 bg-white p-2 text-slate-600 transition hover:bg-pink-100"
+                  className="rounded-xl border border-green-200 bg-white p-2 text-slate-600 transition hover:bg-green-100"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -2272,7 +2781,7 @@ export default function KnowledgeBasePage() {
                     onChange={(event) =>
                       setEditTitle(event.target.value)
                     }
-                    className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#FF2E93]"
+                    className="w-full rounded-2xl border border-green-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#7CFF3D]"
                   />
                 </FormField>
 
@@ -2282,7 +2791,7 @@ export default function KnowledgeBasePage() {
                     onChange={(event) =>
                       setEditCategory(event.target.value)
                     }
-                    className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#FF2E93]"
+                    className="w-full rounded-2xl border border-green-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#7CFF3D]"
                   >
                     {libraryCategoryOptions.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -2299,7 +2808,7 @@ export default function KnowledgeBasePage() {
                       setEditTagsText(event.target.value)
                     }
                     placeholder="pricing, delivery, FAQ"
-                    className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#FF2E93]"
+                    className="w-full rounded-2xl border border-green-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#7CFF3D]"
                   />
                 </FormField>
 
@@ -2310,7 +2819,7 @@ export default function KnowledgeBasePage() {
                       setEditSourceUrl(event.target.value)
                     }
                     placeholder="https://..."
-                    className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#FF2E93]"
+                    className="w-full rounded-2xl border border-green-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#7CFF3D]"
                   />
                 </FormField>
               </div>
@@ -2323,7 +2832,7 @@ export default function KnowledgeBasePage() {
                       setEditSourceNote(event.target.value)
                     }
                     rows={3}
-                    className="w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#FF2E93]"
+                    className="w-full rounded-2xl border border-green-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-[#7CFF3D]"
                   />
                 </FormField>
               </div>
@@ -2351,7 +2860,7 @@ export default function KnowledgeBasePage() {
                     setEditContent(event.target.value)
                   }
                   rows={12}
-                  className="mt-2 w-full rounded-2xl border border-pink-200 bg-white px-4 py-3 text-sm font-semibold leading-7 outline-none focus:border-[#FF2E93]"
+                  className="mt-2 w-full rounded-2xl border border-green-200 bg-white px-4 py-3 text-sm font-semibold leading-7 outline-none focus:border-[#7CFF3D]"
                 />
               </div>
 
@@ -2359,7 +2868,7 @@ export default function KnowledgeBasePage() {
                 <button
                   type="button"
                   onClick={cancelEdit}
-                  className="rounded-2xl border border-pink-200 bg-white px-5 py-3 text-sm font-black"
+                  className="rounded-2xl border border-green-200 bg-white px-5 py-3 text-sm font-black"
                 >
                   Cancel
                 </button>
@@ -2419,7 +2928,7 @@ export default function KnowledgeBasePage() {
         <section className="rounded-[2.2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5 sm:p-6 lg:p-8">
           <div className="flex flex-col gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FF2E93]">
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#4DBD16]">
                 Document manager
               </p>
 
@@ -2582,7 +3091,7 @@ function GuidedTextarea({
         onChange={(event) => onChange(event.target.value)}
         rows={5}
         placeholder={placeholder}
-        className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 outline-none transition placeholder:text-slate-400 focus:border-[#FF2E93]"
+        className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 outline-none transition placeholder:text-slate-400 focus:border-[#7CFF3D]"
       />
     </div>
   );
