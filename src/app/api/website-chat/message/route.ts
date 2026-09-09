@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
 import { createKolkapNotification } from "@/lib/kolkap-notifications/createNotification";
@@ -21,6 +22,7 @@ type WebsiteChatBody = {
   language?: string;
   page_url?: string;
   visitor_id?: string;
+  session_token?: string;
 };
 
 type BusinessWorkspaceRow = {
@@ -68,11 +70,24 @@ type ConversationRow = {
   handover_requested: boolean | null;
 };
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+type WebsiteChatSessionPayload = {
+  workspaceId: string;
+  conversationId: string;
+  visitorId: string;
+  expiresAt: number;
 };
+
+function getCorsHeaders(request: Request) {
+  const origin = cleanText(request.headers.get("origin"));
+
+  return {
+    ...(origin ? { "Access-Control-Allow-Origin": origin } : {}),
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Cache-Control": "no-store",
+    Vary: "Origin",
+  };
+}
 
 const BLOCKED_STATUSES = new Set([
   "cancelled",
@@ -84,6 +99,86 @@ const BLOCKED_STATUSES = new Set([
 
 function cleanText(value: unknown, fallback = "") {
   return String(value || fallback).trim();
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+function getSessionSecret() {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!secret) {
+    throw new Error("Website Chat session security is not configured.");
+  }
+
+  return secret;
+}
+
+function signValue(value: string) {
+  return createHmac("sha256", getSessionSecret())
+    .update(value)
+    .digest("base64url");
+}
+
+function createWebsiteChatSessionToken({
+  workspaceId,
+  conversationId,
+  visitorId,
+}: Omit<WebsiteChatSessionPayload, "expiresAt">) {
+  const payload: WebsiteChatSessionPayload = {
+    workspaceId,
+    conversationId,
+    visitorId,
+    expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+  };
+
+  const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString(
+    "base64url"
+  );
+
+  return `${encoded}.${signValue(encoded)}`;
+}
+
+function isValidWebsiteChatSessionToken({
+  token,
+  workspaceId,
+  conversationId,
+  visitorId,
+}: {
+  token: string;
+  workspaceId: string;
+  conversationId: string;
+  visitorId: string;
+}) {
+  try {
+    const [encoded, receivedSignature, extra] = token.split(".");
+
+    if (!encoded || !receivedSignature || extra) return false;
+
+    const expectedSignature = signValue(encoded);
+    const expectedBuffer = Buffer.from(expectedSignature, "utf8");
+    const receivedBuffer = Buffer.from(receivedSignature, "utf8");
+
+    if (expectedBuffer.length !== receivedBuffer.length) return false;
+
+    if (!timingSafeEqual(expectedBuffer, receivedBuffer)) return false;
+
+    const payload = JSON.parse(
+      Buffer.from(encoded, "base64url").toString("utf8")
+    ) as WebsiteChatSessionPayload;
+
+    return Boolean(
+      payload.workspaceId === workspaceId &&
+        payload.conversationId === conversationId &&
+        payload.visitorId === visitorId &&
+        Number(payload.expiresAt) > Date.now()
+    );
+  } catch {
+    return false;
+  }
 }
 
 function normalizeStatus(value: unknown) {
@@ -106,10 +201,10 @@ function getAdminSupabase() {
   });
 }
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: unknown, status: number, request: Request) {
   return NextResponse.json(body, {
     status,
-    headers: corsHeaders,
+    headers: getCorsHeaders(request),
   });
 }
 
@@ -164,20 +259,103 @@ function getHostFromUrl(value: string) {
   }
 }
 
-function isDomainAllowed(pageUrl: string, allowedDomains: string[]) {
-  if (!allowedDomains.length) return true;
-
-  const pageHost = getHostFromUrl(pageUrl);
-
-  if (!pageHost) return false;
+function isHostAllowed(host: string, allowedDomains: string[]) {
+  if (!host) return false;
 
   return allowedDomains.some((domain) => {
     const allowedHost = normalizeDomain(domain);
 
     if (!allowedHost) return false;
 
-    return pageHost === allowedHost || pageHost.endsWith(`.${allowedHost}`);
+    return host === allowedHost || host.endsWith(`.${allowedHost}`);
   });
+}
+
+function getRequestHost(request: Request) {
+  const origin = cleanText(request.headers.get("origin"));
+  const referer = cleanText(request.headers.get("referer"));
+
+  return getHostFromUrl(origin || referer);
+}
+
+function isKolkapOrLocalHost(host: string) {
+  return Boolean(
+    host === "kolkap.com" ||
+      host.endsWith(".kolkap.com") ||
+      host === "localhost" ||
+      host === "127.0.0.1"
+  );
+}
+
+function isRequestDomainAllowed(
+  request: Request,
+  pageUrl: string,
+  allowedDomains: string[]
+) {
+  const requestHost = getRequestHost(request);
+  const pageHost = getHostFromUrl(pageUrl);
+
+  if (!requestHost) return false;
+  if (pageHost && pageHost !== requestHost) return false;
+
+  if (!allowedDomains.length) {
+    return isKolkapOrLocalHost(requestHost);
+  }
+
+  return isHostAllowed(requestHost, allowedDomains);
+}
+
+function getClientIp(request: Request) {
+  const forwardedFor = cleanText(request.headers.get("x-forwarded-for"));
+
+  return (
+    forwardedFor.split(",")[0]?.trim() ||
+    cleanText(request.headers.get("cf-connecting-ip")) ||
+    cleanText(request.headers.get("x-real-ip")) ||
+    "unknown"
+  );
+}
+
+async function isWithinWebsiteChatRateLimit({
+  request,
+  workspaceId,
+  visitorId,
+}: {
+  request: Request;
+  workspaceId: string;
+  visitorId: string;
+}) {
+  const supabase = getAdminSupabase();
+  const clientIp = getClientIp(request);
+  const clientKey = `${workspaceId}:${
+    clientIp === "unknown" ? `visitor:${visitorId}` : `ip:${clientIp}`
+  }`;
+  const rateKeyHash = signValue(clientKey);
+
+  const { data, error } = await supabase.rpc("check_website_chat_rate_limit", {
+    p_workspace_id: workspaceId,
+    p_rate_key_hash: rateKeyHash,
+    p_request_limit: 12,
+    p_window_seconds: 60,
+  });
+
+  if (error) {
+    throw new Error(`Website Chat protection could not run: ${error.message}`);
+  }
+
+  return data === true;
+}
+
+async function markWebsiteChatSeen(settingsId: string | null) {
+  if (!settingsId) return;
+
+  const supabase = getAdminSupabase();
+  const { error } = await supabase
+    .from("workspace_website_chat_settings")
+    .update({ last_seen_at: new Date().toISOString() })
+    .eq("id", settingsId);
+
+  if (error) throw error;
 }
 
 function getDefaultWebsiteChatSettings(
@@ -337,6 +515,7 @@ async function findOrCreateConversation({
   conversationId,
   customerName,
   customerPhone,
+  customerEmail,
   customerMessage,
   aiStaffId,
   handoverRequested,
@@ -345,6 +524,7 @@ async function findOrCreateConversation({
   conversationId: string;
   customerName: string;
   customerPhone: string;
+  customerEmail: string;
   customerMessage: string;
   aiStaffId?: string | null;
   handoverRequested: boolean;
@@ -380,6 +560,9 @@ async function findOrCreateConversation({
           last_message: customerMessage,
           last_message_at: now,
           updated_at: now,
+          customer_name: customerName || "Website Visitor",
+          customer_phone: customerPhone || null,
+          customer_email: customerEmail || null,
         })
         .eq("id", existingConversation.id)
         .eq("workspace_id", workspace.id);
@@ -404,6 +587,7 @@ async function findOrCreateConversation({
       ai_staff_id: aiStaffId || null,
       customer_name: customerName || null,
       customer_phone: customerPhone || null,
+      customer_email: customerEmail || null,
       customer_channel: "website_chat",
       status: "open",
       lead_status: "new",
@@ -596,19 +780,23 @@ async function logAutoReplySkipped({
 }
 
 async function returnWithoutAiReply({
+  request,
   workspace,
   conversation,
   pageUrl,
   visitorId,
   reason,
   settings,
+  sessionToken,
 }: {
+  request: Request;
   workspace: BusinessWorkspaceRow;
   conversation: ConversationRow;
   pageUrl: string;
   visitorId: string;
   reason: string;
   settings: WebsiteChatSettingsRow;
+  sessionToken: string;
 }) {
   await logAutoReplySkipped({
     workspace,
@@ -619,15 +807,20 @@ async function returnWithoutAiReply({
     settings,
   });
 
-  return jsonResponse({
-    reply: getVisitorFallbackReply(reason),
-    conversation_id: conversation.id,
-    workspace_id: workspace.id,
-    business_name: workspace.business_name || "Business",
-    ai_reply_generated: false,
-    auto_reply_skipped_reason: reason,
-    credits_used: 0,
-  });
+  return jsonResponse(
+    {
+      reply: getVisitorFallbackReply(reason),
+      conversation_id: conversation.id,
+      workspace_id: workspace.id,
+      business_name: workspace.business_name || "Business",
+      ai_reply_generated: false,
+      auto_reply_skipped_reason: reason,
+      credits_used: 0,
+      session_token: sessionToken,
+    },
+    200,
+    request
+  );
 }
 
 function isConversationAiPaused(value: unknown) {
@@ -636,10 +829,86 @@ function isConversationAiPaused(value: unknown) {
   );
 }
 
-export async function OPTIONS() {
+export async function GET(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const workspaceId = cleanText(url.searchParams.get("workspace_id"));
+    const conversationId = cleanText(url.searchParams.get("conversation_id"));
+    const visitorId = cleanText(url.searchParams.get("visitor_id")).slice(0, 160);
+    const sessionToken = cleanText(url.searchParams.get("session_token"));
+    const pageUrl = cleanText(url.searchParams.get("page_url"));
+
+    if (!isUuid(workspaceId) || !isUuid(conversationId) || !visitorId) {
+      return jsonResponse(
+        { error: "Website Chat session is incomplete." },
+        400,
+        request
+      );
+    }
+
+    if (
+      !isValidWebsiteChatSessionToken({
+        token: sessionToken,
+        workspaceId,
+        conversationId,
+        visitorId,
+      })
+    ) {
+      return jsonResponse(
+        { error: "Website Chat session is not valid." },
+        401,
+        request
+      );
+    }
+
+    const [workspace, settings] = await Promise.all([
+      getWorkspace(workspaceId),
+      getWebsiteChatSettings(workspaceId),
+    ]);
+
+    if (!workspace?.id || !hasActiveTrialOrPlan(workspace)) {
+      return jsonResponse(
+        { error: "This Website Chat is not available." },
+        404,
+        request
+      );
+    }
+
+    if (!isRequestDomainAllowed(request, pageUrl, settings.allowed_domains)) {
+      return jsonResponse(
+        { error: "This website is not allowed to use this Website Chat widget." },
+        403,
+        request
+      );
+    }
+
+    const supabase = getAdminSupabase();
+    const { data, error } = await supabase
+      .from("customer_messages")
+      .select("id,sender_type,message_text,created_at")
+      .eq("workspace_id", workspaceId)
+      .eq("conversation_id", conversationId)
+      .eq("sender_type", "human")
+      .order("created_at", { ascending: true })
+      .limit(50);
+
+    if (error) throw error;
+
+    return jsonResponse({ messages: data ?? [] }, 200, request);
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Website Chat messages could not be loaded.";
+
+    return jsonResponse({ error: message }, 500, request);
+  }
+}
+
+export async function OPTIONS(request: Request) {
   return new NextResponse(null, {
     status: 204,
-    headers: corsHeaders,
+    headers: getCorsHeaders(request),
   });
 }
 
@@ -649,44 +918,89 @@ export async function POST(request: Request) {
 
     const workspaceId = cleanText(body.workspace_id);
     const conversationId = cleanText(body.conversation_id);
-    const customerMessage = cleanText(body.message);
-    const customerName = cleanText(body.customer_name, "Website Visitor");
-    const customerPhone = cleanText(body.customer_phone);
-    const customerEmail = cleanText(body.customer_email);
+    const suppliedSessionToken = cleanText(body.session_token);
+    const customerMessage = cleanText(body.message).slice(0, 2000);
+    const customerName = cleanText(body.customer_name, "Website Visitor").slice(
+      0,
+      100
+    );
+    const customerPhone = cleanText(body.customer_phone).slice(0, 40);
+    const customerEmail = cleanText(body.customer_email)
+      .toLowerCase()
+      .slice(0, 254);
     const language = cleanText(body.language, "auto");
     const pageUrl = cleanText(body.page_url);
-    const visitorId = cleanText(body.visitor_id);
+    const visitorId = cleanText(body.visitor_id).slice(0, 160);
 
-    if (!workspaceId) {
+    if (!workspaceId || !isUuid(workspaceId)) {
       return jsonResponse(
         { error: "Workspace is required for website chat." },
-        400
+        400,
+        request
       );
     }
 
     if (!customerMessage) {
       return jsonResponse(
         { error: "Message is required for website chat." },
-        400
+        400,
+        request
+      );
+    }
+
+    if (!visitorId) {
+      return jsonResponse(
+        { error: "Website Chat visitor session is missing." },
+        400,
+        request
+      );
+    }
+
+    if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
+      return jsonResponse(
+        { error: "Please enter a valid email address." },
+        400,
+        request
       );
     }
 
     const workspace = await getWorkspace(workspaceId);
 
     if (!workspace?.id) {
-      return jsonResponse({ error: "Business workspace not found." }, 404);
+      return jsonResponse(
+        { error: "Business workspace not found." },
+        404,
+        request
+      );
     }
 
     const settings = await getWebsiteChatSettings(workspace.id);
 
-    if (!isDomainAllowed(pageUrl, settings.allowed_domains)) {
+    if (!isRequestDomainAllowed(request, pageUrl, settings.allowed_domains)) {
       return jsonResponse(
         {
           error: "This website is not allowed to use this Website Chat widget.",
         },
-        403
+        403,
+        request
       );
     }
+
+    if (
+      !(await isWithinWebsiteChatRateLimit({
+        request,
+        workspaceId: workspace.id,
+        visitorId,
+      }))
+    ) {
+      return jsonResponse(
+        { error: "Too many messages were sent. Please wait a moment and try again." },
+        429,
+        request
+      );
+    }
+
+    await markWebsiteChatSeen(settings.id);
 
     if (!hasActiveTrialOrPlan(workspace)) {
       return jsonResponse(
@@ -694,7 +1008,8 @@ export async function POST(request: Request) {
           error:
             "This business workspace is not active yet. Please activate a trial or subscription first.",
         },
-        402
+        402,
+        request
       );
     }
 
@@ -717,14 +1032,32 @@ export async function POST(request: Request) {
     const handoverRequested =
       settings.handover_enabled && !shouldGenerateAiReply;
 
+    const canContinueConversation = Boolean(
+      conversationId &&
+        suppliedSessionToken &&
+        isValidWebsiteChatSessionToken({
+          token: suppliedSessionToken,
+          workspaceId: workspace.id,
+          conversationId,
+          visitorId,
+        })
+    );
+
     const conversation = await findOrCreateConversation({
       workspace,
-      conversationId,
+      conversationId: canContinueConversation ? conversationId : "",
       customerName,
       customerPhone,
+      customerEmail,
       customerMessage,
       aiStaffId: selectedAiStaffId,
       handoverRequested,
+    });
+
+    const sessionToken = createWebsiteChatSessionToken({
+      workspaceId: workspace.id,
+      conversationId: conversation.id,
+      visitorId,
     });
 
     const customerMessageId = await saveMessage({
@@ -774,56 +1107,66 @@ export async function POST(request: Request) {
 
     if (isConversationAiPaused(conversation)) {
       return returnWithoutAiReply({
+        request,
         workspace,
         conversation,
         pageUrl,
         visitorId,
         reason: "ai_paused",
         settings,
+        sessionToken,
       });
     }
 
     if (!settings.is_active) {
       return returnWithoutAiReply({
+        request,
         workspace,
         conversation,
         pageUrl,
         visitorId,
         reason: "website_chat_inactive",
         settings,
+        sessionToken,
       });
     }
 
     if (!settings.ai_enabled) {
       return returnWithoutAiReply({
+        request,
         workspace,
         conversation,
         pageUrl,
         visitorId,
         reason: "ai_support_off",
         settings,
+        sessionToken,
       });
     }
 
     if (!settings.auto_reply_enabled) {
       return returnWithoutAiReply({
+        request,
         workspace,
         conversation,
         pageUrl,
         visitorId,
         reason: "auto_reply_off",
         settings,
+        sessionToken,
       });
     }
 
     if (!selectedAiStaffId) {
       return returnWithoutAiReply({
+        request,
         workspace,
         conversation,
         pageUrl,
         visitorId,
         reason: "no_ai_staff_selected",
         settings,
+        sessionToken,
       });
     }
 
@@ -832,12 +1175,14 @@ export async function POST(request: Request) {
 
     if (creditsLeft < WEBSITE_CHAT_REPLY_CREDIT_COST) {
       return returnWithoutAiReply({
+        request,
         workspace,
         conversation,
         pageUrl,
         visitorId,
         reason: "not_enough_credits",
         settings,
+        sessionToken,
       });
     }
 
@@ -892,24 +1237,29 @@ export async function POST(request: Request) {
       },
     });
 
-    return jsonResponse({
-      reply: result.content,
-      conversation_id: conversation.id,
-      workspace_id: workspace.id,
-      business_name: result.businessName,
-      knowledge_count: result.knowledgeCount,
-      model: result.model,
-      fallback: result.fallback,
-      ai_reply_generated: true,
-      credits_used: WEBSITE_CHAT_REPLY_CREDIT_COST,
-      credits_left_before_reply: creditsLeft,
-    });
+    return jsonResponse(
+      {
+        reply: result.content,
+        conversation_id: conversation.id,
+        workspace_id: workspace.id,
+        business_name: result.businessName,
+        knowledge_count: result.knowledgeCount,
+        model: result.model,
+        fallback: result.fallback,
+        ai_reply_generated: true,
+        credits_used: WEBSITE_CHAT_REPLY_CREDIT_COST,
+        credits_left_before_reply: creditsLeft,
+        session_token: sessionToken,
+      },
+      200,
+      request
+    );
   } catch (error) {
     const message =
       error instanceof Error
         ? error.message
         : "Website chat reply could not be generated.";
 
-    return jsonResponse({ error: message }, 500);
+    return jsonResponse({ error: message }, 500, request);
   }
 }

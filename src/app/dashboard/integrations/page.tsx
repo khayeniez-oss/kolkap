@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -18,8 +19,17 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
+import { createClient } from "@/lib/supabase/client";
 
-type ChannelStatus = "ready" | "later";
+type ChannelStatus =
+  | "checking"
+  | "setup"
+  | "ready"
+  | "live"
+  | "paused"
+  | "inbox"
+  | "attention"
+  | "later";
 
 type ChannelCard = {
   name: string;
@@ -31,17 +41,6 @@ type ChannelCard = {
   href?: string;
   highlighted?: boolean;
 };
-
-const navItems = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "AI Staff", href: "/dashboard/create-ai" },
-  { label: "Business Knowledge", href: "/dashboard/knowledge-base" },
-  { label: "Inbox", href: "/dashboard/inbox" },
-  { label: "Leads", href: "/dashboard/leads" },
-  { label: "Content", href: "/dashboard/content-studio" },
-  { label: "Billing", href: "/dashboard/billing" },
-  { label: "Settings", href: "/dashboard/settings" },
-];
 
 const setupSteps = [
   {
@@ -110,10 +109,16 @@ function StatusPill({
   status: ChannelStatus;
   label: string;
 }) {
-  const className =
-    status === "ready"
-      ? "bg-[#7CFF3D] text-[#07111F]"
-      : "bg-slate-200 text-slate-700";
+  const className = {
+    checking: "bg-slate-200 text-slate-700",
+    setup: "bg-amber-100 text-amber-800",
+    ready: "bg-blue-100 text-blue-800",
+    live: "bg-[#7CFF3D] text-[#07111F]",
+    paused: "bg-slate-200 text-slate-700",
+    inbox: "bg-violet-100 text-violet-800",
+    attention: "bg-red-100 text-red-700",
+    later: "bg-slate-200 text-slate-700",
+  }[status];
 
   return (
     <span className={`rounded-full px-4 py-2 text-xs font-black ${className}`}>
@@ -125,12 +130,90 @@ function StatusPill({
 export default function IntegrationsPage() {
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
+  const [websiteChatStatus, setWebsiteChatStatus] = useState<{
+    status: ChannelStatus;
+    label: string;
+  }>({ status: "checking", label: "Checking..." });
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    async function loadWebsiteChatStatus() {
+      if (!workspace?.id) return;
+
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("workspace_website_chat_settings")
+        .select(
+          "selected_ai_staff_id,is_active,ai_enabled,auto_reply_enabled,allowed_domains,last_seen_at"
+        )
+        .eq("workspace_id", workspace.id)
+        .maybeSingle();
+
+      if (!isCurrent) return;
+
+      if (error) {
+        setWebsiteChatStatus({
+          status: "attention",
+          label: "Needs Attention",
+        });
+        return;
+      }
+
+      if (!data) {
+        setWebsiteChatStatus({ status: "setup", label: "Setup Required" });
+        return;
+      }
+
+      if (!data.is_active) {
+        setWebsiteChatStatus({ status: "paused", label: "Paused" });
+        return;
+      }
+
+      if (!Array.isArray(data.allowed_domains) || !data.allowed_domains.length) {
+        setWebsiteChatStatus({ status: "setup", label: "Add Website Domain" });
+        return;
+      }
+
+      if (
+        data.ai_enabled &&
+        data.auto_reply_enabled &&
+        !data.selected_ai_staff_id
+      ) {
+        setWebsiteChatStatus({ status: "setup", label: "Choose AI Staff" });
+        return;
+      }
+
+      if (!data.ai_enabled || !data.auto_reply_enabled) {
+        setWebsiteChatStatus({ status: "inbox", label: "Inbox Only" });
+        return;
+      }
+
+      const lastSeenAt = data.last_seen_at
+        ? new Date(data.last_seen_at).getTime()
+        : 0;
+      const recentlySeen =
+        lastSeenAt > 0 && Date.now() - lastSeenAt < 15 * 60 * 1000;
+
+      setWebsiteChatStatus(
+        recentlySeen
+          ? { status: "live", label: "Live" }
+          : { status: "ready", label: "Ready to Install" }
+      );
+    }
+
+    loadWebsiteChatStatus();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [workspace?.id]);
 
   const channels: ChannelCard[] = [
     {
       name: "Website Chat",
-      status: "ready",
-      statusLabel: "Ready",
+      status: websiteChatStatus.status,
+      statusLabel: websiteChatStatus.label,
       description:
         "Let visitors message your business from your website and receive AI-assisted replies.",
       icon: MessageCircle,
@@ -192,20 +275,6 @@ export default function IntegrationsPage() {
   return (
     <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 py-6 sm:px-6 lg:px-8">
-        <header className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5">
-          <nav className="flex flex-wrap items-center justify-center gap-3">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-full border border-slate-200 bg-[#F7F9FA] px-5 py-3 text-base font-black text-slate-700 transition hover:border-blue-400 hover:bg-white"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </header>
-
         <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
           <div className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
             <Link

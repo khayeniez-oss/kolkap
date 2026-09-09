@@ -42,6 +42,7 @@ type ConversationRow = {
   ai_staff_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
+  customer_email: string | null;
   customer_channel: string;
   status: string;
   lead_status: string;
@@ -677,7 +678,9 @@ function LeadCard({
 
                 <p className="mt-1 flex items-center gap-2 text-base font-semibold text-slate-600">
                   <Phone className="h-4 w-4" />
-                  {lead.customer_phone || channelLabel(lead.customer_channel)}
+                  {lead.customer_phone ||
+                    lead.customer_email ||
+                    channelLabel(lead.customer_channel)}
                 </p>
               </div>
 

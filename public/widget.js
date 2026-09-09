@@ -48,6 +48,10 @@
   var storageKey = "kolkap_widget_" + workspaceId;
   var visitorKey = storageKey + "_visitor_id";
   var conversationKey = storageKey + "_conversation_id";
+  var sessionKey = storageKey + "_session_token";
+  var customerNameKey = storageKey + "_customer_name";
+  var customerEmailKey = storageKey + "_customer_email";
+  var deliveredMessagesKey = storageKey + "_delivered_messages";
 
   function getOrCreateVisitorId() {
     try {
@@ -80,6 +84,67 @@
 
     try {
       window.localStorage.setItem(conversationKey, value);
+    } catch {
+      // Ignore storage errors.
+    }
+  }
+
+  function getSessionToken() {
+    try {
+      return window.localStorage.getItem(sessionKey) || "";
+    } catch {
+      return "";
+    }
+  }
+
+  function saveSessionToken(value) {
+    if (!value) return;
+
+    try {
+      window.localStorage.setItem(sessionKey, value);
+    } catch {
+      // Ignore storage errors.
+    }
+  }
+
+  function getStoredValue(key) {
+    try {
+      return window.localStorage.getItem(key) || "";
+    } catch {
+      return "";
+    }
+  }
+
+  function saveStoredValue(key, value) {
+    try {
+      if (value) {
+        window.localStorage.setItem(key, value);
+      } else {
+        window.localStorage.removeItem(key);
+      }
+    } catch {
+      // Ignore storage errors.
+    }
+  }
+
+  function getDeliveredMessageIds() {
+    try {
+      var parsed = JSON.parse(
+        window.localStorage.getItem(deliveredMessagesKey) || "[]"
+      );
+
+      return Array.isArray(parsed) ? parsed.slice(-100) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveDeliveredMessageIds(ids) {
+    try {
+      window.localStorage.setItem(
+        deliveredMessagesKey,
+        JSON.stringify(ids.slice(-100))
+      );
     } catch {
       // Ignore storage errors.
     }
@@ -280,6 +345,34 @@
         gap: 10px;
       }
 
+      .kolkap-widget-profile {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .kolkap-widget-profile.is-hidden {
+        display: none;
+      }
+
+      .kolkap-widget-profile-input {
+        min-width: 0;
+        height: 42px;
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        border-radius: 14px;
+        background: #F7F9FA;
+        padding: 0 12px;
+        color: #07111F;
+        font-size: 12px;
+        font-weight: 700;
+        outline: none;
+      }
+
+      .kolkap-widget-profile-input:focus {
+        border-color: #07111F;
+        background: #ffffff;
+      }
+
       .kolkap-widget-input-row {
         display: flex;
         gap: 10px;
@@ -404,7 +497,22 @@
     messages.appendChild(welcome);
 
     var form = createElement("form", "kolkap-widget-form");
+    var profile = createElement("div", "kolkap-widget-profile");
     var row = createElement("div", "kolkap-widget-input-row");
+
+    var nameInput = createElement("input", "kolkap-widget-profile-input");
+    nameInput.type = "text";
+    nameInput.maxLength = 100;
+    nameInput.placeholder = "Your name (optional)";
+    nameInput.autocomplete = "name";
+    nameInput.value = getStoredValue(customerNameKey);
+
+    var emailInput = createElement("input", "kolkap-widget-profile-input");
+    emailInput.type = "email";
+    emailInput.maxLength = 254;
+    emailInput.placeholder = "Your email (optional)";
+    emailInput.autocomplete = "email";
+    emailInput.value = getStoredValue(customerEmailKey);
 
     var input = createElement("textarea", "kolkap-widget-input");
     input.placeholder = "Write your message...";
@@ -420,8 +528,20 @@
 
     row.appendChild(input);
     row.appendChild(send);
+    profile.appendChild(nameInput);
+    profile.appendChild(emailInput);
+
+    if (getConversationId() && getSessionToken()) {
+      profile.classList.add("is-hidden");
+    }
+
+    form.appendChild(profile);
     form.appendChild(row);
     form.appendChild(footer);
+
+    if (getConversationId() && getSessionToken()) {
+      profile.classList.add("is-hidden");
+    }
 
     panel.appendChild(header);
     panel.appendChild(messages);
@@ -469,10 +589,80 @@
         window.setTimeout(function () {
           input.focus();
         }, 120);
+
+        startPolling();
       } else {
         panel.classList.remove("is-open");
         button.style.display = "flex";
+        stopPolling();
       }
+    }
+
+    var deliveredMessageIds = getDeliveredMessageIds();
+    var pollTimer = null;
+    var isPolling = false;
+
+    async function pollForHumanReplies() {
+      var conversationId = getConversationId();
+      var sessionToken = getSessionToken();
+
+      if (!conversationId || !sessionToken || isPolling) return;
+
+      isPolling = true;
+
+      try {
+        var pollUrl = new URL(apiUrl);
+        pollUrl.searchParams.set("workspace_id", workspaceId);
+        pollUrl.searchParams.set("conversation_id", conversationId);
+        pollUrl.searchParams.set("visitor_id", getOrCreateVisitorId());
+        pollUrl.searchParams.set("session_token", sessionToken);
+        pollUrl.searchParams.set("page_url", window.location.href);
+
+        var response = await fetch(pollUrl.toString(), {
+          method: "GET",
+          mode: "cors",
+          cache: "no-store",
+        });
+
+        var result = await response.json().catch(function () {
+          return {};
+        });
+
+        if (response.status === 401) {
+          saveStoredValue(conversationKey, "");
+          saveStoredValue(sessionKey, "");
+          return;
+        }
+
+        if (!response.ok || !Array.isArray(result.messages)) return;
+
+        result.messages.forEach(function (message) {
+          if (!message?.id || deliveredMessageIds.includes(message.id)) return;
+
+          deliveredMessageIds.push(message.id);
+          addMessage("bot", message.message_text || "");
+        });
+
+        saveDeliveredMessageIds(deliveredMessageIds);
+      } catch {
+        // Polling retries quietly while the chat is open.
+      } finally {
+        isPolling = false;
+      }
+    }
+
+    function startPolling() {
+      if (pollTimer) return;
+
+      pollForHumanReplies();
+      pollTimer = window.setInterval(pollForHumanReplies, 4000);
+    }
+
+    function stopPolling() {
+      if (!pollTimer) return;
+
+      window.clearInterval(pollTimer);
+      pollTimer = null;
     }
 
     button.addEventListener("click", function () {
@@ -508,6 +698,12 @@
 
       addMessage("user", message);
 
+      var customerName = nameInput.value.trim();
+      var customerEmail = emailInput.value.trim().toLowerCase();
+
+      saveStoredValue(customerNameKey, customerName);
+      saveStoredValue(customerEmailKey, customerEmail);
+
       var typing = addTyping();
 
       try {
@@ -520,9 +716,10 @@
           body: JSON.stringify({
             workspace_id: workspaceId,
             conversation_id: getConversationId(),
-            customer_name: "Website Visitor",
+            session_token: getSessionToken(),
+            customer_name: customerName || "Website Visitor",
             customer_phone: "",
-            customer_email: "",
+            customer_email: customerEmail,
             message: message,
             language: "auto",
             page_url: window.location.href,
@@ -550,6 +747,15 @@
 
         if (result.conversation_id) {
           saveConversationId(result.conversation_id);
+        }
+
+        if (result.session_token) {
+          saveSessionToken(result.session_token);
+        }
+
+        if (result.conversation_id && result.session_token) {
+          profile.classList.add("is-hidden");
+          startPolling();
         }
 
         addMessage(

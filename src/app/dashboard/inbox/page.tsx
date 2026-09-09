@@ -68,6 +68,7 @@ type ConversationRow = {
   ai_staff_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
+  customer_email: string | null;
   customer_channel: string;
   status: string;
   lead_status: string;
@@ -174,6 +175,13 @@ function isWhatsAppConversation(conversation: ConversationRow | null) {
   return String(conversation?.customer_channel || "").toLowerCase() === "whatsapp";
 }
 
+function isWebsiteChatConversation(conversation: ConversationRow | null) {
+  return (
+    String(conversation?.customer_channel || "").toLowerCase() ===
+    "website_chat"
+  );
+}
+
 async function getAccessToken() {
   const supabase = createClient();
 
@@ -233,6 +241,7 @@ export default function InboxPage() {
   }, [conversations, selectedConversationId]);
 
   const selectedIsWhatsApp = isWhatsAppConversation(selectedConversation);
+  const selectedIsWebsiteChat = isWebsiteChatConversation(selectedConversation);
 
   const aiNameMap = useMemo(() => {
     return aiStaffRows.reduce<Record<string, string>>((map, staff) => {
@@ -1037,11 +1046,10 @@ export default function InboxPage() {
                     </p>
 
                     <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-                      AI can draft a suggested reply for review. If this is a
-                      WhatsApp conversation, sending from here will deliver the
-                      reply to the customer’s WhatsApp and save it in Inbox. For
-                      Website Chat or other channels, the reply will be saved in
-                      Inbox only.
+                      AI can draft a suggested reply for review. WhatsApp replies
+                      are sent to WhatsApp, and Website Chat replies are delivered
+                      to the customer’s open chat widget. Other unsupported
+                      channels are saved in Inbox only.
                     </p>
 
                     <div className="mt-3 inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-600">
@@ -1096,10 +1104,14 @@ export default function InboxPage() {
                     {isSavingReply
                       ? selectedIsWhatsApp
                         ? "Sending..."
-                        : "Saving..."
+                        : selectedIsWebsiteChat
+                          ? "Sending..."
+                          : "Saving..."
                       : selectedIsWhatsApp
                         ? "Send Reply to WhatsApp"
-                        : "Save Reply to Inbox"}
+                        : selectedIsWebsiteChat
+                          ? "Send Reply to Website Chat"
+                          : "Save Reply to Inbox"}
                   </button>
                 </form>
               </div>
@@ -1277,6 +1289,7 @@ function ConversationHeader({
 
           <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
             {conversation.customer_phone ||
+              conversation.customer_email ||
               channelLabel(conversation.customer_channel)}
           </p>
 

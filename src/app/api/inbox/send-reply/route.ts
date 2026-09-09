@@ -519,6 +519,55 @@ export async function POST(req: Request) {
 
     const channel = cleanText(conversation.customer_channel).toLowerCase();
 
+    if (channel !== "whatsapp") {
+      const savedMessage = await insertInboxReply({
+        conversation,
+        messageText,
+        senderType: "human",
+      });
+
+      await updateConversationAfterReply({
+        conversationId: conversation.id,
+        workspaceId: conversation.workspace_id,
+        messageText,
+      });
+
+      await logWorkspaceUsage({
+        workspaceId: conversation.workspace_id,
+        userId: auth.userId || null,
+        eventType:
+          channel === "website_chat"
+            ? "manual_website_chat_reply_queued"
+            : "manual_inbox_reply_saved",
+        channel: channel || "inbox",
+        sourcePage: "dashboard_inbox",
+        creditsUsed: 0,
+        eventCount: 1,
+        status: channel === "website_chat" ? "pending" : "success",
+        metadata: {
+          conversation_id: conversation.id,
+          delivery_channel: channel || "inbox",
+          delivery_status:
+            channel === "website_chat" ? "queued" : "saved_only",
+          credit_rule: "human_written_reply_no_ai_credits",
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: savedMessage,
+        delivered: false,
+        delivery_channel: channel || "inbox",
+        delivery_status:
+          channel === "website_chat" ? "queued" : "saved_only",
+        credits_used: 0,
+        notice:
+          channel === "website_chat"
+            ? "Reply sent to Website Chat. It will appear while the visitor's chat session is available. No credits were used."
+            : "Reply saved in Inbox. Direct delivery is not connected for this channel yet. No credits were used.",
+      });
+    }
+
     const creditBalance = await getCreditBalance({
       workspaceId: conversation.workspace_id,
       ownerUserId: conversation.owner_user_id,
@@ -538,49 +587,6 @@ export async function POST(req: Request) {
         },
         { status: 402 }
       );
-    }
-
-    if (channel !== "whatsapp") {
-      const savedMessage = await insertInboxReply({
-        conversation,
-        messageText,
-        senderType: "human",
-      });
-
-      await updateConversationAfterReply({
-        conversationId: conversation.id,
-        workspaceId: conversation.workspace_id,
-        messageText,
-      });
-
-      await logWorkspaceUsage({
-        workspaceId: conversation.workspace_id,
-        userId: auth.userId || null,
-        eventType: "manual_inbox_reply_sent",
-        channel: channel || "inbox",
-        sourcePage: "dashboard_inbox",
-        creditsUsed: MANUAL_INBOX_REPLY_CREDIT_COST,
-        eventCount: 1,
-        status: "success",
-        metadata: {
-          conversation_id: conversation.id,
-          delivery_channel: channel || "inbox",
-          delivery_status: "saved_only",
-          credit_rule: "manual_inbox_reply_minimum",
-        },
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: savedMessage,
-        delivered: false,
-        delivery_channel: channel || "inbox",
-        delivery_status: "saved_only",
-        credits_used: MANUAL_INBOX_REPLY_CREDIT_COST,
-        credits_left_before_reply: creditsLeft,
-        notice:
-          "Reply saved in Inbox. Direct channel delivery is only connected for WhatsApp at this stage.",
-      });
     }
 
     const latestInboundLog = await getLatestInboundWhatsAppLog(conversation.id);

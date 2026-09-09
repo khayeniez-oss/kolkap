@@ -62,6 +62,7 @@ type WebsiteChatSettingsRow = {
   auto_reply_enabled: boolean;
   handover_enabled: boolean;
   allowed_domains: string[];
+  last_seen_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -95,6 +96,7 @@ type WebsiteChatConversationRow = {
   id: string;
   customer_name: string | null;
   customer_phone: string | null;
+  customer_email: string | null;
   customer_channel: string | null;
   status: string | null;
   lead_status: string | null;
@@ -392,7 +394,7 @@ export default function WebsiteChatIntegrationPage() {
         await supabase
           .from("customer_conversations")
           .select(
-            "id,customer_name,customer_phone,customer_channel,status,lead_status,handover_requested,last_message,last_message_at,ai_staff_id,created_at,updated_at"
+            "id,customer_name,customer_phone,customer_email,customer_channel,status,lead_status,handover_requested,last_message,last_message_at,ai_staff_id,created_at,updated_at"
           )
           .eq("workspace_id", workspace.id)
           .eq("customer_channel", "website_chat")
@@ -475,6 +477,13 @@ export default function WebsiteChatIntegrationPage() {
 
     if (!form.welcome_message.trim()) {
       setActionError("Please add a welcome message.");
+      return;
+    }
+
+    if (form.is_active && !parseAllowedDomains(form.allowed_domains_text).length) {
+      setActionError(
+        "Please add your website domain before switching Website Chat on."
+      );
       return;
     }
 
@@ -901,7 +910,7 @@ function OverviewTab({
               value={
                 form.allowed_domains_text.trim()
                   ? `${parseAllowedDomains(form.allowed_domains_text).length} domain(s)`
-                  : "Not restricted"
+                  : "Required before going live"
               }
             />
             <SummaryRow
@@ -977,7 +986,7 @@ function OverviewTab({
           eyebrow="Business Knowledge"
           title="Add FAQs, prices, policies, and service details for better answers."
           href="/dashboard/knowledge-base"
-          action="Add Business Knowledge"
+          action="Train My AI"
         />
 
         <ActionCard
@@ -1075,7 +1084,8 @@ function WidgetTab({
               />
 
               <span className="text-sm font-bold text-slate-500">
-                Optional. Add one domain per line. Leave empty while testing.
+                Required before going live. Add one domain per line, such as
+                example.com.
               </span>
             </label>
 
