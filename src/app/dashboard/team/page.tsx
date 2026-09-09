@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -14,7 +14,6 @@ import {
   Trash2,
   UserRound,
   UsersRound,
-  WalletCards,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getKolkapPlan } from "@/lib/kolkapPlan";
@@ -152,48 +151,6 @@ export default function TeamPage() {
     };
   }, [workspace?.id, reloadKey]);
 
-  const activeCount = teamMembers.filter(
-    (member) => member.status === "active"
-  ).length;
-
-  const pendingCount = teamMembers.filter(
-    (member) => member.status === "invited"
-  ).length;
-
-  const adminCount = teamMembers.filter(
-    (member) => member.permission_level === "admin"
-  ).length;
-
-  const disabledCount = teamMembers.filter(
-    (member) => member.status === "disabled"
-  ).length;
-
-  const summaryCards = [
-    {
-      label: "Current Plan",
-      value: currentPlan.name,
-      note: currentPlan.priceLabel,
-      icon: <WalletCards className="h-7 w-7" />,
-    },
-    {
-      label: "Team Members",
-      value: `${teamMembers.length}`,
-      note: "People connected to this workspace",
-      icon: <UsersRound className="h-7 w-7" />,
-    },
-    {
-      label: "Active Members",
-      value: `${activeCount}`,
-      note: `${pendingCount} pending invitation(s)`,
-      icon: <CheckCircle2 className="h-7 w-7" />,
-    },
-    {
-      label: "Admin Access",
-      value: `${adminCount}`,
-      note: `${disabledCount} disabled member(s)`,
-      icon: <Crown className="h-7 w-7" />,
-    },
-  ];
 
   async function handleSendInvite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -440,17 +397,6 @@ export default function TeamPage() {
           </p>
         </div>
 
-        <div className="mb-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {summaryCards.map((card) => (
-            <SummaryCard
-              key={card.label}
-              icon={card.icon}
-              label={card.label}
-              value={card.value}
-              note={card.note}
-            />
-          ))}
-        </div>
 
         <div className="mb-8 grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
           <section className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
@@ -736,34 +682,6 @@ export default function TeamPage() {
         </section>
       </section>
     </main>
-  );
-}
-
-function SummaryCard({
-  icon,
-  label,
-  value,
-  note,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  note: string;
-}) {
-  return (
-    <div className="rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5">
-      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-        {icon}
-      </div>
-
-      <p className="text-lg font-black text-slate-500">{label}</p>
-
-      <p className="mt-2 text-3xl font-black tracking-[-0.04em]">{value}</p>
-
-      <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
-        {note}
-      </p>
-    </div>
   );
 }
 

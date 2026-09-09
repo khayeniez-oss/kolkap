@@ -210,25 +210,28 @@ export default function PricingPage() {
 
           <div className="mt-9 flex flex-col gap-4 sm:flex-row">
             <Link
-              href={getTrialHref("starter")}
+              href="#plans"
               className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
             >
-              Start 7-Day Free Trial
+              Choose Your Plan
               <ArrowRight className="h-6 w-6" />
             </Link>
 
             <Link
-              href={getTrialHref("starter")}
+              href="#plans"
               className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10"
             >
               <Bot className="h-6 w-6" />
-              Create AI Staff
+              View AI Staff Plans
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 lg:px-8 lg:py-14">
+      <section
+        id="plans"
+        className="mx-auto max-w-7xl scroll-mt-28 px-5 py-10 sm:px-6 lg:px-8 lg:py-14"
+      >
         <div className="mb-10 max-w-4xl">
           <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
             Choose your AI staff plan
@@ -536,10 +539,10 @@ export default function PricingPage() {
           </p>
 
           <Link
-            href={getTrialHref("starter")}
+            href="#plans"
             className="mt-9 inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
           >
-            Start 7-Day Free Trial
+            Choose Your Plan
             <ArrowRight className="h-6 w-6" />
           </Link>
         </div>

@@ -44,14 +44,12 @@ import {
   Tags,
   Trash2,
   Upload,
-  WalletCards,
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   KOLKAP_GENERATE_KNOWLEDGE_CREDITS,
   KOLKAP_WEBSITE_IMPORT_CREDITS,
-  getKolkapPlan,
 } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
@@ -176,7 +174,7 @@ const categoryOptions = [
   },
   {
     value: "custom_note",
-    label: "Custom",
+    label: "Something Else",
     description: "Anything else your AI should know.",
     icon: Sparkles,
   },
@@ -195,7 +193,7 @@ const libraryCategoryOptions: Option[] = [
   { value: "handover_rule", label: "Handover Rule" },
   { value: "do_not_say", label: "Do Not Say" },
   { value: "important_link", label: "Important Link" },
-  { value: "custom_note", label: "Custom" },
+  { value: "custom_note", label: "Something Else" },
 ];
 
 const languageOptions: Option[] = [
@@ -215,8 +213,8 @@ const wizardSteps = [
   },
   {
     step: 3,
-    title: "Build with AI",
-    description: "Kolkap organises the information.",
+    title: "Create draft",
+    description: "Kolkap creates a clear draft.",
   },
   {
     step: 4,
@@ -229,7 +227,14 @@ const acceptedFileTypes =
   ".pdf,.docx,.txt,.csv,.xls,.xlsx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 function getOptionLabel(options: Option[], value: string) {
-  return options.find((option) => option.value === value)?.label || value;
+  const matchingOption = options.find((option) => option.value === value);
+
+  if (matchingOption) return matchingOption.label;
+  if (value === "business_information") return "Business Information";
+
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function normalizeTags(value: string) {
@@ -358,7 +363,6 @@ function getDocumentStatusStyle(status: KnowledgeDocument["status"]) {
 export default function KnowledgeBasePage() {
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
-  const currentPlan = getKolkapPlan(workspaceState.planKey);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeRow[]>([]);
@@ -549,7 +553,7 @@ export default function KnowledgeBasePage() {
   );
 
   const aiReadyCount = knowledgeItems.filter(
-    (item) => item.status === "active"
+    (item) => item.status === "active" && Boolean(item.last_reviewed_at)
   ).length;
 
   const guidedPrompt = useMemo(
@@ -1182,6 +1186,7 @@ export default function KnowledgeBasePage() {
       source_url: item.source_url || websiteUrl.trim() || null,
       source_note: item.source_note || null,
       source_document_id: null,
+      last_reviewed_at: now,
       sync_status: "not_synced",
       updated_at: now,
     }));
@@ -1285,6 +1290,7 @@ export default function KnowledgeBasePage() {
         sourceDocumentIds.length === 1
           ? sourceDocumentIds[0]
           : null,
+      last_reviewed_at: now,
       sync_status: "not_synced",
       updated_at: now,
     };
@@ -1409,6 +1415,7 @@ export default function KnowledgeBasePage() {
         tags: normalizeTags(editTagsText),
         source_url: editSourceUrl.trim() || null,
         source_note: editSourceNote.trim() || null,
+        last_reviewed_at: null,
         updated_at: now,
       })
       .eq("id", editingId)
@@ -1453,6 +1460,7 @@ export default function KnowledgeBasePage() {
     const { data, error } = await supabase
       .from("workspace_knowledge_base")
       .update({
+        status: "active",
         last_reviewed_at: now,
         updated_at: now,
       })
@@ -1528,25 +1536,19 @@ export default function KnowledgeBasePage() {
 
   const summaryCards = [
     {
-      label: "Current Plan",
-      value: currentPlan.name,
-      note: currentPlan.priceLabel,
-      icon: WalletCards,
-    },
-    {
-      label: "Knowledge Items",
+      label: "Saved Knowledge",
       value: `${knowledgeItems.length}`,
       note: `${filteredKnowledge.length} currently shown`,
       icon: BookOpen,
     },
     {
-      label: "Active Knowledge",
+      label: "Ready to Use",
       value: `${aiReadyCount}`,
       note: "Knowledge items available to your AI",
       icon: Brain,
     },
     {
-      label: "Documents",
+      label: "Uploaded Files",
       value: `${readyDocuments.length}`,
       note: "Uploaded files ready to use",
       icon: FileCheck2,
@@ -1558,7 +1560,7 @@ export default function KnowledgeBasePage() {
       <main className="min-h-[calc(100vh-160px)] bg-[#F7F9FA] px-5 py-10 text-[#07111F]">
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] bg-white p-8 text-xl font-black shadow-sm shadow-slate-900/5">
-            Loading Teach Your AI...
+            Loading Train My AI...
           </div>
         </section>
       </main>
@@ -1571,7 +1573,7 @@ export default function KnowledgeBasePage() {
         <section className="mx-auto max-w-7xl">
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
             <p className="text-xl font-black">
-              Teach Your AI could not load.
+              Train My AI could not load.
             </p>
 
             <p className="mt-2 text-base font-semibold">
@@ -1599,17 +1601,16 @@ export default function KnowledgeBasePage() {
               <div className="max-w-3xl">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-white/85">
                   <Brain className="h-4 w-4" />
-                  Teach Your AI
+                  Train My AI
                 </div>
 
                 <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">
-                  Give your AI the right business knowledge.
+                  Train your AI with your business knowledge.
                 </h1>
 
                 <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-white/75 sm:text-lg">
-                  Add your business information, upload documents, or use your
-                  website. Kolkap AI will organise it into clear knowledge your
-                  AI staff can use when speaking with customers.
+                  Add information, upload documents, or import your website.
+                  Review everything before your AI uses it.
                 </p>
               </div>
 
@@ -1619,7 +1620,7 @@ export default function KnowledgeBasePage() {
                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-black text-white transition hover:bg-white/15"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Your AI
+                  Back to AI Staff
                 </Link>
 
                 <button
@@ -1634,7 +1635,7 @@ export default function KnowledgeBasePage() {
             </div>
           </div>
 
-          <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4 sm:p-6 lg:p-8">
+          <div className="grid gap-4 p-5 sm:grid-cols-3 sm:p-6 lg:p-8">
             {summaryCards.map((card) => {
               const Icon = card.icon;
 
@@ -1691,11 +1692,11 @@ export default function KnowledgeBasePage() {
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-sm font-black uppercase tracking-[0.16em] text-[#4DBD16]">
-                  Guided training centre
+                  Business Knowledge
                 </p>
 
                 <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
-                  Build knowledge with Kolkap AI
+                  Build your business knowledge
                 </h2>
 
                 <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
@@ -1706,12 +1707,12 @@ export default function KnowledgeBasePage() {
 
               <div className="rounded-2xl border border-slate-200 bg-[#FBFCFD] px-4 py-3">
                 <p className="text-xs font-bold text-slate-500">
-                  Knowledge generation
+                  AI assistance
                 </p>
                 <p className="mt-1 text-sm font-black text-[#07111F]">
                   {hasWebsiteImport
-                    ? `${KOLKAP_WEBSITE_IMPORT_CREDITS} credits per website import`
-                    : `${KOLKAP_GENERATE_KNOWLEDGE_CREDITS} credits per generation`}
+                    ? `Uses ${KOLKAP_WEBSITE_IMPORT_CREDITS} credits after a successful import`
+                    : `Uses ${KOLKAP_GENERATE_KNOWLEDGE_CREDITS} credits after successful generation`}
                 </p>
               </div>
             </div>
@@ -2929,7 +2930,7 @@ export default function KnowledgeBasePage() {
           <div className="flex flex-col gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.16em] text-[#4DBD16]">
-                Document manager
+                Uploaded Files
               </p>
 
               <h2 className="mt-2 text-2xl font-black">
@@ -3152,6 +3153,8 @@ function KnowledgeCard({
   onDelete: () => void;
 }) {
   const tags = Array.isArray(item.tags) ? item.tags : [];
+  const isReadyForAi =
+    item.status === "active" && Boolean(item.last_reviewed_at);
 
   return (
     <article className="rounded-[1.7rem] border border-slate-200 bg-[#FBFCFD] p-5">
@@ -3167,12 +3170,12 @@ function KnowledgeCard({
 
             <span
               className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${
-                item.status === "active"
+                isReadyForAi
                   ? "border-green-200 bg-green-50 text-green-700"
-                  : "border-slate-200 bg-slate-100 text-slate-600"
+                  : "border-amber-200 bg-amber-50 text-amber-700"
               }`}
             >
-              {item.status}
+              {isReadyForAi ? "Ready for AI" : "Needs Review"}
             </span>
           </div>
 
@@ -3245,16 +3248,16 @@ function KnowledgeCard({
 
         <button
           type="button"
-          disabled={isBusy}
+          disabled={isBusy || isReadyForAi}
           onClick={onReview}
-          className="inline-flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-black text-green-700"
+          className="inline-flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-black text-green-700 disabled:cursor-default disabled:opacity-70"
         >
           {isBusy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <CheckCircle2 className="h-3.5 w-3.5" />
           )}
-          Mark Reviewed
+          {isReadyForAi ? "Reviewed" : "Approve for AI"}
         </button>
 
         <button

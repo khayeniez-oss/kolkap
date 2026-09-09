@@ -173,7 +173,10 @@ export default function CreateAIPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const aiStaffUsed = aiStaffRows.length;
+  const aiStaffUsed = aiStaffRows.filter(
+    (staff) => String(staff.status || "").trim().toLowerCase() !== "draft"
+  ).length;
+  const draftAiStaffCount = aiStaffRows.length - aiStaffUsed;
   const hasReachedLimit = aiLimit !== "custom" && aiStaffUsed >= aiLimit;
 
   const creditsLeft = getCreditsLeft(creditBalance);
@@ -351,12 +354,18 @@ export default function CreateAIPage() {
   }
 
   const aiLimitValue =
-    aiLimit === "custom" ? `${aiStaffUsed}/Custom` : `${aiStaffUsed}/${aiLimit}`;
+    aiLimit === "custom"
+      ? `${aiStaffUsed}/Custom`
+      : `${aiStaffUsed}/${aiLimit}`;
 
   const aiLimitNote =
     aiLimit === "custom"
-      ? "Custom AI staff limit"
-      : getPlanAIStaffLabel(currentPlan);
+      ? `Custom active AI staff limit · ${draftAiStaffCount} saved ${
+          draftAiStaffCount === 1 ? "draft" : "drafts"
+        }`
+      : `${getPlanAIStaffLabel(currentPlan)} · ${draftAiStaffCount} saved ${
+          draftAiStaffCount === 1 ? "draft" : "drafts"
+        }`;
 
   const summaryCards = useMemo(
     () => [
@@ -524,12 +533,12 @@ export default function CreateAIPage() {
               </h2>
 
               <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
-                Saving AI staff does not use credits. Testing AI after saving
-                uses 3 credits.
+                Creating active AI staff uses {KOLKAP_AI_STAFF_CREATE_CREDITS}
+                credits. Each saved test uses 3 credits.
               </p>
 
               <p className="mt-3 text-base font-semibold leading-7 text-slate-300">
-                For full company-wide knowledge, use the Business Knowledge page
+                For full company-wide knowledge, use Train My AI
                 after creating your AI staff.
               </p>
             </div>

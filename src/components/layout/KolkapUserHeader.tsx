@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   Bot,
+  Brain,
   HelpCircle,
   Home,
   LayoutDashboard,
@@ -18,7 +19,7 @@ import { useEffect, useState } from "react";
 import KolkapLogo from "@/components/brand/KolkapLogo";
 import { createClient } from "@/lib/supabase/client";
 
-const STARTER_SIGNUP_URL = "/signup?plan=starter";
+const PRICING_URL = "/pricing#plans";
 
 type NavItem = {
   label: string;
@@ -27,7 +28,7 @@ type NavItem = {
   icon: typeof Home;
 };
 
-const navItems: NavItem[] = [
+const publicNavItems: NavItem[] = [
   {
     label: "Home",
     href: "/",
@@ -36,13 +37,31 @@ const navItems: NavItem[] = [
   {
     label: "Create AI",
     href: "/dashboard/agents/new",
-    publicHref: STARTER_SIGNUP_URL,
+    publicHref: PRICING_URL,
     icon: Bot,
   },
   {
     label: "Pricing",
     href: "/pricing",
     icon: Tags,
+  },
+];
+
+const workspaceNavItems: NavItem[] = [
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    label: "Create AI",
+    href: "/dashboard/agents/new",
+    icon: Bot,
+  },
+  {
+    label: "Train My AI",
+    href: "/dashboard/knowledge-base",
+    icon: Brain,
   },
 ];
 
@@ -83,6 +102,7 @@ export default function KolkapUserHeader() {
 
   const isInsideDashboard = pathname.startsWith("/dashboard");
   const isPublicVisitor = isCheckingAuth ? true : !isLoggedIn;
+  const visibleNavItems = isLoggedIn ? workspaceNavItems : publicNavItems;
 
   const helpActive = isActivePath(pathname, "/dashboard/help");
   const notificationsActive = isActivePath(pathname, "/dashboard/notifications");
@@ -260,7 +280,7 @@ export default function KolkapUserHeader() {
         </Link>
 
         <nav className="hidden items-center gap-3 lg:flex">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const href =
               isPublicVisitor && item.publicHref ? item.publicHref : item.href;
@@ -341,7 +361,7 @@ export default function KolkapUserHeader() {
               </Link>
 
               <Link
-                href={STARTER_SIGNUP_URL}
+                href={PRICING_URL}
                 className="inline-flex items-center gap-2 rounded-full bg-[#07111F] px-5 py-3 text-base font-black text-white shadow-sm transition hover:-translate-y-0.5"
               >
                 <Sparkles className="h-5 w-5" />
@@ -364,7 +384,7 @@ export default function KolkapUserHeader() {
       {open ? (
         <div className="border-t border-slate-200 bg-white px-5 py-4 lg:hidden">
           <div className="mx-auto grid max-w-7xl gap-3">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const href =
                 isPublicVisitor && item.publicHref ? item.publicHref : item.href;
@@ -450,7 +470,7 @@ export default function KolkapUserHeader() {
                 </Link>
 
                 <Link
-                  href={STARTER_SIGNUP_URL}
+                  href={PRICING_URL}
                   onClick={() => setOpen(false)}
                   className="rounded-full bg-[#07111F] px-5 py-4 text-center text-lg font-black text-white"
                 >

@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  Bot,
   CheckCircle2,
   CreditCard,
   RefreshCcw,
@@ -16,9 +15,6 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
-  getKolkapPlan,
-  getPlanAIStaffLabel,
-  getPlanCreditLabel,
   kolkapTopUpPackages,
   KOLKAP_PRICE_NOTE,
 } from "@/lib/kolkapPlan";
@@ -66,7 +62,6 @@ function formatCredits(amount: number) {
 export default function TopUpPage() {
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
-  const currentPlan = getKolkapPlan(workspaceState.planKey);
 
   const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
     null
@@ -167,7 +162,7 @@ export default function TopUpPage() {
 
     if (topupStatus === "success") {
       setCheckoutMessage(
-        "Payment successful. Credits will appear after Stripe confirms the payment through the webhook. Refresh this page if the balance has not updated yet."
+        "Payment successful. Your credits will appear shortly. Refresh this page if the balance has not updated yet."
       );
       window.setTimeout(() => {
         loadCreditBalance();
@@ -208,41 +203,6 @@ export default function TopUpPage() {
     );
   }
 
-  const summaryCards = [
-    {
-      label: "Current Plan",
-      value: currentPlan.name,
-      note: currentPlan.priceLabel,
-      icon: WalletCards,
-    },
-    {
-      label: "Credits Left",
-      value: creditsLeft === null ? "—" : creditsLeft.toLocaleString(),
-      note: creditBalance
-        ? `${usedCredits.toLocaleString()} credits used`
-        : "Credit balance has not been created for this workspace yet.",
-      icon: Zap,
-      dark: true,
-    },
-    {
-      label: "Plan Credits",
-      value: planCredits.toLocaleString(),
-      note: getPlanCreditLabel(currentPlan),
-      icon: Sparkles,
-    },
-    {
-      label: "Top-Up Credits",
-      value: purchasedCredits.toLocaleString(),
-      note: "Extra credits purchased for this workspace",
-      icon: CreditCard,
-    },
-    {
-      label: "AI Staff Limit",
-      value: getPlanAIStaffLabel(currentPlan),
-      note: currentPlan.name,
-      icon: Bot,
-    },
-  ];
 
   return (
     <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
@@ -308,52 +268,6 @@ export default function TopUpPage() {
           </div>
         ) : null}
 
-        <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
-          {summaryCards.map((card) => {
-            const Icon = card.icon;
-
-            return (
-              <div
-                key={card.label}
-                className={`rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 ${
-                  card.dark
-                    ? "border-[#7CFF3D] bg-[#07111F] text-white"
-                    : "border-slate-200 bg-white text-[#07111F]"
-                }`}
-              >
-                <div
-                  className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
-                    card.dark
-                      ? "bg-[#7CFF3D] text-[#07111F]"
-                      : "bg-[#07111F] text-[#7CFF3D]"
-                  }`}
-                >
-                  <Icon className="h-7 w-7" />
-                </div>
-
-                <p
-                  className={`text-lg font-black ${
-                    card.dark ? "text-slate-300" : "text-slate-500"
-                  }`}
-                >
-                  {card.label}
-                </p>
-
-                <p className="mt-2 text-3xl font-black tracking-[-0.04em]">
-                  {card.value}
-                </p>
-
-                <p
-                  className={`mt-2 text-base font-semibold leading-7 ${
-                    card.dark ? "text-slate-300" : "text-slate-600"
-                  }`}
-                >
-                  {card.note}
-                </p>
-              </div>
-            );
-          })}
-        </div>
 
         <section className="mb-8 rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
           <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
@@ -391,22 +305,13 @@ export default function TopUpPage() {
                 />
               </div>
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="mt-6 max-w-sm">
                 <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
                   <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
                     Credits Left
                   </p>
                   <p className="mt-2 text-4xl font-black tracking-[-0.06em] text-[#7CFF3D]">
                     {creditsLeft === null ? "—" : creditsLeft.toLocaleString()}
-                  </p>
-                </div>
-
-                <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                  <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">
-                    Current Plan
-                  </p>
-                  <p className="mt-2 text-4xl font-black tracking-[-0.06em]">
-                    {currentPlan.name}
                   </p>
                 </div>
               </div>
@@ -500,7 +405,7 @@ export default function TopUpPage() {
                         : "bg-[#07111F] text-white"
                     }`}
                   >
-                    {isStarting ? "Opening Stripe..." : "Buy Credits"}
+                    {isStarting ? "Opening checkout..." : "Buy Credits"}
                     <ArrowRight className="h-5 w-5" />
                   </button>
                 </div>

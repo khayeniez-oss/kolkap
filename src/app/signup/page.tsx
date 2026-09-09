@@ -7,25 +7,19 @@ import {
   useEffect,
   useState,
   type FormEvent,
-  type ReactNode,
 } from "react";
 import {
   ArrowRight,
   BriefcaseBusiness,
-  CheckCircle2,
-  CreditCard,
   Eye,
   EyeOff,
   LockKeyhole,
   Mail,
-  ShieldCheck,
   Sparkles,
   UserRound,
-  Zap,
 } from "lucide-react";
 import {
   getKolkapPlan,
-  KOLKAP_PRICE_NOTE,
   type KolkapPlanKey,
 } from "@/lib/kolkapPlan";
 import { createClient } from "@/lib/supabase/client";
@@ -380,112 +374,73 @@ function SignupContent() {
           : "Creating account..."
         : isExistingUser
           ? "Continue Free Trial"
-          : "Start Free Trial";
+          : "Create Account & Continue";
 
   return (
     <main className="bg-[#F7F9FA] text-[#07111F]">
-      <section className="mx-auto grid min-h-[calc(100vh-160px)] max-w-7xl items-center gap-8 px-5 py-10 sm:px-6 lg:grid-cols-[1fr_0.9fr] lg:px-8 lg:py-14">
+      <section className="mx-auto grid min-h-[calc(100vh-160px)] max-w-7xl items-center gap-8 px-5 py-10 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:py-14">
         <div className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9 lg:p-10">
           <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
             <Sparkles className="h-5 w-5" />
-            Start Now
+            7-Day Free Trial
           </div>
 
           <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-            Create your AI staff. Start your 7-day trial.
+            Create your account. Build your first AI staff.
           </h1>
 
           <p className="mt-6 max-w-2xl text-xl font-semibold leading-9 text-slate-300">
-            Create your account, add a payment method, and start setting up your
-            AI staff for customer replies, content, leads, and support.
+            Start with a secure trial, then choose the role your business needs
+            and teach your AI staff how to help.
           </p>
 
-          <div className="mt-8 rounded-[2rem] border border-white/10 bg-white/5 p-6">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
-              <CreditCard className="h-7 w-7" />
-            </div>
-
-            <h2 className="text-2xl font-black">7-day free trial</h2>
-
-            <p className="mt-3 text-lg font-semibold leading-8 text-slate-300">
-              Payment method needed to activate your trial. You will not be
-              charged today.
-            </p>
-
-            <p className="mt-3 text-base font-bold leading-7 text-slate-400">
-              Monthly billing starts automatically after your trial unless
-              cancelled before the trial ends.
-            </p>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <TrialPoint
-                icon={<ShieldCheck className="h-5 w-5" />}
-                text="No charge today"
-              />
-
-              <TrialPoint
-                icon={<Zap className="h-5 w-5" />}
-                text="Trial credits included"
-              />
-
-              <TrialPoint
-                icon={<Sparkles className="h-5 w-5" />}
-                text="AI staff setup included"
-              />
-            </div>
+          <div className="mt-8 grid gap-3">
+            <SignupStep
+              number="1"
+              title="Create your account"
+              text="Tell us who you are and what type of business you run."
+            />
+            <SignupStep
+              number="2"
+              title="Add your payment method"
+              text="Continue through secure checkout. You will not be charged today."
+            />
+            <SignupStep
+              number="3"
+              title="Build your AI staff"
+              text="Choose a role, add your business knowledge, and test the replies."
+            />
           </div>
 
-          <div className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-6">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#07111F]">
-              <CheckCircle2 className="h-7 w-7" />
-            </div>
-
-            <h2 className="text-2xl font-black">Selected plan</h2>
-
-            <p className="mt-3 text-lg font-semibold leading-8 text-slate-300">
-              {selectedPlan.name} — {getPlanPriceLine(planKey)}
-            </p>
-
-            <p className="mt-3 text-base font-bold leading-7 text-slate-400">
-              {KOLKAP_PRICE_NOTE}
-            </p>
-          </div>
-
-          <div className="mt-6 rounded-[2rem] border border-white/10 bg-white/5 p-6">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#07111F]">
-              <CheckCircle2 className="h-7 w-7" />
-            </div>
-
-            <h2 className="text-2xl font-black">
-              What happens after signup?
-            </h2>
-
-            <p className="mt-3 text-lg font-semibold leading-8 text-slate-300">
-              After signup, you will activate your 7-day trial, create your AI
-              staff, test the replies, and go live when you are ready. Kolkap
-              helps your business reply to customers 24/7, capture leads, and
-              support daily conversations.
-            </p>
-          </div>
         </div>
 
         <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
           <form onSubmit={handleSignup} className="grid gap-5">
-            <div className="mb-2">
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                {isExistingUser ? "Welcome Back" : "Start Now"}
-              </p>
+            <div className="mb-2 rounded-[1.6rem] border border-slate-200 bg-[#F7F9FA] p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-black uppercase tracking-[0.18em] text-blue-600">
+                    {isExistingUser ? "Welcome Back" : "Selected Plan"}
+                  </p>
+                  <h2 className="mt-2 text-3xl font-black tracking-[-0.05em]">
+                    {selectedPlan.name}
+                  </h2>
+                </div>
 
-              <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
-                {isExistingUser ? "Continue Free Trial" : "Start Free Trial"}
-              </h2>
+                <Link
+                  href="/pricing#plans"
+                  className="shrink-0 text-sm font-black text-blue-600"
+                >
+                  Change Plan
+                </Link>
+              </div>
 
               <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
-                {selectedPlan.name} — {getPlanPriceLine(planKey)}
+                {getPlanPriceLine(planKey)}
               </p>
 
               <p className="mt-2 text-sm font-black leading-6 text-blue-600">
-                Payment method needed. No charge today.
+                7-day free trial · Payment method required · No charge today
               </p>
             </div>
 
@@ -648,14 +603,26 @@ function SignupContent() {
   );
 }
 
-function TrialPoint({ icon, text }: { icon: ReactNode; text: string }) {
+function SignupStep({
+  number,
+  title,
+  text,
+}: {
+  number: string;
+  title: string;
+  text: string;
+}) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#07111F]">
-        {icon}
+    <div className="flex items-start gap-4 rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#7CFF3D] text-lg font-black text-[#07111F]">
+        {number}
       </div>
-
-      <p className="text-sm font-black leading-5 text-white">{text}</p>
+      <div>
+        <p className="text-lg font-black text-white">{title}</p>
+        <p className="mt-1 text-sm font-bold leading-6 text-slate-400">
+          {text}
+        </p>
+      </div>
     </div>
   );
 }

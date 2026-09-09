@@ -16,7 +16,7 @@ import {
 import KolkapLogo from "@/components/brand/KolkapLogo";
 import { createClient } from "@/lib/supabase/server";
 
-const STARTER_SIGNUP_URL = "/signup?plan=starter";
+const PRICING_URL = "/pricing#plans";
 
 const benefits = [
   {
@@ -109,7 +109,7 @@ export default async function Home() {
 
   const primaryAction = isLoggedIn
     ? { href: "/dashboard", label: "Go to Dashboard" }
-    : { href: STARTER_SIGNUP_URL, label: "Start Free Trial" };
+    : { href: PRICING_URL, label: "Start Free Trial" };
 
   const secondaryAction = isLoggedIn
     ? { href: "/dashboard/create-ai", label: "Create AI Staff" }

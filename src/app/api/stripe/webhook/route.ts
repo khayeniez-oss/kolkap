@@ -24,6 +24,13 @@ type CreditTopupResultRow = {
   already_processed: boolean;
 };
 
+type CreditRenewalResultRow = {
+  workspace_id: string;
+  credits_added: number;
+  credits_left: number;
+  already_processed: boolean;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -72,7 +79,9 @@ function getAdminSupabase() {
   });
 }
 
-function normalizePlanKey(value: string | null | undefined): BillablePlanKey | null {
+function normalizePlanKey(
+  value: string | null | undefined
+): BillablePlanKey | null {
   if (
     value === "starter" ||
     value === "growth" ||
@@ -85,12 +94,15 @@ function normalizePlanKey(value: string | null | undefined): BillablePlanKey | n
   return null;
 }
 
-function getPlanKeyFromPriceId(priceId: string | null | undefined): BillablePlanKey | null {
+function getPlanKeyFromPriceId(
+  priceId: string | null | undefined
+): BillablePlanKey | null {
   if (!priceId) return null;
 
   if (priceId === process.env.STRIPE_STARTER_PRICE_ID) return "starter";
   if (priceId === process.env.STRIPE_GROWTH_PRICE_ID) return "growth";
-  if (priceId === process.env.STRIPE_PROFESSIONAL_PRICE_ID) return "professional";
+  if (priceId === process.env.STRIPE_PROFESSIONAL_PRICE_ID)
+    return "professional";
   if (priceId === process.env.STRIPE_BUSINESS_PRICE_ID) return "business";
 
   return null;
@@ -180,6 +192,49 @@ function getCurrentPeriodEnd(subscription: Stripe.Subscription | null) {
   return firstItem ? getNumber(firstItem.current_period_end) : null;
 }
 
+function getInvoiceSubscriptionLine(invoice: Stripe.Invoice) {
+  if (!isRecord(invoice.lines) || !Array.isArray(invoice.lines.data)) {
+    return null;
+  }
+
+  const subscriptionLines = invoice.lines.data
+    .filter(isRecord)
+    .filter((line) => getStringId(line.subscription))
+    .sort((first, second) => {
+      const firstPeriod = isRecord(first.period)
+        ? getNumber(first.period.end) || 0
+        : 0;
+      const secondPeriod = isRecord(second.period)
+        ? getNumber(second.period.end) || 0
+        : 0;
+
+      return secondPeriod - firstPeriod;
+    });
+
+  return subscriptionLines[0] || null;
+}
+
+function getInvoicePriceId(invoiceLine: unknown) {
+  if (!isRecord(invoiceLine) || !isRecord(invoiceLine.pricing)) return null;
+
+  const priceDetails = invoiceLine.pricing.price_details;
+
+  if (!isRecord(priceDetails)) return null;
+
+  return getStringId(priceDetails.price);
+}
+
+function getInvoiceLinePeriod(invoiceLine: unknown) {
+  if (!isRecord(invoiceLine) || !isRecord(invoiceLine.period)) {
+    return { start: null, end: null };
+  }
+
+  return {
+    start: getNumber(invoiceLine.period.start),
+    end: getNumber(invoiceLine.period.end),
+  };
+}
+
 function getSubscriptionCancelAt(subscription: Stripe.Subscription) {
   if (!isRecord(subscription)) return null;
 
@@ -233,6 +288,8 @@ async function syncWorkspaceCreditBalance(input: {
   ownerUserId: string;
   planKey: BillablePlanKey;
   resetUsedCredits?: boolean;
+  billingPeriodStart?: string | null;
+  billingPeriodEnd?: string | null;
 }) {
   const supabase = getAdminSupabase();
   const plan = getKolkapPlan(input.planKey);
@@ -251,13 +308,21 @@ async function syncWorkspaceCreditBalance(input: {
 
   const basePayload: Record<string, unknown> = {
     plan_name: plan.name,
-    plan_credits: planCredits,
     status: "active",
     updated_at: new Date().toISOString(),
   };
 
   if (input.resetUsedCredits) {
+    basePayload.plan_credits = planCredits;
     basePayload.used_credits = 0;
+  }
+
+  if (input.billingPeriodStart) {
+    basePayload.billing_period_start = input.billingPeriodStart;
+  }
+
+  if (input.billingPeriodEnd) {
+    basePayload.billing_period_end = input.billingPeriodEnd;
   }
 
   if (existingBalance?.id) {
@@ -283,6 +348,8 @@ async function syncWorkspaceCreditBalance(input: {
       purchased_credits: 0,
       used_credits: 0,
       status: "active",
+      billing_period_start: input.billingPeriodStart || null,
+      billing_period_end: input.billingPeriodEnd || null,
       updated_at: new Date().toISOString(),
     });
 
@@ -291,7 +358,9 @@ async function syncWorkspaceCreditBalance(input: {
   }
 }
 
-async function completeCreditTopupFromCheckout(session: Stripe.Checkout.Session) {
+async function completeCreditTopupFromCheckout(
+  session: Stripe.Checkout.Session
+) {
   const supabase = getAdminSupabase();
 
   const topupId = session.metadata?.topup_id || null;
@@ -308,12 +377,15 @@ async function completeCreditTopupFromCheckout(session: Stripe.Checkout.Session)
     return;
   }
 
-  const { data, error } = await supabase.rpc("complete_workspace_credit_topup", {
-    p_topup_id: topupId,
-    p_stripe_checkout_session_id: session.id,
-    p_stripe_payment_intent_id: paymentIntentId,
-    p_stripe_customer_id: customerId,
-  });
+  const { data, error } = await supabase.rpc(
+    "complete_workspace_credit_topup",
+    {
+      p_topup_id: topupId,
+      p_stripe_checkout_session_id: session.id,
+      p_stripe_payment_intent_id: paymentIntentId,
+      p_stripe_customer_id: customerId,
+    }
+  );
 
   if (error) {
     throw error;
@@ -353,16 +425,21 @@ async function completeCreditTopupFromCheckout(session: Stripe.Checkout.Session)
   });
 }
 
-async function markCreditTopupCancelledFromCheckout(session: Stripe.Checkout.Session) {
+async function markCreditTopupCancelledFromCheckout(
+  session: Stripe.Checkout.Session
+) {
   const supabase = getAdminSupabase();
 
   const topupId = session.metadata?.topup_id || null;
 
   if (!topupId) {
-    console.log("Stripe credit top-up cancellation skipped. Missing topup_id.", {
-      sessionId: session.id,
-      metadata: session.metadata,
-    });
+    console.log(
+      "Stripe credit top-up cancellation skipped. Missing topup_id.",
+      {
+        sessionId: session.id,
+        metadata: session.metadata,
+      }
+    );
 
     return;
   }
@@ -476,6 +553,8 @@ async function activateWorkspaceFromCheckout(
     ownerUserId: workspace.owner_user_id,
     planKey,
     resetUsedCredits: true,
+    billingPeriodStart: dateFromUnix(currentPeriodStart),
+    billingPeriodEnd: dateFromUnix(currentPeriodEnd),
   });
 
   console.log("Kolkap trial activated from Stripe checkout.", {
@@ -486,7 +565,9 @@ async function activateWorkspaceFromCheckout(
   });
 }
 
-async function updateWorkspaceFromSubscription(subscription: Stripe.Subscription) {
+async function updateWorkspaceFromSubscription(
+  subscription: Stripe.Subscription
+) {
   const supabase = getAdminSupabase();
 
   const subscriptionId = subscription.id;
@@ -621,6 +702,106 @@ async function updateWorkspaceFromInvoice(
 
   if (updateError) {
     throw updateError;
+  }
+
+  if (
+    nextStatus === "active" &&
+    invoice.billing_reason === "subscription_cycle"
+  ) {
+    const subscription = await getStripe().subscriptions.retrieve(
+      subscriptionId
+    );
+    const invoiceLine = getInvoiceSubscriptionLine(invoice);
+    const invoiceLinePeriod = getInvoiceLinePeriod(invoiceLine);
+    const priceId =
+      getInvoicePriceId(invoiceLine) || getSubscriptionPriceId(subscription);
+    const planKey =
+      getPlanKeyFromPriceId(priceId) ||
+      normalizePlanKey(subscription.metadata?.plan_key);
+    const billingPeriodStart = dateFromUnix(
+      invoiceLinePeriod.start || invoice.period_start
+    );
+    const billingPeriodEnd = dateFromUnix(
+      invoiceLinePeriod.end || invoice.period_end
+    );
+
+    if (!planKey || !billingPeriodStart || !billingPeriodEnd) {
+      console.log("Stripe renewal credits skipped. Plan or period missing.", {
+        workspaceId: workspace.id,
+        invoiceId: invoice.id,
+        subscriptionId,
+        planKey,
+        priceId,
+        billingPeriodStart,
+        billingPeriodEnd,
+      });
+    } else {
+      const plan = getKolkapPlan(planKey);
+      const planCredits =
+        typeof plan.monthlyCredits === "number" ? plan.monthlyCredits : 0;
+
+      const { data, error } = await supabase.rpc(
+        "renew_workspace_plan_credits",
+        {
+          p_workspace_id: workspace.id,
+          p_stripe_invoice_id: invoice.id,
+          p_plan_name: plan.name,
+          p_plan_credits: planCredits,
+          p_billing_period_start: billingPeriodStart,
+          p_billing_period_end: billingPeriodEnd,
+        }
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      const renewalRows = (data ?? []) as CreditRenewalResultRow[];
+      const renewal = renewalRows[0];
+
+      if (renewal && !renewal.already_processed) {
+        const { error: usageError } = await supabase
+          .from("workspace_usage_events")
+          .insert({
+            workspace_id: workspace.id,
+            owner_user_id: workspace.owner_user_id,
+            user_id: workspace.owner_user_id,
+            event_type: "subscription_credits_renewed",
+            channel: "billing",
+            source_page: "/api/stripe/webhook",
+            credits_used: 0,
+            event_count: 1,
+            status: "success",
+            metadata: {
+              type: "subscription_credit_renewal",
+              invoice_id: invoice.id,
+              subscription_id: subscriptionId,
+              plan_key: planKey,
+              credits_added: renewal.credits_added,
+              credits_left: renewal.credits_left,
+              billing_period_start: billingPeriodStart,
+              billing_period_end: billingPeriodEnd,
+            },
+          });
+
+        if (usageError) {
+          console.error(
+            "Subscription credit renewal usage log failed.",
+            usageError.message
+          );
+        }
+      }
+
+      console.log("Kolkap subscription credits renewed from Stripe invoice.", {
+        workspaceId: workspace.id,
+        invoiceId: invoice.id,
+        subscriptionId,
+        planKey,
+        creditsAdded: renewal?.credits_added || 0,
+        creditsLeft: renewal?.credits_left ?? null,
+        alreadyProcessed: Boolean(renewal?.already_processed),
+      });
+    }
   }
 
   console.log("Kolkap workspace updated from Stripe invoice.", {

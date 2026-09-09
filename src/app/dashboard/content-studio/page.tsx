@@ -1,28 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
   Clipboard,
-  CreditCard,
   Edit3,
   FileText,
   Filter,
   Lightbulb,
-  Megaphone,
   RefreshCcw,
   Save,
   Search,
   Sparkles,
   Trash2,
   Wand2,
-  WalletCards,
-  Zap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { getKolkapPlan } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
 const MAX_GENERATED_LENGTH = 8000;
@@ -213,7 +208,6 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
 export default function ContentStudioPage() {
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace as WorkspaceRow | null;
-  const currentPlan = getKolkapPlan(workspaceState.planKey);
 
   const [contentItems, setContentItems] = useState<ContentRow[]>([]);
   const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
@@ -256,9 +250,6 @@ export default function ContentStudioPage() {
   const isPromptTooLong = promptCount > MAX_PROMPT_LENGTH;
 
   const creditsLeft = getCreditsLeft(creditBalance);
-  const usedCredits = Number(creditBalance?.used_credits || 0);
-  const planCredits = Number(creditBalance?.plan_credits || 0);
-  const purchasedCredits = Number(creditBalance?.purchased_credits || 0);
 
   async function loadCreditBalance() {
     if (!workspace?.id) return;
@@ -345,44 +336,6 @@ export default function ContentStudioPage() {
     });
   }, [contentItems, searchTerm, filterType]);
 
-  const uniqueTypes = new Set(contentItems.map((item) => item.content_type)).size;
-
-  const summaryCards = [
-    {
-      label: "Current Plan",
-      value: currentPlan.name,
-      note: currentPlan.priceLabel,
-      icon: <WalletCards className="h-7 w-7" />,
-    },
-    {
-      label: "Credits Left",
-      value: creditsLeft === null ? "—" : creditsLeft.toLocaleString(),
-      note: creditBalance
-        ? `Credits used: ${usedCredits.toLocaleString()}`
-        : "Credit balance not found yet.",
-      icon: <CreditCard className="h-7 w-7" />,
-      dark: true,
-    },
-    {
-      label: "Credit Cost",
-      value: `${CONTENT_GENERATION_CREDIT_COST} Credits`,
-      note: "Every successful content generation uses 10 credits.",
-      icon: <Zap className="h-7 w-7" />,
-    },
-    {
-      label: "Saved Content",
-      value: `${contentItems.length}`,
-      note: `${filteredContent.length} shown`,
-      icon: <FileText className="h-7 w-7" />,
-    },
-    {
-      label: "Content Types",
-      value: `${uniqueTypes}`,
-      note: "Different formats",
-      icon: <Megaphone className="h-7 w-7" />,
-    },
-  ];
-
   function resetForm() {
     setEditingId("");
     setTitle("");
@@ -454,6 +407,7 @@ export default function ContentStudioPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          workspace_id: workspace?.id,
           content_type: contentType,
           content_purpose: contentPurpose,
           platform,
@@ -769,64 +723,21 @@ export default function ContentStudioPage() {
           <p className="mt-6 max-w-4xl text-xl font-semibold leading-9 text-slate-300">
             Create captions, WhatsApp messages, announcements, customer replies,
             product descriptions, ad copy, blog ideas, and short scripts using
-            your business profile and Knowledge Base.
+            your business profile and trained business knowledge.
           </p>
         </div>
 
-        <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
-          {summaryCards.map((card) => (
-            <SummaryCard
-              key={card.label}
-              icon={card.icon}
-              label={card.label}
-              value={card.value}
-              note={card.note}
-              dark={card.dark}
-            />
-          ))}
-        </div>
+        <section className="mb-8 flex items-start gap-4 rounded-[1.6rem] border border-green-200 bg-green-50 p-5 text-green-950 sm:items-center">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+            <Lightbulb className="h-6 w-6" />
+          </div>
 
-        <section className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
-              <Lightbulb className="h-8 w-8" />
-            </div>
-
-            <div>
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                How this works
-              </p>
-
-              <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
-                Content Studio uses your logged-in business profile, saved
-                Knowledge Base, and your instructions to create business-specific
-                content. Each successful generation uses 10 credits.
-              </h2>
-
-              {creditBalance ? (
-                <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
-                  Included plan credits: {planCredits.toLocaleString()} • Top-Up
-                  credits: {purchasedCredits.toLocaleString()} • Credits used:{" "}
-                  {usedCredits.toLocaleString()}
-                </p>
-              ) : null}
-
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href="/dashboard/top-up"
-                  className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-6 py-4 text-base font-black text-[#07111F]"
-                >
-                  Top Up Credits
-                </Link>
-
-                <Link
-                  href="/dashboard/usage"
-                  className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-6 py-4 text-base font-black text-white"
-                >
-                  View Usage
-                </Link>
-              </div>
-            </div>
+          <div>
+            <p className="font-black">Built from your business knowledge</p>
+            <p className="mt-1 font-semibold leading-7 text-green-900">
+              Content Studio uses your business information and saved knowledge.
+              Review everything before saving.
+            </p>
           </div>
         </section>
 
@@ -843,7 +754,7 @@ export default function ContentStudioPage() {
 
               <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
                 Choose the format, purpose, and details. Kolkap will generate
-                content based on your logged-in business and Knowledge Base.
+                content based on your logged-in business and trained knowledge.
               </h2>
             </div>
 
@@ -944,11 +855,52 @@ export default function ContentStudioPage() {
                 </span>
               </label>
 
+              <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-[#F7F9FA] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="font-semibold text-slate-600">
+                  <span className="font-black text-[#07111F]">
+                    {isLoadingCredits
+                      ? "Checking credits..."
+                      : creditsLeft === null
+                        ? "Credits unavailable"
+                        : `${creditsLeft.toLocaleString()} credits left`}
+                  </span>{" "}
+                  · Each generation uses {CONTENT_GENERATION_CREDIT_COST} credits.
+                </p>
+
+                <div className="flex items-center gap-4">
+                  {creditsLeft !== null &&
+                  creditsLeft < CONTENT_GENERATION_CREDIT_COST ? (
+                    <Link
+                      href="/dashboard/top-up"
+                      className="text-sm font-black text-blue-600"
+                    >
+                      Top up
+                    </Link>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={loadCreditBalance}
+                    disabled={isLoadingCredits}
+                    className="inline-flex items-center gap-2 text-sm font-black text-blue-600 disabled:opacity-50"
+                  >
+                    <RefreshCcw className="h-4 w-4" />
+                    Refresh
+                  </button>
+                </div>
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={handleGenerateContent}
-                  disabled={isGenerating || isDetailsTooLong || isPromptTooLong}
+                  disabled={
+                    isGenerating ||
+                    isDetailsTooLong ||
+                    isPromptTooLong ||
+                    (creditsLeft !== null &&
+                      creditsLeft < CONTENT_GENERATION_CREDIT_COST)
+                  }
                   className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-lg font-black text-[#07111F] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:text-xl"
                 >
                   <Wand2 className="h-6 w-6" />
@@ -969,15 +921,6 @@ export default function ContentStudioPage() {
                   {copiedGenerated ? "Copied" : "Copy Generated"}
                 </button>
               </div>
-
-              <button
-                type="button"
-                onClick={loadCreditBalance}
-                disabled={isLoadingCredits}
-                className="text-left text-sm font-black text-blue-600 disabled:opacity-50"
-              >
-                {isLoadingCredits ? "Loading your content studio..." : "Refresh credits"}
-              </button>
 
               <label className="grid gap-2">
                 <span className="text-base font-black text-slate-700">
@@ -1216,56 +1159,6 @@ export default function ContentStudioPage() {
         </div>
       </section>
     </main>
-  );
-}
-
-function SummaryCard({
-  icon,
-  label,
-  value,
-  note,
-  dark = false,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  note: string;
-  dark?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-[1.8rem] border p-6 shadow-sm shadow-slate-900/5 ${
-        dark
-          ? "border-[#7CFF3D] bg-[#07111F] text-white"
-          : "border-slate-200 bg-white text-[#07111F]"
-      }`}
-    >
-      <div
-        className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl ${
-          dark ? "bg-[#7CFF3D] text-[#07111F]" : "bg-[#07111F] text-[#7CFF3D]"
-        }`}
-      >
-        {icon}
-      </div>
-
-      <p
-        className={`text-lg font-black ${
-          dark ? "text-slate-300" : "text-slate-500"
-        }`}
-      >
-        {label}
-      </p>
-
-      <p className="mt-2 text-3xl font-black tracking-[-0.04em]">{value}</p>
-
-      <p
-        className={`mt-2 text-base font-semibold leading-7 ${
-          dark ? "text-slate-300" : "text-slate-600"
-        }`}
-      >
-        {note}
-      </p>
-    </div>
   );
 }
 

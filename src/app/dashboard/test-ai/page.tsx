@@ -13,16 +13,11 @@ import {
   MessageCircle,
   RefreshCcw,
   Send,
-  ShieldCheck,
   Smartphone,
-  Sparkles,
   Wand2,
   Zap,
 } from "lucide-react";
-import {
-  getKolkapPlan,
-  KOLKAP_AI_GENERATION_MIN_CREDITS,
-} from "@/lib/kolkapPlan";
+import { KOLKAP_AI_GENERATION_MIN_CREDITS } from "@/lib/kolkapPlan";
 import { createClient } from "@/lib/supabase/client";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 
@@ -116,7 +111,6 @@ function statusLabel(value: string | null | undefined) {
 export default function TestAIPage() {
   const workspaceState = useKolkapWorkspace();
   const workspace = workspaceState.workspace;
-  const currentPlan = getKolkapPlan(workspaceState.planKey);
 
   const [aiStaffRows, setAiStaffRows] = useState<AiStaffRow[]>([]);
   const [selectedAiStaffId, setSelectedAiStaffId] = useState("");
@@ -150,8 +144,6 @@ export default function TestAIPage() {
 
   const creditsLeft = getCreditsLeft(creditBalance);
   const usedCredits = Number(creditBalance?.used_credits || 0);
-  const planCredits = Number(creditBalance?.plan_credits || 0);
-  const purchasedCredits = Number(creditBalance?.purchased_credits || 0);
 
   const selectedAiStaff = useMemo(() => {
     return aiStaffRows.find((item) => item.id === selectedAiStaffId) || null;
@@ -193,10 +185,14 @@ export default function TestAIPage() {
       .from("ai_staff")
       .select("*")
       .eq("workspace_id", workspace.id)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (error) {
-      setAiStaffError(error.message || "AI staff could not load.");
+      console.error("Test AI staff list could not load:", error.message);
+      setAiStaffError(
+        "Your AI staff could not be loaded. Please refresh and try again."
+      );
       setIsLoadingAiStaff(false);
       return;
     }
@@ -238,6 +234,11 @@ export default function TestAIPage() {
     setActionMessage("");
     setActionError("");
 
+    if (!workspace?.id) {
+      setActionError("Your business workspace is not ready yet. Please refresh and try again.");
+      return;
+    }
+
     if (!selectedAiStaffId) {
       setActionError("Please choose an AI staff member to test.");
       return;
@@ -272,6 +273,7 @@ export default function TestAIPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          workspace_id: workspace?.id,
           ai_staff_id: selectedAiStaffId,
           test_channel: testChannel,
           customer_message: question,
@@ -399,24 +401,16 @@ export default function TestAIPage() {
           </div>
 
           <h1 className="max-w-5xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-            Test one AI staff before going live.
+            Test your AI before customers see the replies.
           </h1>
 
           <p className="mt-6 max-w-4xl text-xl font-semibold leading-9 text-slate-300">
-            Choose an AI staff member, select a test style, ask a sample customer
-            question, and review the reply. This page does not send messages to
-            real customers.
+            Ask a sample customer question and review how your AI responds.
+            Nothing on this page is sent to customers.
           </p>
         </div>
 
-        <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
-          <InfoCard
-            icon={<ShieldCheck className="h-7 w-7" />}
-            label="Current Plan"
-            value={currentPlan.name}
-            note={currentPlan.priceLabel}
-          />
-
+        <div className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           <InfoCard
             icon={<CreditCard className="h-7 w-7" />}
             label="Credits Left"
@@ -438,20 +432,13 @@ export default function TestAIPage() {
 
           <InfoCard
             icon={<Bot className="h-7 w-7" />}
-            label="AI Staff"
-            value={selectedAiStaff?.name || "Not selected"}
+            label="AI Staff Available"
+            value={`${aiStaffRows.length}`}
             note={
               aiStaffRows.length
-                ? `${aiStaffRows.length} AI staff available`
+                ? `Selected: ${selectedAiStaff?.name || "Choose below"}`
                 : "Create AI staff before testing."
             }
-          />
-
-          <InfoCard
-            icon={<Sparkles className="h-7 w-7" />}
-            label="Mode"
-            value="Test Only"
-            note="No customer message will be sent from this page."
           />
         </div>
 
@@ -480,33 +467,6 @@ export default function TestAIPage() {
           </section>
         ) : null}
 
-        <section className="mb-8 rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-
-            <div>
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                Test before live replies
-              </p>
-
-              <h2 className="mt-3 text-3xl font-black leading-tight tracking-[-0.04em]">
-                If the answer is not strong yet, improve your AI staff setup and
-                business knowledge before going live.
-              </h2>
-
-              {creditBalance ? (
-                <p className="mt-4 text-base font-semibold leading-7 text-slate-300">
-                  Included plan credits: {planCredits.toLocaleString()} • Top-up
-                  credits: {purchasedCredits.toLocaleString()} • Credits used:{" "}
-                  {usedCredits.toLocaleString()}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </section>
-
         <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
           <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
             <div className="mb-7">
@@ -515,11 +475,11 @@ export default function TestAIPage() {
               </div>
 
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                Test Setup
+                Test Your AI
               </p>
 
               <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                Choose who replies and where the reply is being tested.
+                Ask a test question.
               </h2>
             </div>
 
@@ -549,20 +509,6 @@ export default function TestAIPage() {
                 </select>
               </label>
 
-              <SelectInput
-                label="Test Style"
-                value={testChannel}
-                onChange={setTestChannel}
-                options={TEST_CHANNEL_OPTIONS}
-              />
-
-              <SelectInput
-                label="Reply Tone"
-                value={tone}
-                onChange={setTone}
-                options={TONE_OPTIONS}
-              />
-
               <label className="grid gap-2">
                 <span className="text-base font-black text-slate-700">
                   Sample Customer Question
@@ -590,32 +536,80 @@ export default function TestAIPage() {
                 </span>
               </label>
 
-              <label className="grid gap-2">
-                <span className="text-base font-black text-slate-700">
-                  Extra Test Instructions
-                </span>
+              <div className="rounded-[1.8rem] border border-slate-200 bg-[#F7F9FA] p-5">
+                <p className="text-base font-black text-[#07111F]">
+                  Quick sample questions
+                </p>
+                <p className="mt-1 text-sm font-semibold text-slate-600">
+                  Choose one or write your own question above.
+                </p>
 
-                <textarea
-                  rows={5}
-                  value={extraInstructions}
-                  maxLength={MAX_INSTRUCTION_LENGTH + 100}
-                  onChange={(event) => setExtraInstructions(event.target.value)}
-                  placeholder="Optional: Tell your AI what to pay attention to, such as keeping the answer short, mentioning booking steps, or asking for customer details."
-                  className={`w-full rounded-2xl border px-5 py-4 text-lg font-semibold leading-8 outline-none transition ${
-                    isInstructionTooLong
-                      ? "border-red-300 bg-red-50"
-                      : "border-slate-200 bg-[#F7F9FA] focus:border-blue-500 focus:bg-white"
-                  }`}
-                />
+                <div className="mt-4 grid gap-2">
+                  {SAMPLE_QUESTIONS.map((sample) => (
+                    <button
+                      key={sample}
+                      type="button"
+                      onClick={() => setQuestion(sample)}
+                      className="rounded-2xl bg-white px-4 py-3 text-left text-sm font-black text-[#07111F] transition hover:bg-slate-100"
+                    >
+                      {sample}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                <span
-                  className={`text-sm font-black ${
-                    isInstructionTooLong ? "text-red-600" : "text-slate-500"
-                  }`}
-                >
-                  {instructionCount} / {MAX_INSTRUCTION_LENGTH} characters
-                </span>
-              </label>
+              <details className="rounded-[1.8rem] border border-slate-200 bg-white p-5">
+                <summary className="cursor-pointer text-base font-black text-[#07111F]">
+                  Optional test settings
+                </summary>
+
+                <div className="mt-5 grid gap-5">
+                  <SelectInput
+                    label="Reply Style"
+                    value={testChannel}
+                    onChange={setTestChannel}
+                    options={TEST_CHANNEL_OPTIONS}
+                  />
+
+                  <SelectInput
+                    label="Reply Tone"
+                    value={tone}
+                    onChange={setTone}
+                    options={TONE_OPTIONS}
+                  />
+
+                  <label className="grid gap-2">
+                    <span className="text-base font-black text-slate-700">
+                      Extra Instructions
+                    </span>
+
+                    <textarea
+                      rows={5}
+                      value={extraInstructions}
+                      maxLength={MAX_INSTRUCTION_LENGTH + 100}
+                      onChange={(event) =>
+                        setExtraInstructions(event.target.value)
+                      }
+                      placeholder="Optional: Ask for a shorter answer, include booking steps, or request customer details."
+                      className={`w-full rounded-2xl border px-5 py-4 text-lg font-semibold leading-8 outline-none transition ${
+                        isInstructionTooLong
+                          ? "border-red-300 bg-red-50"
+                          : "border-slate-200 bg-[#F7F9FA] focus:border-blue-500 focus:bg-white"
+                      }`}
+                    />
+
+                    <span
+                      className={`text-sm font-black ${
+                        isInstructionTooLong
+                          ? "text-red-600"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      {instructionCount} / {MAX_INSTRUCTION_LENGTH} characters
+                    </span>
+                  </label>
+                </div>
+              </details>
 
               {actionMessage ? (
                 <div className="rounded-3xl border border-green-200 bg-green-50 p-5 text-green-800">
@@ -627,7 +621,8 @@ export default function TestAIPage() {
                   {knowledgeCount !== null ? (
                     <p className="mt-2 text-sm font-bold">
                       {businessName ? `${businessName} • ` : ""}
-                      {knowledgeCount} business knowledge item(s) used
+                      {knowledgeCount} saved knowledge item
+                      {knowledgeCount === 1 ? "" : "s"} used
                     </p>
                   ) : null}
                 </div>
@@ -687,12 +682,16 @@ export default function TestAIPage() {
               </div>
 
               <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                AI Test Reply
+                Test Reply
               </p>
 
               <h2 className="mt-3 text-4xl font-black tracking-[-0.05em]">
-                Review the reply before letting AI answer real customers.
+                Your AI&apos;s reply.
               </h2>
+
+              <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
+                This is only a preview. Nothing will be sent to customers.
+              </p>
             </div>
 
             {reply ? (
@@ -704,7 +703,7 @@ export default function TestAIPage() {
                 />
                 <MiniCard
                   icon={<Smartphone className="h-5 w-5" />}
-                  label="Test Style"
+                  label="Reply Style"
                   value={getOptionLabel(
                     TEST_CHANNEL_OPTIONS,
                     testedChannel || testChannel
@@ -737,47 +736,26 @@ export default function TestAIPage() {
                 {copied ? "Copied" : "Copy Reply"}
               </button>
 
-              <Link
-                href="/dashboard/go-live"
-                className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] transition hover:-translate-y-0.5"
-              >
-                <CheckCircle2 className="h-6 w-6" />
-                Continue to Go Live
-              </Link>
-            </div>
-
-            <div className="mt-8 rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-6">
-              <p className="text-lg font-black text-[#07111F]">
-                Quick sample questions
-              </p>
-
-              <p className="mt-2 text-base font-semibold leading-7 text-slate-600">
-                Click one to test faster.
-              </p>
-
-              <div className="mt-5 grid gap-3">
-                {SAMPLE_QUESTIONS.map((sample) => (
-                  <button
-                    key={sample}
-                    type="button"
-                    onClick={() => setQuestion(sample)}
-                    className="rounded-2xl bg-white px-5 py-4 text-left text-base font-black text-[#07111F] transition hover:bg-slate-100"
-                  >
-                    {sample}
-                  </button>
-                ))}
-              </div>
+              {reply ? (
+                <Link
+                  href={`/dashboard/go-live?ai=${encodeURIComponent(
+                    testedAiStaffId || selectedAiStaffId
+                  )}`}
+                  className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] transition hover:-translate-y-0.5"
+                >
+                  <CheckCircle2 className="h-6 w-6" />
+                  Continue to Go Live
+                </Link>
+              ) : null}
             </div>
 
             <div className="mt-6 rounded-3xl border border-blue-100 bg-blue-50 p-5 text-blue-900">
               <div className="mb-3 flex items-center gap-3">
                 <Inbox className="h-5 w-5" />
-                <p className="text-base font-black">Test mode only</p>
+                <p className="text-base font-black">Safe preview</p>
               </div>
               <p className="text-base font-semibold leading-7">
-                This page previews the AI reply. Real Website Chat, WhatsApp,
-                and Inbox conversations are handled from their own customer
-                messaging flows.
+                Test replies stay on this page until you are ready to go live.
               </p>
             </div>
           </section>

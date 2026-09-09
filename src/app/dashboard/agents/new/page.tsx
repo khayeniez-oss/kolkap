@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -24,7 +30,6 @@ import {
   TestTube2,
   WalletCards,
 } from "lucide-react";
-import KolkapLogo from "@/components/brand/KolkapLogo";
 import { createClient } from "@/lib/supabase/client";
 import {
   getKolkapPlan,
@@ -69,17 +74,6 @@ type RoleOption = {
   defaultName: string;
   defaultInstruction: string;
 };
-
-const navItems = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "AI Staff", href: "/dashboard/agents" },
-  { label: "Create AI", href: "/dashboard/agents/new" },
-  { label: "AI Brain", href: "/dashboard/ai-brain" },
-  { label: "Knowledge", href: "/dashboard/knowledge-base" },
-  { label: "Test AI", href: "/dashboard/test-ai" },
-  { label: "Inbox", href: "/dashboard/inbox" },
-  { label: "Go Live", href: "/dashboard/go-live" },
-];
 
 const roleOptions: RoleOption[] = [
   {
@@ -157,7 +151,7 @@ const safetyRules = [
   "Hand over for payment, legal, refund, complaint, or special approval questions.",
   "Do not invent pricing, policies, availability, discounts, or guarantees.",
   "Ask for customer name and contact details for serious leads.",
-  "Use only the correct business workspace knowledge.",
+  "Use only your saved business information and knowledge.",
   "Summarize the conversation before human takeover.",
 ];
 
@@ -181,15 +175,6 @@ function getCreditsLeft(balance: CreditBalanceRow | null) {
   );
 }
 
-function getAiStaffLimit(planKey: string) {
-  if (planKey === "starter" || planKey === "free_trial") return 1;
-  if (planKey === "growth") return 3;
-  if (planKey === "professional" || planKey === "pro") return 6;
-  if (planKey === "business") return 10;
-
-  return 1;
-}
-
 function getStatusClass(status: string | null | undefined) {
   if (status === "active") return "bg-[#7CFF3D] text-[#07111F]";
   if (status === "draft") return "bg-blue-100 text-blue-700";
@@ -200,7 +185,9 @@ function getStatusClass(status: string | null | undefined) {
 function statusLabel(status: string | null | undefined) {
   if (!status) return "Draft";
 
-  return status.replace(/_/g, " ");
+  return status
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function getStaffName(staff: AiStaffRow) {
@@ -231,7 +218,7 @@ export default function NewAgentPage() {
   const workspace = workspaceState.workspace;
   const currentPlan = getKolkapPlan(workspaceState.planKey);
 
-  const aiLimit = getAiStaffLimit(String(workspaceState.planKey));
+  const aiLimit = currentPlan.aiStaffLimit;
   const [aiStaffRows, setAiStaffRows] = useState<AiStaffRow[]>([]);
   const [creditBalance, setCreditBalance] = useState<CreditBalanceRow | null>(
     null
@@ -259,7 +246,11 @@ export default function NewAgentPage() {
     Number(creditBalance?.plan_credits || 0) +
     Number(creditBalance?.purchased_credits || 0);
 
-  const hasReachedLimit = aiStaffRows.length >= aiLimit;
+  const activeAiStaffCount = aiStaffRows.filter(
+    (staff) => String(staff.status || "").trim().toLowerCase() !== "draft"
+  ).length;
+  const draftAiStaffCount = aiStaffRows.length - activeAiStaffCount;
+  const hasReachedLimit = aiLimit !== "custom" && activeAiStaffCount >= aiLimit;
 
   const summaryCards = useMemo(
     () => [
@@ -271,8 +262,15 @@ export default function NewAgentPage() {
       },
       {
         label: "AI Staff Used",
-        value: `${aiStaffRows.length}/${aiLimit}`,
-        note: getPlanAIStaffLabel(currentPlan),
+        value:
+          aiLimit === "custom"
+            ? `${activeAiStaffCount}/Custom`
+            : `${activeAiStaffCount}/${aiLimit}`,
+        note: `${getPlanAIStaffLabel(
+          currentPlan
+        )} · ${draftAiStaffCount} saved ${
+          draftAiStaffCount === 1 ? "draft" : "drafts"
+        }`,
         icon: <Bot className="h-7 w-7" />,
       },
       {
@@ -286,16 +284,17 @@ export default function NewAgentPage() {
       },
       {
         label: "Go Live",
-        value: workspaceState.goLiveStatus,
+        value: statusLabel(workspaceState.goLiveStatus),
         note: "Review readiness after setup",
         icon: <ShieldCheck className="h-7 w-7" />,
       },
     ],
     [
       aiLimit,
-      aiStaffRows.length,
+      activeAiStaffCount,
       creditsLeft,
       currentPlan,
+      draftAiStaffCount,
       totalCredits,
       usedCredits,
       workspaceState.goLiveStatus,
@@ -306,12 +305,18 @@ export default function NewAgentPage() {
     if (!workspace) return;
 
     const profileText = [
-      workspace.business_name ? `Business name: ${workspace.business_name}` : "",
-      workspace.business_type ? `Business type: ${workspace.business_type}` : "",
+      workspace.business_name
+        ? `Business name: ${workspace.business_name}`
+        : "",
+      workspace.business_type
+        ? `Business type: ${workspace.business_type}`
+        : "",
       workspace.business_email ? `Email: ${workspace.business_email}` : "",
       workspace.business_phone ? `Phone: ${workspace.business_phone}` : "",
       workspace.whatsapp_number ? `WhatsApp: ${workspace.whatsapp_number}` : "",
-      workspace.business_address ? `Address: ${workspace.business_address}` : "",
+      workspace.business_address
+        ? `Address: ${workspace.business_address}`
+        : "",
       workspace.country ? `Country: ${workspace.country}` : "",
       workspace.timezone ? `Timezone: ${workspace.timezone}` : "",
     ]
@@ -355,7 +360,10 @@ export default function NewAgentPage() {
       const firstError = staffResult.error || creditResult.error;
 
       if (firstError) {
-        setPageError(firstError.message);
+        console.error("Unable to load AI staff setup:", firstError.message);
+        setPageError(
+          "We couldn’t load your AI staff information. Please refresh the page or contact support."
+        );
         setIsLoadingData(false);
         return;
       }
@@ -383,12 +391,16 @@ export default function NewAgentPage() {
     setActionError("");
 
     if (!workspace?.id) {
-      setActionError("Workspace is not ready yet.");
+      setActionError(
+        "Your business account is not ready yet. Please refresh the page or contact support."
+      );
       return;
     }
 
     if (!workspace.owner_user_id) {
-      setActionError("Workspace owner could not be found.");
+      setActionError(
+        "Your business account is not ready yet. Please refresh the page or contact support."
+      );
       return;
     }
 
@@ -407,7 +419,7 @@ export default function NewAgentPage() {
       return;
     }
 
-    if (hasReachedLimit) {
+    if (status === "active" && hasReachedLimit) {
       setActionError(
         `Your current plan allows ${aiLimit} AI staff. Upgrade your plan or remove an old AI staff member before creating another one.`
       );
@@ -512,7 +524,8 @@ export default function NewAgentPage() {
           <div className="rounded-[2.2rem] border border-red-200 bg-red-50 p-8 text-red-700">
             <p className="text-xl font-black">Create AI page could not load.</p>
             <p className="mt-2 text-base font-semibold">
-              {workspaceState.error}
+              Please refresh the page. If the problem continues, contact
+              Kolkap support.
             </p>
           </div>
         </section>
@@ -523,26 +536,6 @@ export default function NewAgentPage() {
   return (
     <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 py-6 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
-          <KolkapLogo size="sm" />
-
-          <nav className="flex flex-wrap gap-3">
-            {navItems.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`rounded-full border px-5 py-3 text-base font-black transition ${
-                  item.label === "Create AI"
-                    ? "border-[#07111F] bg-[#07111F] text-white"
-                    : "border-slate-200 bg-[#F7F9FA] text-slate-700 hover:border-blue-400 hover:bg-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </header>
-
         <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
           <div className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
             <Link
@@ -559,30 +552,29 @@ export default function NewAgentPage() {
             </div>
 
             <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-              Create AI staff for this business workspace.
+              Create AI staff for your business.
             </h1>
 
             <p className="mt-6 max-w-2xl text-xl font-semibold leading-9 text-slate-300">
-              This AI staff will be saved under the logged-in business
-              workspace. Kolkap Brain will use this workspace, this AI staff,
-              and this business knowledge when generating replies.
+              Choose a role, language, tone, and instructions. Your business
+              information and saved knowledge will help guide the replies.
             </p>
 
             <div className="mt-8 rounded-3xl border border-[#7CFF3D]/30 bg-[#7CFF3D]/10 p-5">
               <p className="text-xl font-black text-[#7CFF3D]">
-                Correct business context
+                Connected to your business
               </p>
 
               <p className="mt-2 text-lg font-semibold leading-8 text-slate-200">
-                AI staff is linked to workspace_id:{" "}
-                {workspace?.id ? workspace.id.slice(0, 8) : "loading"}...
+                This AI staff will use the profile and saved knowledge for{" "}
+                {workspace?.business_name || "your business"}.
               </p>
             </div>
           </div>
 
           <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-7">
             <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              Workspace Summary
+              Plan Summary
             </p>
 
             <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
@@ -620,8 +612,9 @@ export default function NewAgentPage() {
               <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-800">
                 <p className="flex items-start gap-3 text-base font-black leading-7">
                   <CircleAlert className="mt-1 h-5 w-5 shrink-0" />
-                  AI staff limit reached. Upgrade your plan before creating a
-                  new AI staff member.
+                  Active AI staff limit reached. You can keep saving drafts, but
+                  you must upgrade or remove an active AI staff member before
+                  activating another one.
                 </p>
               </div>
             ) : null}
@@ -837,8 +830,8 @@ export default function NewAgentPage() {
               </div>
 
               <p className="mb-5 text-lg font-semibold leading-8 text-slate-600">
-                This is extra context saved on the AI staff profile. Your full
-                Knowledge Base is managed separately and loaded by Kolkap Brain.
+                Add any extra information that applies only to this AI staff.
+                Manage shared business information from Train My AI.
               </p>
 
               <label className="grid gap-2">
@@ -907,7 +900,7 @@ export default function NewAgentPage() {
                     className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-7 py-4 text-lg font-black text-[#07111F]"
                   >
                     <BookOpen className="h-6 w-6" />
-                    Add Knowledge
+                    Train My AI
                   </Link>
                 </div>
               </div>
@@ -967,7 +960,7 @@ export default function NewAgentPage() {
               <button
                 type="button"
                 onClick={() => saveAiStaff("draft")}
-                disabled={isSavingDraft || isCreating || hasReachedLimit}
+                disabled={isSavingDraft || isCreating}
                 className="inline-flex flex-1 items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white shadow-xl shadow-slate-900/15 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSavingDraft ? (
@@ -988,7 +981,9 @@ export default function NewAgentPage() {
                 ) : (
                   <CheckCircle2 className="h-6 w-6" />
                 )}
-                {isCreating ? "Creating..." : `Create AI Staff & Test for ${KOLKAP_AI_STAFF_CREATE_CREDITS} Credits`}
+                {isCreating
+                  ? "Creating..."
+                  : `Create AI Staff & Test for ${KOLKAP_AI_STAFF_CREATE_CREDITS} Credits`}
               </button>
             </div>
           </section>
@@ -1002,7 +997,7 @@ export default function NewAgentPage() {
               </p>
 
               <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
-                AI staff already saved in this workspace
+                AI staff already saved for your business
               </h2>
             </div>
 
@@ -1024,7 +1019,8 @@ export default function NewAgentPage() {
               <p className="text-2xl font-black">No AI staff yet.</p>
 
               <p className="mt-2 text-lg font-semibold leading-8 text-slate-600">
-                Create your first AI staff above, then test it before going live.
+                Create your first AI staff above, then test it before going
+                live.
               </p>
             </div>
           ) : (

@@ -416,7 +416,7 @@ export default function BusinessOverviewPage() {
                 href="/dashboard/knowledge-base"
                 className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-8 py-5 text-xl font-black text-white"
               >
-                Add Business Knowledge
+                Train My AI
                 <ArrowRight className="h-6 w-6" />
               </Link>
 

@@ -23,7 +23,6 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
-import KolkapLogo from "@/components/brand/KolkapLogo";
 import { createClient } from "@/lib/supabase/client";
 import {
   canAddMoreWhatsAppNumbers,
@@ -139,15 +138,6 @@ type EmbeddedSignupInfo = {
 };
 
 type ActiveTab = "overview" | "numbers" | "logs" | "settings";
-
-const navItems = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "AI Staff", href: "/dashboard/create-ai" },
-  { label: "Business Knowledge", href: "/dashboard/knowledge-base" },
-  { label: "Inbox", href: "/dashboard/inbox" },
-  { label: "Integrations", href: "/dashboard/integrations" },
-  { label: "Go Live", href: "/dashboard/go-live" },
-];
 
 const tabs: { id: ActiveTab; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -942,26 +932,6 @@ export default function WhatsAppIntegrationPage() {
   return (
     <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 py-6 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
-          <KolkapLogo size="sm" />
-
-          <nav className="flex flex-wrap gap-3">
-            {navItems.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`rounded-full border px-5 py-3 text-base font-black transition ${
-                  item.label === "Integrations"
-                    ? "border-[#07111F] bg-[#07111F] text-white"
-                    : "border-slate-200 bg-[#F7F9FA] text-slate-700 hover:border-blue-400 hover:bg-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </header>
-
         <section>
           <Link
             href="/dashboard/integrations"

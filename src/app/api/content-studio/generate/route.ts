@@ -4,10 +4,12 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
+import { KOLKAP_CONTENT_STUDIO_CREDITS } from "@/lib/kolkapPlan";
 
-const CONTENT_GENERATION_CREDIT_COST = 10;
+const CONTENT_GENERATION_CREDIT_COST = KOLKAP_CONTENT_STUDIO_CREDITS;
 
 type GenerateBody = {
+  workspace_id?: string;
   content_type?: string;
   content_purpose?: string;
   platform?: string;
@@ -26,6 +28,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => ({}))) as GenerateBody;
 
+    const workspaceId = cleanText(body.workspace_id);
     const contentType = cleanText(body.content_type, "social_caption");
     const contentPurpose = cleanText(body.content_purpose, "promotion");
     const platform = cleanText(body.platform, "general");
@@ -123,6 +126,7 @@ export async function POST(request: Request) {
     const result = await runKolkapBrain({
       userId: user.id,
       userEmail: user.email,
+      workspaceId: workspaceId || undefined,
       task: "content_studio",
       channel: "content_studio",
       contentType,
@@ -133,6 +137,7 @@ export async function POST(request: Request) {
       details,
       extraInstructions,
       uiLanguage,
+      minimumCreditsRequired: CONTENT_GENERATION_CREDIT_COST,
     });
 
     await logWorkspaceUsage({
@@ -164,10 +169,12 @@ export async function POST(request: Request) {
       credits_used: CONTENT_GENERATION_CREDIT_COST,
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Content could not be generated.";
+    console.error("Content Studio generation error:", error);
+
+    const rawMessage = error instanceof Error ? error.message : "";
+    const message = rawMessage.startsWith("Not enough credits.")
+      ? rawMessage
+      : "Content could not be generated. Please try again.";
 
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -26,7 +26,6 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import KolkapLogo from "@/components/brand/KolkapLogo";
 
 type SetupStep = {
   step: string;
@@ -36,22 +35,6 @@ type SetupStep = {
   icon: LucideIcon;
   status: string;
 };
-
-type QuickLink = {
-  label: string;
-  href: string;
-};
-
-const navItems: QuickLink[] = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Onboarding", href: "/dashboard/onboarding" },
-  { label: "Create AI", href: "/dashboard/create-ai" },
-  { label: "Knowledge", href: "/dashboard/knowledge-base" },
-  { label: "Test AI", href: "/dashboard/test-ai" },
-  { label: "Go Live", href: "/dashboard/go-live" },
-  { label: "Usage", href: "/dashboard/usage" },
-  { label: "Billing", href: "/dashboard/billing" },
-];
 
 const setupSteps: SetupStep[] = [
   {
@@ -215,26 +198,6 @@ export default function OnboardingPage() {
   return (
     <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 py-6 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
-          <KolkapLogo size="sm" />
-
-          <nav className="flex flex-wrap gap-3">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`rounded-full border px-5 py-3 text-base font-black transition ${
-                  item.href === "/dashboard/onboarding"
-                    ? "border-[#07111F] bg-[#07111F] text-white"
-                    : "border-slate-200 bg-[#F7F9FA] text-slate-700 hover:border-blue-400 hover:bg-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </header>
-
         <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
           <div className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
             <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
@@ -265,7 +228,7 @@ export default function OnboardingPage() {
                 href="/dashboard/knowledge-base"
                 className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-7 py-4 text-lg font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10"
               >
-                Add Knowledge
+                Train My AI
                 <BookOpen className="h-6 w-6" />
               </Link>
             </div>

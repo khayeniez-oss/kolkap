@@ -234,7 +234,8 @@ export default function GoLivePage() {
           .from("workspace_knowledge_base")
           .select("id", { count: "exact", head: true })
           .eq("workspace_id", workspace.id)
-          .eq("status", "active"),
+          .eq("status", "active")
+          .not("last_reviewed_at", "is", null),
       ]);
 
       if (!isMounted) return;
@@ -395,7 +396,7 @@ export default function GoLivePage() {
       ready: hasBusinessKnowledge,
       type: "Required",
       actionHref: "/dashboard/knowledge-base",
-      actionLabel: "Add Knowledge",
+      actionLabel: "Train My AI",
     },
     {
       label: "Credits available",

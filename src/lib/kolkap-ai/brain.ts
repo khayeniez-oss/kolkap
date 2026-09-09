@@ -449,7 +449,19 @@ function isProbablyActiveRow(row: Record<string, unknown>) {
 }
 
 function sortKnowledgeRows(rows: Array<Record<string, unknown>>) {
-  return rows.filter(isProbablyActiveRow).sort((a, b) => {
+  return rows
+    .filter((row) => {
+      if (!isProbablyActiveRow(row)) return false;
+
+      // Current workspace knowledge must be explicitly reviewed before the
+      // AI Brain can use it. Legacy fallback tables may not have this field.
+      if ("last_reviewed_at" in row) {
+        return Boolean(cleanText(row.last_reviewed_at));
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
     const priorityA = Number(a.priority || 999);
     const priorityB = Number(b.priority || 999);
 
@@ -465,7 +477,7 @@ function sortKnowledgeRows(rows: Array<Record<string, unknown>>) {
     }
 
     return updatedB - updatedA;
-  });
+    });
 }
 
 async function loadKnowledgeFromTable(table: string, workspaceId: string) {

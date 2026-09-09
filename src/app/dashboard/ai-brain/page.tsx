@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   TestTube2,
 } from "lucide-react";
-import KolkapLogo from "@/components/brand/KolkapLogo";
 
 type BrainStep = {
   number: string;
@@ -40,19 +39,6 @@ type IdentitySource = {
   text: string;
   icon: LucideIcon;
 };
-
-const navItems = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "AI Brain", href: "/dashboard/ai-brain" },
-  { label: "Create AI Staff", href: "/dashboard/create-ai" },
-  { label: "Knowledge", href: "/dashboard/knowledge-base" },
-  { label: "Test AI", href: "/dashboard/test-ai" },
-  { label: "Inbox", href: "/dashboard/inbox" },
-  { label: "Leads", href: "/dashboard/leads" },
-  { label: "Website Chat", href: "/dashboard/integrations/website-chat" },
-  { label: "WhatsApp", href: "/dashboard/integrations/whatsapp" },
-  { label: "Go Live", href: "/dashboard/go-live" },
-];
 
 const brainSteps: BrainStep[] = [
   {
@@ -113,7 +99,7 @@ const workspaceCards: WorkspaceCard[] = [
     items: [
       "workspace_id",
       "AI Staff",
-      "Knowledge Base",
+      "Train My AI",
       "Inbox",
       "Leads",
       "Settings",
@@ -127,7 +113,7 @@ const workspaceCards: WorkspaceCard[] = [
     items: [
       "workspace_id",
       "AI Staff",
-      "Knowledge Base",
+      "Train My AI",
       "Inbox",
       "Leads",
       "Settings",
@@ -141,7 +127,7 @@ const workspaceCards: WorkspaceCard[] = [
     items: [
       "workspace_id",
       "AI Staff",
-      "Knowledge Base",
+      "Train My AI",
       "Inbox",
       "Leads",
       "Settings",
@@ -193,7 +179,7 @@ const livePages = [
     icon: Bot,
   },
   {
-    title: "Knowledge Base",
+    title: "Train My AI",
     text: "Add the business facts that the AI Brain should use.",
     href: "/dashboard/knowledge-base",
     icon: BookOpen,
@@ -228,26 +214,6 @@ export default function AIBrainPage() {
   return (
     <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 py-6 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
-          <KolkapLogo size="sm" />
-
-          <nav className="flex flex-wrap gap-3">
-            {navItems.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`rounded-full border px-5 py-3 text-base font-black transition ${
-                  item.label === "AI Brain"
-                    ? "border-[#07111F] bg-[#07111F] text-white"
-                    : "border-slate-200 bg-[#F7F9FA] text-slate-700 hover:border-blue-400 hover:bg-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </header>
-
         <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
           <div className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
             <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">

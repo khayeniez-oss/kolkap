@@ -32,10 +32,18 @@ function getStripe() {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
   if (!stripeSecretKey) {
-    return null;
+    throw new Error("Missing STRIPE_SECRET_KEY.");
   }
 
   return new Stripe(stripeSecretKey);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isMissingStripeResource(error: unknown) {
+  return isRecord(error) && error.code === "resource_missing";
 }
 
 function shouldIgnoreDeleteError(error: { code?: string } | null) {
@@ -70,53 +78,92 @@ async function cancelStripeSubscription(subscriptionId: string | null) {
 
   const stripe = getStripe();
 
-  if (!stripe) return;
-
   try {
-    await stripe.subscriptions.cancel(subscriptionId);
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+    if (subscription.status !== "canceled") {
+      await stripe.subscriptions.cancel(subscriptionId);
+    }
   } catch (error) {
-    console.error(
-      "Stripe subscription cancellation failed during account deletion.",
-      error instanceof Error ? error.message : error
-    );
+    if (isMissingStripeResource(error)) return;
+
+    throw error;
+  }
+}
+
+async function deleteKnowledgeFiles(workspaceId: string) {
+  const supabaseAdmin = getAdminSupabase();
+  const { data, error } = await supabaseAdmin
+    .from("workspace_knowledge_documents")
+    .select("storage_path")
+    .eq("workspace_id", workspaceId);
+
+  if (error && !shouldIgnoreDeleteError(error)) {
+    throw error;
+  }
+
+  const storagePaths = (data ?? [])
+    .map((row) => String(row.storage_path || "").trim())
+    .filter(Boolean);
+
+  if (!storagePaths.length) return;
+
+  const { error: storageError } = await supabaseAdmin.storage
+    .from("kolkap-knowledge-documents")
+    .remove(storagePaths);
+
+  if (storageError) {
+    throw storageError;
   }
 }
 
 async function deleteWorkspaceData(workspaceId: string) {
   const workspaceScopedTables = [
-    // Usage, billing, credits
-    "workspace_usage_events",
-    "workspace_credit_topups",
-    "workspace_credit_balances",
+    // AI links must be removed before AI staff and knowledge records.
+    "ai_staff_knowledge_links",
+    "channel_ai_assignments",
 
-    // AI setup
-    "ai_test_runs",
-    "ai_staff",
+    // WhatsApp child records and connection secrets.
+    "kolkap_whatsapp_template_send_logs",
+    "kolkap_whatsapp_template_recipients",
+    "kolkap_whatsapp_template_campaigns",
+    "kolkap_whatsapp_messages",
+    "kolkap_whatsapp_conversations",
+    "kolkap_whatsapp_contacts",
+    "whatsapp_connection_secrets",
+    "whatsapp_message_logs",
+    "workspace_whatsapp_connections",
 
-    // Knowledge base
-    "workspace_knowledge_base",
-    "business_knowledge",
-
-    // Website chat
-    "workspace_website_chat_settings",
+    // Website chat and inbox records.
     "website_chat_messages",
     "website_chat_conversations",
-
-    // WhatsApp / message logs
-    "whatsapp_message_logs",
-    "whatsapp_numbers",
-    "whatsapp_connections",
-    "workspace_whatsapp_numbers",
-
-    // Inbox / customer messages
     "customer_messages",
     "conversation_messages",
     "customer_conversations",
+    "workspace_website_chat_settings",
 
-    // Leads / team
+    // Usage, billing, credits, content, and support.
+    "workspace_usage_events",
+    "workspace_credit_topups",
+    "workspace_credit_balances",
+    "workspace_content_studio",
+    "kolkap_notifications",
+    "kolkap_help_requests",
+
+    // AI setup and knowledge base.
+    "ai_test_runs",
+    "ai_staff",
+    "workspace_knowledge_documents",
+    "workspace_knowledge_base",
+    "business_knowledge",
+
+    // Leads and team access.
     "leads",
+    "workspace_team_members",
     "team_members",
   ];
+
+  await deleteKnowledgeFiles(workspaceId);
 
   for (const table of workspaceScopedTables) {
     await deleteByColumn({
@@ -175,14 +222,33 @@ export async function POST(request: Request) {
 
     const workspaceRows = (workspaces ?? []) as WorkspaceRow[];
 
+    // Cancel every Stripe subscription before deleting any local data.
+    // If Stripe is unavailable, deletion stops and the account stays intact.
     for (const workspace of workspaceRows) {
       await cancelStripeSubscription(workspace.stripe_subscription_id);
+    }
+
+    for (const workspace of workspaceRows) {
       await deleteWorkspaceData(workspace.id);
+    }
+
+    if (user.email) {
+      await deleteByColumn({
+        table: "workspace_team_members",
+        column: "email",
+        value: user.email.toLowerCase(),
+      });
     }
 
     await deleteByColumn({
       table: "team_members",
       column: "user_id",
+      value: user.id,
+    });
+
+    await deleteByColumn({
+      table: "profiles",
+      column: "id",
       value: user.id,
     });
 

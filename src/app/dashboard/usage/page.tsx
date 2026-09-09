@@ -112,7 +112,7 @@ function channelLabel(value: string | null | undefined) {
   if (value === "website_chat") return "Website Chat";
   if (value === "content_studio") return "Content Studio";
   if (value === "test_ai") return "Test AI";
-  if (value === "knowledge_base") return "Knowledge Base";
+  if (value === "knowledge_base") return "Train My AI";
   if (value === "go_live") return "Go Live";
   if (value === "whatsapp") return "WhatsApp";
   if (value === "inbox") return "Inbox";

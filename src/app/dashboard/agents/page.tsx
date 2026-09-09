@@ -20,12 +20,6 @@ import {
   TestTube2,
   UsersRound,
 } from "lucide-react";
-import KolkapLogo from "@/components/brand/KolkapLogo";
-
-type NavItem = {
-  label: string;
-  href: string;
-};
 
 type AiRole = {
   name: string;
@@ -41,17 +35,6 @@ type SetupStep = {
   href: string;
   icon: LucideIcon;
 };
-
-const navItems: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "AI Staff", href: "/dashboard/agents" },
-  { label: "Create AI", href: "/dashboard/create-ai" },
-  { label: "AI Brain", href: "/dashboard/ai-brain" },
-  { label: "Knowledge", href: "/dashboard/knowledge-base" },
-  { label: "Test AI", href: "/dashboard/test-ai" },
-  { label: "Inbox", href: "/dashboard/inbox" },
-  { label: "Go Live", href: "/dashboard/go-live" },
-];
 
 const aiRoles: AiRole[] = [
   {
@@ -198,26 +181,6 @@ export default function AgentsPage() {
   return (
     <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 py-6 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5 lg:flex-row lg:items-center lg:justify-between">
-          <KolkapLogo size="sm" />
-
-          <nav className="flex flex-wrap gap-3">
-            {navItems.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`rounded-full border px-5 py-3 text-base font-black transition ${
-                  item.label === "AI Staff"
-                    ? "border-[#07111F] bg-[#07111F] text-white"
-                    : "border-slate-200 bg-[#F7F9FA] text-slate-700 hover:border-blue-400 hover:bg-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </header>
-
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
             <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
@@ -446,7 +409,7 @@ export default function AgentsPage() {
               href="/dashboard/knowledge-base"
               className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
             >
-              Go to Knowledge Base
+              Open Train My AI
               <ArrowRight className="h-6 w-6" />
             </Link>
           </div>

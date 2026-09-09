@@ -457,7 +457,7 @@ function LoginContent() {
 
               <p>
                 Don’t have an account?{" "}
-                <Link href="/signup?plan=starter" className="text-blue-600">
+                <Link href="/pricing#plans" className="text-blue-600">
                   Start Free Trial
                 </Link>
               </p>
