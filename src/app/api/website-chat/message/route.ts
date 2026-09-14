@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
-import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
 import { createKolkapNotification } from "@/lib/kolkap-notifications/createNotification";
-import { KOLKAP_WEBSITE_CHAT_REPLY_MIN_CREDITS } from "@/lib/kolkapPlan";
 import { chooseDefaultChannelAiStaffId } from "@/lib/kolkap-ai-staff/channelAssignments";
+import { allowedWebsiteRequest, websiteHost, websitePageUrl } from "@/lib/website-chat/policy";
+import { asksForHuman } from "@/lib/whatsapp/policy";
+import { channelRpc } from "@/lib/whatsapp/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
-const WEBSITE_CHAT_REPLY_CREDIT_COST = KOLKAP_WEBSITE_CHAT_REPLY_MIN_CREDITS;
 
 type WebsiteChatBody = {
+  request_id?: string;
   workspace_id?: string;
   conversation_id?: string;
   customer_name?: string;
@@ -40,15 +42,6 @@ type BusinessWorkspaceRow = {
   notify_handover?: boolean | null;
 };
 
-type CreditBalanceRow = {
-  workspace_id: string;
-  owner_user_id: string;
-  plan_credits: number;
-  purchased_credits: number;
-  used_credits: number;
-  status: string;
-};
-
 type WebsiteChatSettingsRow = {
   id: string | null;
   workspace_id: string;
@@ -64,17 +57,12 @@ type WebsiteChatSettingsRow = {
   allowed_domains: string[];
 };
 
-type ConversationRow = {
-  id: string;
-  ai_staff_id: string | null;
-  handover_requested: boolean | null;
-};
-
 type WebsiteChatSessionPayload = {
   workspaceId: string;
   conversationId: string;
   visitorId: string;
   expiresAt: number;
+  host?: string;
 };
 
 function getCorsHeaders(request: Request) {
@@ -83,7 +71,7 @@ function getCorsHeaders(request: Request) {
   return {
     ...(origin ? { "Access-Control-Allow-Origin": origin } : {}),
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-Kolkap-Session",
     "Cache-Control": "no-store",
     Vary: "Origin",
   };
@@ -127,11 +115,13 @@ function createWebsiteChatSessionToken({
   workspaceId,
   conversationId,
   visitorId,
+  host,
 }: Omit<WebsiteChatSessionPayload, "expiresAt">) {
   const payload: WebsiteChatSessionPayload = {
     workspaceId,
     conversationId,
     visitorId,
+    host,
     expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
   };
 
@@ -147,8 +137,10 @@ function isValidWebsiteChatSessionToken({
   workspaceId,
   conversationId,
   visitorId,
+  host,
 }: {
   token: string;
+  host: string;
   workspaceId: string;
   conversationId: string;
   visitorId: string;
@@ -174,7 +166,7 @@ function isValidWebsiteChatSessionToken({
       payload.workspaceId === workspaceId &&
         payload.conversationId === conversationId &&
         payload.visitorId === visitorId &&
-        Number(payload.expiresAt) > Date.now()
+        Number(payload.expiresAt) > Date.now() && (!payload.host || payload.host === host)
     );
   } catch {
     return false;
@@ -231,78 +223,9 @@ function hasActiveTrialOrPlan(workspace: BusinessWorkspaceRow) {
   return hasRealSubscription || hasActivatedTrial || hasStartedBilling;
 }
 
-function getCreditsLeft(balance: CreditBalanceRow | null) {
-  if (!balance) return 0;
-
-  return Math.max(
-    0,
-    Number(balance.plan_credits || 0) +
-      Number(balance.purchased_credits || 0) -
-      Number(balance.used_credits || 0)
-  );
-}
-
-function normalizeDomain(value: string) {
-  const cleaned = cleanText(value)
-    .toLowerCase()
-    .replace(/^https?:\/\//, "")
-    .replace(/^www\./, "");
-
-  return cleaned.split("/")[0].split(":")[0];
-}
-
-function getHostFromUrl(value: string) {
-  try {
-    return normalizeDomain(new URL(value).hostname);
-  } catch {
-    return normalizeDomain(value);
-  }
-}
-
-function isHostAllowed(host: string, allowedDomains: string[]) {
-  if (!host) return false;
-
-  return allowedDomains.some((domain) => {
-    const allowedHost = normalizeDomain(domain);
-
-    if (!allowedHost) return false;
-
-    return host === allowedHost || host.endsWith(`.${allowedHost}`);
-  });
-}
-
+const isRequestDomainAllowed = allowedWebsiteRequest;
 function getRequestHost(request: Request) {
-  const origin = cleanText(request.headers.get("origin"));
-  const referer = cleanText(request.headers.get("referer"));
-
-  return getHostFromUrl(origin || referer);
-}
-
-function isKolkapOrLocalHost(host: string) {
-  return Boolean(
-    host === "kolkap.com" ||
-      host.endsWith(".kolkap.com") ||
-      host === "localhost" ||
-      host === "127.0.0.1"
-  );
-}
-
-function isRequestDomainAllowed(
-  request: Request,
-  pageUrl: string,
-  allowedDomains: string[]
-) {
-  const requestHost = getRequestHost(request);
-  const pageHost = getHostFromUrl(pageUrl);
-
-  if (!requestHost) return false;
-  if (pageHost && pageHost !== requestHost) return false;
-
-  if (!allowedDomains.length) {
-    return isKolkapOrLocalHost(requestHost);
-  }
-
-  return isHostAllowed(requestHost, allowedDomains);
+  return websiteHost(request.headers.get("origin") || request.headers.get("referer"));
 }
 
 function getClientIp(request: Request) {
@@ -375,30 +298,6 @@ function getDefaultWebsiteChatSettings(
     handover_enabled: true,
     allowed_domains: [],
   };
-}
-
-function getVisitorFallbackReply(reason: string) {
-  if (reason === "website_chat_inactive") {
-    return "Thanks. Your message has been received. The team can follow up when they are available.";
-  }
-
-  if (reason === "ai_support_off") {
-    return "Thanks. Your message has been received. The team can review it and follow up.";
-  }
-
-  if (reason === "auto_reply_off") {
-    return "Thanks. Your message has been received. The team can follow up shortly.";
-  }
-
-  if (reason === "no_ai_staff_selected") {
-    return "Thanks. Your message has been received. The team can follow up when they are available.";
-  }
-
-  if (reason === "not_enough_credits") {
-    return "Thanks. Your message has been received. The team can follow up when they are available.";
-  }
-
-  return "Thanks. Your message has been received and the team can follow up.";
 }
 
 function getMessagePreview(message: string) {
@@ -492,154 +391,6 @@ async function getWebsiteChatSettings(workspaceId: string) {
   } as WebsiteChatSettingsRow;
 }
 
-async function getCreditBalance(workspaceId: string) {
-  const supabase = getAdminSupabase();
-
-  const { data, error } = await supabase
-    .from("workspace_credit_balances")
-    .select(
-      "workspace_id, owner_user_id, plan_credits, purchased_credits, used_credits, status"
-    )
-    .eq("workspace_id", workspaceId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? null) as CreditBalanceRow | null;
-}
-
-async function findOrCreateConversation({
-  workspace,
-  conversationId,
-  customerName,
-  customerPhone,
-  customerEmail,
-  customerMessage,
-  aiStaffId,
-  handoverRequested,
-}: {
-  workspace: BusinessWorkspaceRow;
-  conversationId: string;
-  customerName: string;
-  customerPhone: string;
-  customerEmail: string;
-  customerMessage: string;
-  aiStaffId?: string | null;
-  handoverRequested: boolean;
-}) {
-  const supabase = getAdminSupabase();
-  const now = new Date().toISOString();
-
-  if (conversationId) {
-    const { data: existingConversation, error: existingError } = await supabase
-      .from("customer_conversations")
-      .select("id, ai_staff_id, handover_requested")
-      .eq("id", conversationId)
-      .eq("workspace_id", workspace.id)
-      .maybeSingle();
-
-    if (existingError) {
-      throw existingError;
-    }
-
-    if (existingConversation?.id) {
-      const nextAiStaffId =
-        aiStaffId || existingConversation.ai_staff_id || null;
-
-      const nextHandoverRequested = Boolean(
-        existingConversation.handover_requested || handoverRequested
-      );
-
-      const { error: updateError } = await supabase
-        .from("customer_conversations")
-        .update({
-          ai_staff_id: nextAiStaffId,
-          handover_requested: nextHandoverRequested,
-          last_message: customerMessage,
-          last_message_at: now,
-          updated_at: now,
-          customer_name: customerName || "Website Visitor",
-          customer_phone: customerPhone || null,
-          customer_email: customerEmail || null,
-        })
-        .eq("id", existingConversation.id)
-        .eq("workspace_id", workspace.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      return {
-        id: existingConversation.id,
-        ai_staff_id: nextAiStaffId,
-        handover_requested: nextHandoverRequested,
-      } as ConversationRow;
-    }
-  }
-
-  const { data: newConversation, error: insertError } = await supabase
-    .from("customer_conversations")
-    .insert({
-      workspace_id: workspace.id,
-      owner_user_id: workspace.owner_user_id,
-      ai_staff_id: aiStaffId || null,
-      customer_name: customerName || null,
-      customer_phone: customerPhone || null,
-      customer_email: customerEmail || null,
-      customer_channel: "website_chat",
-      status: "open",
-      lead_status: "new",
-      handover_requested: handoverRequested,
-      last_message: customerMessage,
-      last_message_at: now,
-    })
-    .select("id, ai_staff_id, handover_requested")
-    .single();
-
-  if (insertError) {
-    throw insertError;
-  }
-
-  return newConversation as ConversationRow;
-}
-
-async function saveMessage({
-  conversationId,
-  workspace,
-  aiStaffId,
-  senderType,
-  messageText,
-}: {
-  conversationId: string;
-  workspace: BusinessWorkspaceRow;
-  aiStaffId?: string | null;
-  senderType: "customer" | "ai";
-  messageText: string;
-}) {
-  const supabase = getAdminSupabase();
-
-  const { data, error } = await supabase
-    .from("customer_messages")
-    .insert({
-      conversation_id: conversationId,
-      workspace_id: workspace.id,
-      owner_user_id: workspace.owner_user_id,
-      ai_staff_id: aiStaffId || null,
-      sender_type: senderType,
-      message_text: messageText,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data?.id || null;
-}
-
 async function createWebsiteChatMessageNotification({
   workspace,
   conversationId,
@@ -713,553 +464,119 @@ async function createWebsiteChatMessageNotification({
   }
 }
 
-async function updateConversationAfterAiReply({
-  conversationId,
-  workspaceId,
-  aiStaffId,
-  aiReply,
-}: {
-  conversationId: string;
-  workspaceId: string;
-  aiStaffId?: string | null;
-  aiReply: string;
-}) {
-  const supabase = getAdminSupabase();
-  const now = new Date().toISOString();
-
-  const { error } = await supabase
-    .from("customer_conversations")
-    .update({
-      ai_staff_id: aiStaffId || null,
-      handover_requested: false,
-      last_message: aiReply,
-      last_message_at: now,
-      updated_at: now,
-    })
-    .eq("id", conversationId)
-    .eq("workspace_id", workspaceId);
-
-  if (error) {
-    throw error;
-  }
-}
-
-async function logAutoReplySkipped({
-  workspace,
-  conversationId,
-  pageUrl,
-  visitorId,
-  reason,
-  settings,
-}: {
-  workspace: BusinessWorkspaceRow;
-  conversationId: string;
-  pageUrl: string;
-  visitorId: string;
-  reason: string;
-  settings: WebsiteChatSettingsRow;
-}) {
-  await logWorkspaceUsage({
-    workspaceId: workspace.id,
-    userId: workspace.owner_user_id,
-    eventType: "website_chat_auto_reply_skipped",
-    channel: "website_chat",
-    sourcePage: pageUrl || "website_chat",
-    creditsUsed: 0,
-    metadata: {
-      conversation_id: conversationId,
-      visitor_id: visitorId || null,
-      reason,
-      website_chat_active: settings.is_active,
-      ai_enabled: settings.ai_enabled,
-      auto_reply_enabled: settings.auto_reply_enabled,
-      handover_enabled: settings.handover_enabled,
-      selected_ai_staff_id: settings.selected_ai_staff_id || null,
-    },
-  });
-}
-
-async function returnWithoutAiReply({
-  request,
-  workspace,
-  conversation,
-  pageUrl,
-  visitorId,
-  reason,
-  settings,
-  sessionToken,
-}: {
-  request: Request;
-  workspace: BusinessWorkspaceRow;
-  conversation: ConversationRow;
-  pageUrl: string;
-  visitorId: string;
-  reason: string;
-  settings: WebsiteChatSettingsRow;
-  sessionToken: string;
-}) {
-  await logAutoReplySkipped({
-    workspace,
-    conversationId: conversation.id,
-    pageUrl,
-    visitorId,
-    reason,
-    settings,
-  });
-
-  return jsonResponse(
-    {
-      reply: getVisitorFallbackReply(reason),
-      conversation_id: conversation.id,
-      workspace_id: workspace.id,
-      business_name: workspace.business_name || "Business",
-      ai_reply_generated: false,
-      auto_reply_skipped_reason: reason,
-      credits_used: 0,
-      session_token: sessionToken,
-    },
-    200,
-    request
-  );
-}
-
-function isConversationAiPaused(value: unknown) {
-  return Boolean(
-    (value as { handover_requested?: boolean | null })?.handover_requested
-  );
-}
+type WebsiteRequest = {
+  id: string; conversation_id: string; incoming_message_id: string;
+  reply_message_id: string | null; reply_text: string | null;
+  ai_staff_id: string | null; completed: boolean; generation_allowed: boolean;
+  credits_recorded: number;
+};
 
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const workspaceId = cleanText(url.searchParams.get("workspace_id"));
+    if (!isUuid(workspaceId)) return jsonResponse({ error: "Invalid workspace." }, 400, request);
+    const [workspace, settings] = await Promise.all([getWorkspace(workspaceId), getWebsiteChatSettings(workspaceId)]);
+    if (!workspace || !isRequestDomainAllowed(request, cleanText(url.searchParams.get("page_url")), settings.allowed_domains)) {
+      return jsonResponse({ error: "Website Chat is unavailable for this website." }, 403, request);
+    }
+    if (url.searchParams.get("mode") === "config") {
+      const active = settings.is_active && hasActiveTrialOrPlan(workspace);
+      if (active) await markWebsiteChatSeen(settings.id).catch(() => {});
+      return jsonResponse({ active, title: settings.widget_title, subtitle: settings.widget_subtitle, welcome_message: settings.welcome_message }, 200, request);
+    }
     const conversationId = cleanText(url.searchParams.get("conversation_id"));
     const visitorId = cleanText(url.searchParams.get("visitor_id")).slice(0, 160);
-    const sessionToken = cleanText(url.searchParams.get("session_token"));
-    const pageUrl = cleanText(url.searchParams.get("page_url"));
-
-    if (!isUuid(workspaceId) || !isUuid(conversationId) || !visitorId) {
-      return jsonResponse(
-        { error: "Website Chat session is incomplete." },
-        400,
-        request
-      );
+    const token = request.headers.get("x-kolkap-session") || cleanText(url.searchParams.get("session_token"));
+    if (!isUuid(conversationId) || !isValidWebsiteChatSessionToken({token, workspaceId, conversationId, visitorId, host: getRequestHost(request)})) {
+      return jsonResponse({ error: "Your chat session has expired. Please send your message again." }, 401, request);
     }
-
-    if (
-      !isValidWebsiteChatSessionToken({
-        token: sessionToken,
-        workspaceId,
-        conversationId,
-        visitorId,
-      })
-    ) {
-      return jsonResponse(
-        { error: "Website Chat session is not valid." },
-        401,
-        request
-      );
-    }
-
-    const [workspace, settings] = await Promise.all([
-      getWorkspace(workspaceId),
-      getWebsiteChatSettings(workspaceId),
-    ]);
-
-    if (!workspace?.id || !hasActiveTrialOrPlan(workspace)) {
-      return jsonResponse(
-        { error: "This Website Chat is not available." },
-        404,
-        request
-      );
-    }
-
-    if (!isRequestDomainAllowed(request, pageUrl, settings.allowed_domains)) {
-      return jsonResponse(
-        { error: "This website is not allowed to use this Website Chat widget." },
-        403,
-        request
-      );
-    }
-
-    const supabase = getAdminSupabase();
-    const { data, error } = await supabase
-      .from("customer_messages")
-      .select("id,sender_type,message_text,created_at")
-      .eq("workspace_id", workspaceId)
-      .eq("conversation_id", conversationId)
-      .eq("sender_type", "human")
-      .order("created_at", { ascending: true })
-      .limit(50);
-
+    const db = getAdminSupabase();
+    const {data: conversation, error: conversationError} = await db.from("customer_conversations")
+      .select("id").eq("id", conversationId).eq("workspace_id", workspaceId).eq("customer_channel", "website_chat").maybeSingle();
+    if (conversationError) throw conversationError;
+    if (!conversation) return jsonResponse({ error: "Your chat session is no longer available." }, 401, request);
+    const cursor = url.searchParams.get("after") || "0";
+    if (!/^\d{1,15}$/.test(cursor)) return jsonResponse({ error: "Invalid message cursor." }, 400, request);
+    const history = url.searchParams.get("mode") === "history";
+    let query = db.from("customer_messages").select("id,sender_type,message_text,created_at,website_message_sequence")
+      .eq("workspace_id", workspaceId).eq("conversation_id", conversationId).in("sender_type", history ? ["human", "ai", "customer"] : ["human"]);
+    if (history) query = query.gt("website_message_sequence", Number(cursor));
+    const {data, error} = await query.order("website_message_sequence", {ascending: history}).limit(100);
     if (error) throw error;
-
-    return jsonResponse({ messages: data ?? [] }, 200, request);
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Website Chat messages could not be loaded.";
-
-    return jsonResponse({ error: message }, 500, request);
+    const messages = data || [];
+    if (!history) messages.reverse();
+    return jsonResponse({ messages, next_cursor: messages.at(-1)?.website_message_sequence || Number(cursor), has_more: history && messages.length === 100 }, 200, request);
+  } catch {
+    return jsonResponse({ error: "Messages could not be loaded. Please try again." }, 503, request);
   }
 }
 
 export async function OPTIONS(request: Request) {
-  return new NextResponse(null, {
-    status: 204,
-    headers: getCorsHeaders(request),
-  });
+  return new NextResponse(null, { status: 204, headers: getCorsHeaders(request) });
 }
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => ({}))) as WebsiteChatBody;
-
     const workspaceId = cleanText(body.workspace_id);
     const conversationId = cleanText(body.conversation_id);
-    const suppliedSessionToken = cleanText(body.session_token);
-    const customerMessage = cleanText(body.message).slice(0, 2000);
-    const customerName = cleanText(body.customer_name, "Website Visitor").slice(
-      0,
-      100
-    );
-    const customerPhone = cleanText(body.customer_phone).slice(0, 40);
-    const customerEmail = cleanText(body.customer_email)
-      .toLowerCase()
-      .slice(0, 254);
-    const language = cleanText(body.language, "auto");
-    const pageUrl = cleanText(body.page_url);
     const visitorId = cleanText(body.visitor_id).slice(0, 160);
-
-    if (!workspaceId || !isUuid(workspaceId)) {
-      return jsonResponse(
-        { error: "Workspace is required for website chat." },
-        400,
-        request
-      );
+    const customerMessage = typeof body.message === "string" ? body.message.trim() : "";
+    const customerName = cleanText(body.customer_name).slice(0, 100);
+    const customerEmail = cleanText(body.customer_email).toLowerCase().slice(0, 254);
+    const customerPhone = cleanText(body.customer_phone).slice(0, 40);
+    const pageUrl = websitePageUrl(body.page_url);
+    const language = cleanText(body.language, "auto").slice(0, 30);
+    // Older tabs continue working; the updated widget supplies a stable retry ID.
+    const requestId = cleanText(body.request_id) || randomUUID();
+    if (!isUuid(workspaceId) || !isUuid(requestId) || !visitorId || !customerMessage || customerMessage.length > 2000) {
+      return jsonResponse({ error: "Enter a message of up to 2,000 characters." }, 400, request);
     }
-
-    if (!customerMessage) {
-      return jsonResponse(
-        { error: "Message is required for website chat." },
-        400,
-        request
-      );
+    if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) return jsonResponse({ error: "Please enter a valid email address." }, 400, request);
+    if (conversationId && (!isUuid(conversationId) || !isValidWebsiteChatSessionToken({
+      token: cleanText(body.session_token), workspaceId, conversationId, visitorId, host: getRequestHost(request),
+    }))) return jsonResponse({ error: "Your chat session has expired. Please send your message again." }, 401, request);
+    const [workspace, settings] = await Promise.all([getWorkspace(workspaceId), getWebsiteChatSettings(workspaceId)]);
+    if (!workspace || !isRequestDomainAllowed(request, pageUrl, settings.allowed_domains)) {
+      return jsonResponse({ error: "Website Chat is unavailable for this website." }, 403, request);
     }
-
-    if (!visitorId) {
-      return jsonResponse(
-        { error: "Website Chat visitor session is missing." },
-        400,
-        request
-      );
-    }
-
-    if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
-      return jsonResponse(
-        { error: "Please enter a valid email address." },
-        400,
-        request
-      );
-    }
-
-    const workspace = await getWorkspace(workspaceId);
-
-    if (!workspace?.id) {
-      return jsonResponse(
-        { error: "Business workspace not found." },
-        404,
-        request
-      );
-    }
-
-    const settings = await getWebsiteChatSettings(workspace.id);
-
-    if (!isRequestDomainAllowed(request, pageUrl, settings.allowed_domains)) {
-      return jsonResponse(
-        {
-          error: "This website is not allowed to use this Website Chat widget.",
-        },
-        403,
-        request
-      );
-    }
-
-    if (
-      !(await isWithinWebsiteChatRateLimit({
-        request,
-        workspaceId: workspace.id,
-        visitorId,
-      }))
-    ) {
-      return jsonResponse(
-        { error: "Too many messages were sent. Please wait a moment and try again." },
-        429,
-        request
-      );
-    }
-
-    await markWebsiteChatSeen(settings.id);
-
-    if (!hasActiveTrialOrPlan(workspace)) {
-      return jsonResponse(
-        {
-          error:
-            "This business workspace is not active yet. Please activate a trial or subscription first.",
-        },
-        402,
-        request
-      );
-    }
-
-    const selectedAiStaffId = settings.id
-      ? await chooseDefaultChannelAiStaffId({
-          workspaceId: workspace.id,
-          channelType: "website_chat",
-          channelConnectionId: settings.id,
-          fallbackAiStaffId: settings.selected_ai_staff_id || null,
-        })
-      : settings.selected_ai_staff_id || null;
-
-    const shouldGenerateAiReply = Boolean(
-      settings.is_active &&
-        settings.ai_enabled &&
-        settings.auto_reply_enabled &&
-        selectedAiStaffId
-    );
-
-    const handoverRequested =
-      settings.handover_enabled && !shouldGenerateAiReply;
-
-    const canContinueConversation = Boolean(
-      conversationId &&
-        suppliedSessionToken &&
-        isValidWebsiteChatSessionToken({
-          token: suppliedSessionToken,
-          workspaceId: workspace.id,
-          conversationId,
-          visitorId,
-        })
-    );
-
-    const conversation = await findOrCreateConversation({
-      workspace,
-      conversationId: canContinueConversation ? conversationId : "",
-      customerName,
-      customerPhone,
-      customerEmail,
-      customerMessage,
-      aiStaffId: selectedAiStaffId,
-      handoverRequested,
+    if (!settings.is_active || !hasActiveTrialOrPlan(workspace)) return jsonResponse({ error: "This business's chat is currently unavailable." }, 409, request);
+    if (!(await isWithinWebsiteChatRateLimit({request, workspaceId, visitorId}))) return jsonResponse({ error: "Please wait a moment before sending another message." }, 429, request);
+    const selectedAiStaffId = settings.id ? await chooseDefaultChannelAiStaffId({workspaceId, channelType: "website_chat", channelConnectionId: settings.id, fallbackAiStaffId: settings.selected_ai_staff_id}) : null;
+    const received = await channelRpc<{created: boolean; request: WebsiteRequest}>("receive_website_chat_message", {
+      p_workspace_id: workspaceId, p_conversation_id: conversationId || null, p_request_id: requestId,
+      p_visitor_hash: signValue(JSON.stringify([workspaceId, getRequestHost(request), visitorId])),
+      p_fingerprint: signValue(JSON.stringify([customerMessage, customerName, customerEmail, customerPhone, language])),
+      p_text: customerMessage, p_name: customerName, p_email: customerEmail, p_phone: customerPhone,
+      p_staff_id: selectedAiStaffId, p_request_human: asksForHuman(customerMessage),
     });
-
-    const sessionToken = createWebsiteChatSessionToken({
-      workspaceId: workspace.id,
-      conversationId: conversation.id,
-      visitorId,
-    });
-
-    const customerMessageId = await saveMessage({
-      conversationId: conversation.id,
-      workspace,
-      aiStaffId: selectedAiStaffId || conversation.ai_staff_id || null,
-      senderType: "customer",
-      messageText: customerMessage,
-    });
-
-    await createWebsiteChatMessageNotification({
-      workspace,
-      conversationId: conversation.id,
-      messageId: customerMessageId,
-      customerName,
-      customerPhone,
-      customerEmail,
-      customerMessage,
-      pageUrl,
-      visitorId,
-      shouldGenerateAiReply,
-      needsAttention: handoverRequested || isConversationAiPaused(conversation),
-    });
-
-    await logWorkspaceUsage({
-      workspaceId: workspace.id,
-      userId: workspace.owner_user_id,
-      eventType: "website_chat_message_received",
-      channel: "website_chat",
-      sourcePage: pageUrl || "website_chat",
-      creditsUsed: 0,
-      metadata: {
-        conversation_id: conversation.id,
-        message_id: customerMessageId,
-        visitor_id: visitorId || null,
-        customer_name: customerName || null,
-        has_customer_phone: Boolean(customerPhone),
-        has_customer_email: Boolean(customerEmail),
-        website_chat_active: settings.is_active,
-        ai_enabled: settings.ai_enabled,
-        auto_reply_enabled: settings.auto_reply_enabled,
-        handover_enabled: settings.handover_enabled,
-        selected_ai_staff_id: selectedAiStaffId,
-        fallback_selected_ai_staff_id: settings.selected_ai_staff_id || null,
-      },
-    });
-
-    if (isConversationAiPaused(conversation)) {
-      return returnWithoutAiReply({
-        request,
-        workspace,
-        conversation,
-        pageUrl,
-        visitorId,
-        reason: "ai_paused",
-        settings,
-        sessionToken,
-      });
+    let operation = received.request;
+    if (received.created) {
+      await createWebsiteChatMessageNotification({workspace, conversationId: operation.conversation_id, messageId: operation.incoming_message_id,
+        customerName, customerEmail, customerPhone, customerMessage, pageUrl, visitorId,
+        shouldGenerateAiReply: operation.generation_allowed, needsAttention: !operation.generation_allowed});
+      if (operation.generation_allowed) {
+        let generated: Awaited<ReturnType<typeof runKolkapBrain>> | null = null;
+        try {
+          generated = await runKolkapBrain({workspaceId, task: "customer_reply", channel: "website_chat", aiStaffId: operation.ai_staff_id,
+            conversationId: operation.conversation_id, customerName, customerPhone, customerEmail, customerMessage, language,
+            tone: "professional", uiLanguage: language,
+            extraInstructions: "Reply as the business website chat AI. Keep the reply friendly, clear, and useful. If human help is needed, ask for contact details so the team can follow up."});
+        } catch { console.error("Website Chat generation could not complete."); }
+        const args = {p_request_id: operation.id, p_reply: generated?.content || "", p_generated: Boolean(generated?.content),
+          p_metadata: generated ? {model: generated.model, knowledge_count: generated.knowledgeCount, fallback: generated.fallback, ai_staff_id: operation.ai_staff_id} : {}};
+        // Completion is atomic and idempotent. Retry storage, never generation.
+        try { operation = await channelRpc<WebsiteRequest>("complete_website_chat_reply", args); }
+        catch { operation = await channelRpc<WebsiteRequest>("complete_website_chat_reply", args); }
+      }
     }
-
-    if (!settings.is_active) {
-      return returnWithoutAiReply({
-        request,
-        workspace,
-        conversation,
-        pageUrl,
-        visitorId,
-        reason: "website_chat_inactive",
-        settings,
-        sessionToken,
-      });
-    }
-
-    if (!settings.ai_enabled) {
-      return returnWithoutAiReply({
-        request,
-        workspace,
-        conversation,
-        pageUrl,
-        visitorId,
-        reason: "ai_support_off",
-        settings,
-        sessionToken,
-      });
-    }
-
-    if (!settings.auto_reply_enabled) {
-      return returnWithoutAiReply({
-        request,
-        workspace,
-        conversation,
-        pageUrl,
-        visitorId,
-        reason: "auto_reply_off",
-        settings,
-        sessionToken,
-      });
-    }
-
-    if (!selectedAiStaffId) {
-      return returnWithoutAiReply({
-        request,
-        workspace,
-        conversation,
-        pageUrl,
-        visitorId,
-        reason: "no_ai_staff_selected",
-        settings,
-        sessionToken,
-      });
-    }
-
-    const creditBalance = await getCreditBalance(workspace.id);
-    const creditsLeft = getCreditsLeft(creditBalance);
-
-    if (creditsLeft < WEBSITE_CHAT_REPLY_CREDIT_COST) {
-      return returnWithoutAiReply({
-        request,
-        workspace,
-        conversation,
-        pageUrl,
-        visitorId,
-        reason: "not_enough_credits",
-        settings,
-        sessionToken,
-      });
-    }
-
-    const result = await runKolkapBrain({
-      workspaceId: workspace.id,
-      task: "customer_reply",
-      channel: "website_chat",
-      aiStaffId: selectedAiStaffId,
-      conversationId: conversation.id,
-      customerName,
-      customerPhone,
-      customerEmail,
-      customerMessage,
-      language,
-      tone: "professional",
-      extraInstructions:
-        "Reply as the business website chat AI. Keep the reply friendly, clear, and useful. If the question needs human help, ask for contact details or say the team can follow up.",
-      uiLanguage: language,
-    });
-
-    await saveMessage({
-      conversationId: conversation.id,
-      workspace,
-      aiStaffId: result.aiStaffId || selectedAiStaffId,
-      senderType: "ai",
-      messageText: result.content,
-    });
-
-    await updateConversationAfterAiReply({
-      conversationId: conversation.id,
-      workspaceId: workspace.id,
-      aiStaffId: result.aiStaffId || selectedAiStaffId,
-      aiReply: result.content,
-    });
-
-    await logWorkspaceUsage({
-      workspaceId: workspace.id,
-      userId: workspace.owner_user_id,
-      eventType: "website_chat_ai_reply_generated",
-      channel: "website_chat",
-      sourcePage: pageUrl || "website_chat",
-      creditsUsed: WEBSITE_CHAT_REPLY_CREDIT_COST,
-      metadata: {
-        conversation_id: conversation.id,
-        visitor_id: visitorId || null,
-        model: result.model,
-        knowledge_count: result.knowledgeCount,
-        fallback: result.fallback,
-        ai_staff_id: result.aiStaffId || selectedAiStaffId,
-        selected_ai_staff_id: selectedAiStaffId,
-        credit_rule: "website_chat_ai_reply_minimum",
-      },
-    });
-
-    return jsonResponse(
-      {
-        reply: result.content,
-        conversation_id: conversation.id,
-        workspace_id: workspace.id,
-        business_name: result.businessName,
-        knowledge_count: result.knowledgeCount,
-        model: result.model,
-        fallback: result.fallback,
-        ai_reply_generated: true,
-        credits_used: WEBSITE_CHAT_REPLY_CREDIT_COST,
-        credits_left_before_reply: creditsLeft,
-        session_token: sessionToken,
-      },
-      200,
-      request
-    );
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Website chat reply could not be generated.";
-
-    return jsonResponse({ error: message }, 500, request);
+    return jsonResponse({ conversation_id: operation.conversation_id, workspace_id: workspaceId,
+      session_token: createWebsiteChatSessionToken({workspaceId, conversationId: operation.conversation_id, visitorId, host: getRequestHost(request)}),
+      incoming_message_id: operation.incoming_message_id, reply_message_id: operation.reply_message_id,
+      reply: operation.reply_text, pending: !operation.completed, ai_reply_generated: operation.credits_recorded > 0,
+      credits_used: operation.credits_recorded, request_id: requestId }, operation.completed ? 200 : 202, request);
+  } catch {
+    return jsonResponse({ error: "Your message could not be confirmed. Please try again; your draft has been kept." }, 503, request);
   }
 }

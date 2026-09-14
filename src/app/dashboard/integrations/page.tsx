@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
 import { createClient } from "@/lib/supabase/client";
+import { getWhatsAppChannelStatus } from "@/lib/whatsapp/connectionStatus";
 
 type ChannelStatus =
   | "checking"
@@ -134,6 +135,31 @@ export default function IntegrationsPage() {
     status: ChannelStatus;
     label: string;
   }>({ status: "checking", label: "Checking..." });
+  const [whatsAppStatus, setWhatsAppStatus] = useState<{
+    status: ChannelStatus;
+    label: string;
+  }>({ status: "checking", label: "Checking..." });
+
+  useEffect(() => {
+    let isCurrent = true;
+    async function loadWhatsAppStatus() {
+      if (!workspace?.id) return;
+      setWhatsAppStatus({ status: "checking", label: "Checking..." });
+      try {
+        const { data, error } = await createClient()
+          .from("workspace_whatsapp_connections")
+          .select("status,meta_phone_number_id,meta_waba_id,last_error_code,last_inbound_at,ai_enabled,auto_reply_enabled,selected_ai_staff_id")
+          .eq("workspace_id", workspace.id);
+        if (!isCurrent) return;
+        if (error) throw error;
+        setWhatsAppStatus(getWhatsAppChannelStatus(data || []));
+      } catch {
+        if (isCurrent) setWhatsAppStatus({ status: "attention", label: "Could Not Check" });
+      }
+    }
+    void loadWhatsAppStatus();
+    return () => { isCurrent = false; };
+  }, [workspace?.id]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -223,8 +249,8 @@ export default function IntegrationsPage() {
     },
     {
       name: "WhatsApp",
-      status: "ready",
-      statusLabel: "Ready",
+      status: whatsAppStatus.status,
+      statusLabel: whatsAppStatus.label,
       description:
         "Let customers message your business on WhatsApp and receive AI-assisted replies.",
       icon: Smartphone,

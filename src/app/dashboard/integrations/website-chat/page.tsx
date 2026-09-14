@@ -492,19 +492,6 @@ export default function WebsiteChatIntegrationPage() {
     setActionError("");
 
     try {
-      const supabase = createClient();
-
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user?.id) {
-        throw new Error(
-          "Please log in again before saving Website Chat settings."
-        );
-      }
-
       const normalizedTeam = normalizeAiTeamIds({
         teamIds: form.ai_team_staff_ids,
         firstResponderId: form.first_responder_ai_staff_id,
@@ -513,7 +500,6 @@ export default function WebsiteChatIntegrationPage() {
 
       const payload = {
         workspace_id: workspace.id,
-        owner_user_id: user.id,
         selected_ai_staff_id: normalizedTeam.firstResponderId || null,
         widget_title: form.widget_title.trim(),
         widget_subtitle: form.widget_subtitle.trim(),
@@ -525,46 +511,14 @@ export default function WebsiteChatIntegrationPage() {
         allowed_domains: parseAllowedDomains(form.allowed_domains_text),
       };
 
-      const { data, error } = await supabase
-        .from("workspace_website_chat_settings")
-        .upsert(payload, { onConflict: "workspace_id" })
-        .select("*")
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      const savedSettings = data as WebsiteChatSettingsRow;
-
-      await supabase
-        .from("channel_ai_assignments")
-        .delete()
-        .eq("workspace_id", workspace.id)
-        .eq("channel_type", "website_chat")
-        .eq("channel_connection_id", savedSettings.id);
-
-      if (normalizedTeam.teamIds.length) {
-        const assignmentRows = normalizedTeam.teamIds.map((aiStaffId, index) => ({
-          workspace_id: workspace.id,
-          channel_type: "website_chat",
-          channel_connection_id: savedSettings.id,
-          ai_staff_id: aiStaffId,
-          is_enabled: true,
-          is_default: aiStaffId === normalizedTeam.firstResponderId,
-          priority: (index + 1) * 10,
-          routing_notes: null,
-          created_by_user_id: user.id,
-        }));
-
-        const { error: assignmentError } = await supabase
-          .from("channel_ai_assignments")
-          .insert(assignmentRows);
-
-        if (assignmentError) {
-          throw assignmentError;
-        }
-      }
+      const response = await fetch("/api/website-chat/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace_id: workspace.id, settings: payload, staff_ids: normalizedTeam.teamIds }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || "Website Chat settings could not be saved.");
+      const savedSettings = result.settings as WebsiteChatSettingsRow;
 
       setSettings(savedSettings);
       setForm((current) => ({

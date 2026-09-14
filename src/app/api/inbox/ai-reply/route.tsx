@@ -1,3 +1,4 @@
+import { channelAccess, channelErrorResponse } from "@/lib/whatsapp/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
@@ -221,6 +222,8 @@ export async function POST(request: Request) {
       );
     }
 
+    await channelAccess(request, conversation.workspace_id);
+
     const latestCustomerMessage = await getLatestCustomerMessage({
       supabase,
       workspaceId: conversation.workspace_id,
@@ -307,11 +310,6 @@ export async function POST(request: Request) {
       manual_review_mode: true,
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Inbox AI reply could not be generated.";
-
-    return NextResponse.json({ error: message }, { status: 500 });
+    return channelErrorResponse(error);
   }
 }

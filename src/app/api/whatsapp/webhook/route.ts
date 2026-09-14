@@ -1,29 +1,24 @@
-import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
   generateKolkapWhatsAppReply,
   type KolkapWhatsAppChatMessage,
 } from "@/lib/kolkap-whatsapp-ai/generateReply";
-import {
-  sendKolkapWhatsAppTextMessage,
-  sendMetaWhatsAppTextMessage,
-} from "@/lib/whatsapp/sendMessage";
-import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
-import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
-import { createKolkapNotification } from "@/lib/kolkap-notifications/createNotification";
-import { KOLKAP_WHATSAPP_REPLY_MIN_CREDITS } from "@/lib/kolkapPlan";
-import { chooseDefaultChannelAiStaffId } from "@/lib/kolkap-ai-staff/channelAssignments";
+import { sendKolkapWhatsAppTextMessage } from "@/lib/whatsapp/sendMessage";
+import { findWhatsAppConnection, receiveWhatsAppMessage, receiveWhatsAppStatus, type WhatsAppConnection as CustomerWhatsAppConnectionRow } from "@/lib/whatsapp/messages";
+import { metaTimestamp } from "@/lib/whatsapp/policy";
+import { getWhatsAppAppSecrets, isInternalWhatsAppNumber, verifyWhatsAppSignature } from "@/lib/whatsapp/webhookSecurity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
-const CUSTOMER_WHATSAPP_REPLY_CREDIT_COST = KOLKAP_WHATSAPP_REPLY_MIN_CREDITS;
 const KOLKAP_INTERNAL_HANDOVER_MARKER = "[[KOLKAP_HANDOVER]]";
 
 type MetaMessage = {
   id?: string;
   from?: string;
+  to?: string;
   timestamp?: string;
   type?: string;
   text?: {
@@ -46,6 +41,7 @@ type MetaWebhookValue = {
   };
   contacts?: MetaContact[];
   messages?: MetaMessage[];
+  message_echoes?: MetaMessage[];
   statuses?: Array<Record<string, unknown>>;
 };
 
@@ -76,54 +72,6 @@ type StoredInternalMessageRow = {
   direction: "inbound" | "outbound" | "system";
   message_text: string | null;
   message: string | null;
-};
-
-type CustomerWhatsAppConnectionRow = {
-  id: string;
-  workspace_id: string;
-  owner_user_id: string;
-  provider: string;
-  status: string;
-  connection_label: string | null;
-  display_phone_number: string | null;
-  meta_phone_number_id: string | null;
-  meta_waba_id: string | null;
-  meta_business_id: string | null;
-  selected_ai_staff_id: string | null;
-  ai_enabled: boolean;
-  auto_reply_enabled: boolean;
-  handover_enabled: boolean;
-};
-
-type WhatsAppSecretRow = {
-  connection_id: string;
-  workspace_id: string;
-  provider: string;
-  meta_access_token: string | null;
-  meta_token_type: string | null;
-  meta_token_expires_at: string | null;
-};
-
-type CustomerConversationRow = {
-  id: string;
-  workspace_id: string;
-  owner_user_id: string;
-  ai_staff_id: string | null;
-  customer_name: string | null;
-  customer_phone: string | null;
-  customer_channel: string;
-  status: string;
-  lead_status: string;
-  handover_requested: boolean;
-};
-
-type CreditBalanceRow = {
-  workspace_id: string;
-  owner_user_id: string;
-  plan_credits: number;
-  purchased_credits: number;
-  used_credits: number;
-  status: string;
 };
 
 function cleanText(value: unknown, fallback = "") {
@@ -191,718 +139,6 @@ function toRawPayload(value: unknown): Record<string, unknown> {
 
   return {};
 }
-
-function verifyMetaSignature(rawBody: string, signatureHeader: string | null) {
-  const appSecret = process.env.META_WHATSAPP_APP_SECRET;
-
-  if (!appSecret) {
-    return true;
-  }
-
-  if (!signatureHeader || !signatureHeader.startsWith("sha256=")) {
-    return false;
-  }
-
-  const expectedSignature = `sha256=${createHmac("sha256", appSecret)
-    .update(rawBody)
-    .digest("hex")}`;
-
-  const expectedBuffer = Buffer.from(expectedSignature, "utf8");
-  const receivedBuffer = Buffer.from(signatureHeader, "utf8");
-
-  if (expectedBuffer.length !== receivedBuffer.length) {
-    return false;
-  }
-
-  return timingSafeEqual(expectedBuffer, receivedBuffer);
-}
-
-function getMessagePreview(message: string) {
-  const clean = cleanText(message).replace(/\s+/g, " ");
-
-  if (clean.length <= 140) return clean;
-
-  return `${clean.slice(0, 137)}...`;
-}
-
-function getCreditsLeft(balance: CreditBalanceRow | null) {
-  if (!balance) return 0;
-
-  return Math.max(
-    0,
-    Number(balance.plan_credits || 0) +
-      Number(balance.purchased_credits || 0) -
-      Number(balance.used_credits || 0)
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Customer workspace WhatsApp flow                                           */
-/* -------------------------------------------------------------------------- */
-
-async function findCustomerWorkspaceConnection(metaPhoneNumberId: string) {
-  if (!metaPhoneNumberId) return null;
-
-  const supabase = getAdminSupabase();
-
-  const { data, error } = await supabase
-    .from("workspace_whatsapp_connections")
-    .select(
-      "id, workspace_id, owner_user_id, provider, status, connection_label, display_phone_number, meta_phone_number_id, meta_waba_id, meta_business_id, selected_ai_staff_id, ai_enabled, auto_reply_enabled, handover_enabled"
-    )
-    .eq("meta_phone_number_id", metaPhoneNumberId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? null) as CustomerWhatsAppConnectionRow | null;
-}
-
-async function findCustomerInboundLog(metaMessageId: string) {
-  if (!metaMessageId) return null;
-
-  const supabase = getAdminSupabase();
-
-  const { data, error } = await supabase
-    .from("whatsapp_message_logs")
-    .select("id")
-    .eq("meta_message_id", metaMessageId)
-    .eq("direction", "inbound")
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-}
-
-async function getCustomerWhatsAppSecret(connectionId: string) {
-  const supabase = getAdminSupabase();
-
-  const { data, error } = await supabase
-    .from("whatsapp_connection_secrets")
-    .select(
-      "connection_id, workspace_id, provider, meta_access_token, meta_token_type, meta_token_expires_at"
-    )
-    .eq("connection_id", connectionId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? null) as WhatsAppSecretRow | null;
-}
-
-async function getCreditBalance(workspaceId: string) {
-  const supabase = getAdminSupabase();
-
-  const { data, error } = await supabase
-    .from("workspace_credit_balances")
-    .select(
-      "workspace_id, owner_user_id, plan_credits, purchased_credits, used_credits, status"
-    )
-    .eq("workspace_id", workspaceId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? null) as CreditBalanceRow | null;
-}
-
-async function findOrCreateCustomerConversation(input: {
-  connection: CustomerWhatsAppConnectionRow;
-  customerName: string;
-  customerPhone: string;
-  customerMessage: string;
-  handoverRequested: boolean;
-  aiStaffId?: string | null;
-}) {
-  const supabase = getAdminSupabase();
-  const now = new Date().toISOString();
-
-  const { data: existing, error: existingError } = await supabase
-    .from("customer_conversations")
-    .select(
-      "id, workspace_id, owner_user_id, ai_staff_id, customer_name, customer_phone, customer_channel, status, lead_status, handover_requested"
-    )
-    .eq("workspace_id", input.connection.workspace_id)
-    .eq("customer_channel", "whatsapp")
-    .eq("customer_phone", input.customerPhone)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existingError) {
-    throw existingError;
-  }
-
-  if (existing?.id) {
-    const nextHandoverRequested = Boolean(
-      existing.handover_requested || input.handoverRequested
-    );
-
-    const { data: updated, error: updateError } = await supabase
-      .from("customer_conversations")
-      .update({
-        ai_staff_id: input.aiStaffId || existing.ai_staff_id || null,
-        customer_name: input.customerName || existing.customer_name || null,
-        status: existing.status === "closed" ? "open" : existing.status || "open",
-        lead_status: existing.lead_status || "new",
-        handover_requested: nextHandoverRequested,
-        last_message: input.customerMessage,
-        last_message_at: now,
-        updated_at: now,
-      })
-      .eq("id", existing.id)
-      .select(
-        "id, workspace_id, owner_user_id, ai_staff_id, customer_name, customer_phone, customer_channel, status, lead_status, handover_requested"
-      )
-      .single();
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    return updated as CustomerConversationRow;
-  }
-
-  const { data: created, error: createError } = await supabase
-    .from("customer_conversations")
-    .insert({
-      workspace_id: input.connection.workspace_id,
-      owner_user_id: input.connection.owner_user_id,
-      ai_staff_id: input.aiStaffId || null,
-      customer_name: input.customerName || null,
-      customer_phone: input.customerPhone || null,
-      customer_channel: "whatsapp",
-      status: "open",
-      lead_status: "new",
-      handover_requested: input.handoverRequested,
-      last_message: input.customerMessage,
-      last_message_at: now,
-      created_at: now,
-      updated_at: now,
-    })
-    .select(
-      "id, workspace_id, owner_user_id, ai_staff_id, customer_name, customer_phone, customer_channel, status, lead_status, handover_requested"
-    )
-    .single();
-
-  if (createError) {
-    throw createError;
-  }
-
-  return created as CustomerConversationRow;
-}
-
-async function saveCustomerInboxMessage(input: {
-  conversation: CustomerConversationRow;
-  senderType: "customer" | "ai" | "system";
-  messageText: string;
-  aiStaffId?: string | null;
-}) {
-  const supabase = getAdminSupabase();
-
-  const { data, error } = await supabase
-    .from("customer_messages")
-    .insert({
-      conversation_id: input.conversation.id,
-      workspace_id: input.conversation.workspace_id,
-      owner_user_id: input.conversation.owner_user_id,
-      ai_staff_id: input.aiStaffId || input.conversation.ai_staff_id || null,
-      sender_type: input.senderType,
-      message_text: input.messageText,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data?.id || null;
-}
-
-async function saveCustomerWhatsAppLog(input: {
-  connection: CustomerWhatsAppConnectionRow;
-  conversationId?: string | null;
-  customerMessageId?: string | null;
-  direction: "inbound" | "outbound" | "system";
-  status: string;
-  customerPhone: string;
-  metaMessageId?: string | null;
-  messageType: string;
-  messageText?: string | null;
-  errorCode?: string | null;
-  errorTitle?: string | null;
-  errorMessage?: string | null;
-  errorDetails?: string | null;
-  creditsUsed?: number;
-  rawMetaPayload?: Record<string, unknown>;
-  rawMetaResponse?: Record<string, unknown>;
-}) {
-  const supabase = getAdminSupabase();
-
-  const { data, error } = await supabase
-    .from("whatsapp_message_logs")
-    .insert({
-      workspace_id: input.connection.workspace_id,
-      connection_id: input.connection.id,
-      conversation_id: input.conversationId || null,
-      customer_message_id: input.customerMessageId || null,
-      direction: input.direction,
-      status: input.status,
-      customer_phone: input.customerPhone || null,
-      display_phone_number: input.connection.display_phone_number || null,
-      meta_phone_number_id: input.connection.meta_phone_number_id || null,
-      meta_waba_id: input.connection.meta_waba_id || null,
-      meta_message_id: input.metaMessageId || null,
-      message_type: input.messageType || "text",
-      message_text: input.messageText || null,
-      error_code: input.errorCode || null,
-      error_title: input.errorTitle || null,
-      error_message: input.errorMessage || null,
-      error_details: input.errorDetails || null,
-      credits_used: input.creditsUsed || 0,
-      raw_meta_payload: input.rawMetaPayload || null,
-      raw_meta_response: input.rawMetaResponse || null,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data?.id || null;
-}
-
-async function updateCustomerConnection(input: {
-  connectionId: string;
-  values: Record<string, unknown>;
-}) {
-  const supabase = getAdminSupabase();
-
-  const { error } = await supabase
-    .from("workspace_whatsapp_connections")
-    .update({
-      ...input.values,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", input.connectionId);
-
-  if (error) {
-    console.error("Failed to update customer WhatsApp connection.", error);
-  }
-}
-
-async function updateCustomerConversationAfterAiReply(input: {
-  conversationId: string;
-  replyText: string;
-}) {
-  const supabase = getAdminSupabase();
-  const now = new Date().toISOString();
-
-  const { error } = await supabase
-    .from("customer_conversations")
-    .update({
-      handover_requested: false,
-      last_message: input.replyText,
-      last_message_at: now,
-      updated_at: now,
-    })
-    .eq("id", input.conversationId);
-
-  if (error) {
-    console.error("Failed to update customer conversation after AI reply.", error);
-  }
-}
-
-async function notifyWorkspaceOwnerAboutWhatsApp(input: {
-  connection: CustomerWhatsAppConnectionRow;
-  conversation: CustomerConversationRow;
-  customerMessageId?: string | null;
-  customerName: string;
-  customerPhone: string;
-  messageText: string;
-  needsAttention: boolean;
-}) {
-  const name = input.customerName || input.customerPhone || "WhatsApp customer";
-  const preview = getMessagePreview(input.messageText);
-
-  await createKolkapNotification({
-    workspaceId: input.connection.workspace_id,
-    ownerUserId: input.connection.owner_user_id,
-    recipientUserId: input.connection.owner_user_id,
-    type: input.needsAttention
-      ? "whatsapp_handover_requested"
-      : "whatsapp_message_received",
-    channel: "whatsapp",
-    title: input.needsAttention
-      ? "New WhatsApp message needs attention"
-      : "New WhatsApp message",
-    message: input.needsAttention
-      ? `${name} sent a WhatsApp message and may need human follow-up: "${preview}"`
-      : `${name} sent a WhatsApp message: "${preview}"`,
-    actionLabel: "Open Inbox",
-    actionUrl: "/dashboard/inbox",
-    priority: input.needsAttention ? "high" : "normal",
-    sourceTable: "customer_messages",
-    sourceRecordId: input.customerMessageId || input.conversation.id,
-    metadata: {
-      conversation_id: input.conversation.id,
-      customer_message_id: input.customerMessageId || null,
-      customer_phone: input.customerPhone || null,
-      customer_name: input.customerName || null,
-      connection_id: input.connection.id,
-      meta_phone_number_id: input.connection.meta_phone_number_id || null,
-      needs_attention: input.needsAttention,
-    },
-  });
-}
-
-async function handleCustomerWorkspaceWhatsAppMessage(input: {
-  payload: MetaWebhookPayload;
-  value: MetaWebhookValue;
-  message: MetaMessage;
-  contact?: MetaContact;
-  connection: CustomerWhatsAppConnectionRow;
-}) {
-  const messageId = cleanText(input.message.id);
-  const customerPhone = normalizePhone(input.message.from || input.contact?.wa_id);
-  const customerName = cleanText(input.contact?.profile?.name);
-  const messageType = cleanText(input.message.type, "unknown");
-  const messageText =
-    messageType === "text"
-      ? cleanText(input.message.text?.body)
-      : "[Customer sent photo, video, or non-text WhatsApp message]";
-
-  if (!messageId || !customerPhone) {
-    return;
-  }
-
-  const duplicate = await findCustomerInboundLog(messageId);
-
-  if (duplicate?.id) {
-    return;
-  }
-
-  const selectedAiStaffId = await chooseDefaultChannelAiStaffId({
-    workspaceId: input.connection.workspace_id,
-    channelType: "whatsapp",
-    channelConnectionId: input.connection.id,
-    fallbackAiStaffId: input.connection.selected_ai_staff_id || null,
-  });
-
-  const canAttemptAiReply = Boolean(
-    input.connection.status === "connected" &&
-      input.connection.ai_enabled &&
-      input.connection.auto_reply_enabled &&
-      selectedAiStaffId &&
-      messageType === "text" &&
-      messageText
-  );
-
-  const handoverRequested = Boolean(
-    input.connection.handover_enabled && !canAttemptAiReply
-  );
-
-  const conversation = await findOrCreateCustomerConversation({
-    connection: input.connection,
-    customerName,
-    customerPhone,
-    customerMessage: messageText,
-    handoverRequested,
-    aiStaffId: selectedAiStaffId,
-  });
-
-  const customerMessageId = await saveCustomerInboxMessage({
-    conversation,
-    senderType: "customer",
-    messageText,
-    aiStaffId: selectedAiStaffId || null,
-  });
-
-  await saveCustomerWhatsAppLog({
-    connection: input.connection,
-    conversationId: conversation.id,
-    customerMessageId,
-    direction: "inbound",
-    status: "received",
-    customerPhone,
-    metaMessageId: messageId,
-    messageType,
-    messageText,
-    creditsUsed: 0,
-    rawMetaPayload: toRawPayload(input.payload),
-  });
-
-  await updateCustomerConnection({
-    connectionId: input.connection.id,
-    values: {
-      last_inbound_at: new Date().toISOString(),
-      last_status_at: new Date().toISOString(),
-      last_error_at: null,
-      last_error_code: null,
-      last_error_message: null,
-    },
-  });
-
-  await notifyWorkspaceOwnerAboutWhatsApp({
-    connection: input.connection,
-    conversation,
-    customerMessageId,
-    customerName,
-    customerPhone,
-    messageText,
-    needsAttention: handoverRequested || isConversationAiPaused(conversation),
-  });
-
-  if (isConversationAiPaused(conversation)) {
-    await saveCustomerWhatsAppLog({
-      connection: input.connection,
-      conversationId: conversation.id,
-      direction: "system",
-      status: "skipped",
-      customerPhone,
-      messageType: "system",
-      messageText: "WhatsApp AI reply skipped because AI is paused for this conversation.",
-      errorCode: "ai_paused",
-      errorMessage: "AI is paused for this conversation.",
-      creditsUsed: 0,
-      rawMetaPayload: toRawPayload(input.payload),
-    });
-
-    return;
-  }
-
-  if (!canAttemptAiReply) {
-    return;
-  }
-
-  const balance = await getCreditBalance(input.connection.workspace_id);
-  const creditsLeft = getCreditsLeft(balance);
-
-  if (creditsLeft < CUSTOMER_WHATSAPP_REPLY_CREDIT_COST) {
-    await updateCustomerConnection({
-      connectionId: input.connection.id,
-      values: {
-        last_error_at: new Date().toISOString(),
-        last_error_code: "not_enough_credits",
-        last_error_message: "Not enough credits to send WhatsApp AI reply.",
-      },
-    });
-
-    await saveCustomerWhatsAppLog({
-      connection: input.connection,
-      conversationId: conversation.id,
-      direction: "system",
-      status: "skipped",
-      customerPhone,
-      messageType: "system",
-      messageText: "WhatsApp AI reply skipped because workspace has low credits.",
-      errorCode: "not_enough_credits",
-      errorMessage: "Not enough credits to send WhatsApp AI reply.",
-      creditsUsed: 0,
-      rawMetaPayload: toRawPayload(input.payload),
-    });
-
-    return;
-  }
-
-  const secret = await getCustomerWhatsAppSecret(input.connection.id);
-
-  if (!secret?.meta_access_token) {
-    await updateCustomerConnection({
-      connectionId: input.connection.id,
-      values: {
-        last_error_at: new Date().toISOString(),
-        last_error_code: "missing_meta_access_token",
-        last_error_message:
-          "WhatsApp AI reply could not send because the Meta token is missing.",
-      },
-    });
-
-    await saveCustomerWhatsAppLog({
-      connection: input.connection,
-      conversationId: conversation.id,
-      direction: "system",
-      status: "failed",
-      customerPhone,
-      messageType: "system",
-      messageText: "WhatsApp AI reply failed because Meta token is missing.",
-      errorCode: "missing_meta_access_token",
-      errorMessage: "Meta access token is missing.",
-      creditsUsed: 0,
-      rawMetaPayload: toRawPayload(input.payload),
-    });
-
-    return;
-  }
-
-  let aiReply = "";
-  let aiModel = "";
-  let aiStaffId = selectedAiStaffId || null;
-
-  try {
-    const result = await runKolkapBrain({
-      userId: input.connection.owner_user_id,
-      workspaceId: input.connection.workspace_id,
-      task: "customer_reply",
-      channel: "whatsapp",
-      aiStaffId,
-      conversationId: conversation.id,
-      customerName,
-      customerPhone,
-      customerMessage: messageText,
-      language: "auto",
-      tone: "professional",
-      extraInstructions:
-        "Reply as the business WhatsApp AI assistant. Keep the reply friendly, clear, and useful. If the customer needs human help, collect the important details and say the team can follow up.",
-      uiLanguage: "auto",
-    });
-
-    aiReply = result.content;
-    aiModel = result.model;
-    aiStaffId = result.aiStaffId || aiStaffId;
-
-    await logWorkspaceUsage({
-      workspaceId: result.workspaceId,
-      userId: input.connection.owner_user_id,
-      eventType: "whatsapp_ai_reply_generated",
-      channel: "whatsapp",
-      sourcePage: "/api/whatsapp/webhook",
-      creditsUsed: CUSTOMER_WHATSAPP_REPLY_CREDIT_COST,
-      metadata: {
-        conversation_id: conversation.id,
-        customer_message_id: customerMessageId || null,
-        customer_phone: customerPhone,
-        meta_inbound_message_id: messageId,
-        connection_id: input.connection.id,
-        meta_phone_number_id: input.connection.meta_phone_number_id || null,
-        model: result.model,
-        knowledge_count: result.knowledgeCount,
-        fallback: result.fallback,
-        ai_staff_id: aiStaffId,
-        selected_ai_staff_id: selectedAiStaffId,
-        fallback_selected_ai_staff_id: input.connection.selected_ai_staff_id || null,
-        credit_rule: "customer_whatsapp_ai_reply_minimum",
-      },
-    });
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "WhatsApp AI reply failed.";
-
-    await updateCustomerConnection({
-      connectionId: input.connection.id,
-      values: {
-        last_error_at: new Date().toISOString(),
-        last_error_code: "ai_generation_failed",
-        last_error_message: errorMessage,
-      },
-    });
-
-    await saveCustomerWhatsAppLog({
-      connection: input.connection,
-      conversationId: conversation.id,
-      direction: "system",
-      status: "failed",
-      customerPhone,
-      messageType: "system",
-      messageText: "WhatsApp AI reply failed during generation.",
-      errorCode: "ai_generation_failed",
-      errorMessage,
-      creditsUsed: 0,
-      rawMetaPayload: toRawPayload(input.payload),
-    });
-
-    return;
-  }
-
-  try {
-    const sent = await sendMetaWhatsAppTextMessage({
-      to: customerPhone,
-      message: aiReply,
-      accessToken: secret.meta_access_token,
-      phoneNumberId: input.connection.meta_phone_number_id || "",
-      replyToMessageId: messageId,
-    });
-
-    const aiMessageId = await saveCustomerInboxMessage({
-      conversation,
-      senderType: "ai",
-      messageText: aiReply,
-      aiStaffId,
-    });
-
-    await updateCustomerConversationAfterAiReply({
-      conversationId: conversation.id,
-      replyText: aiReply,
-    });
-
-    await saveCustomerWhatsAppLog({
-      connection: input.connection,
-      conversationId: conversation.id,
-      customerMessageId: aiMessageId,
-      direction: "outbound",
-      status: "sent",
-      customerPhone,
-      metaMessageId: sent.metaMessageId,
-      messageType: "text",
-      messageText: aiReply,
-      creditsUsed: CUSTOMER_WHATSAPP_REPLY_CREDIT_COST,
-      rawMetaPayload: toRawPayload(input.payload),
-      rawMetaResponse: toRawPayload(sent.raw),
-    });
-
-    await updateCustomerConnection({
-      connectionId: input.connection.id,
-      values: {
-        last_outbound_at: new Date().toISOString(),
-        last_status_at: new Date().toISOString(),
-        last_error_at: null,
-        last_error_code: null,
-        last_error_message: null,
-      },
-    });
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "WhatsApp AI reply could not send.";
-
-    await updateCustomerConnection({
-      connectionId: input.connection.id,
-      values: {
-        last_error_at: new Date().toISOString(),
-        last_error_code: "whatsapp_send_failed",
-        last_error_message: errorMessage,
-      },
-    });
-
-    await saveCustomerWhatsAppLog({
-      connection: input.connection,
-      conversationId: conversation.id,
-      direction: "outbound",
-      status: "failed",
-      customerPhone,
-      messageType: "text",
-      messageText: aiReply,
-      errorCode: "whatsapp_send_failed",
-      errorMessage,
-      creditsUsed: CUSTOMER_WHATSAPP_REPLY_CREDIT_COST,
-      rawMetaPayload: toRawPayload(input.payload),
-    });
-  }
-}
-
-/* -------------------------------------------------------------------------- */
-/* Kolkap internal WhatsApp flow                                               */
-/* -------------------------------------------------------------------------- */
 
 async function findExistingInboundMessage(metaMessageId: string) {
   if (!metaMessageId) return null;
@@ -1441,6 +677,7 @@ function extractWebhookMessages(payload: MetaWebhookPayload) {
     message: MetaMessage;
     contact?: MetaContact;
     businessAccountId?: string | null;
+    isBusinessAppEcho: boolean;
   }> = [];
 
   for (const entry of payload.entry || []) {
@@ -1449,21 +686,24 @@ function extractWebhookMessages(payload: MetaWebhookPayload) {
     for (const change of entry.changes || []) {
       const value = change.value;
 
-      if (!value?.messages?.length) {
-        continue;
-      }
+      if (!value || value.messaging_product !== "whatsapp") continue;
+      const isBusinessAppEcho = change.field === "smb_message_echoes";
+      if (change.field !== "messages" && !isBusinessAppEcho) continue;
+      const messages = isBusinessAppEcho ? value.message_echoes : value.messages;
+      if (!Array.isArray(messages)) continue;
 
-      for (const message of value.messages) {
+      for (const message of messages) {
         const contact =
           value.contacts?.find(
             (item) => cleanText(item.wa_id) === cleanText(message.from)
-          ) || value.contacts?.[0];
+          );
 
         items.push({
           value,
           message,
           contact,
           businessAccountId,
+          isBusinessAppEcho,
         });
       }
     }
@@ -1472,10 +712,21 @@ function extractWebhookMessages(payload: MetaWebhookPayload) {
   return items;
 }
 
-function isConversationAiPaused(value: unknown) {
-  return Boolean(
-    (value as { handover_requested?: boolean | null })?.handover_requested
-  );
+async function handleBusinessAppEcho(connection: CustomerWhatsAppConnectionRow, message: MetaMessage) {
+  const id = cleanText(message.id);
+  const customerPhone = normalizePhone(message.to);
+  if (!id || !/^\d{7,15}$/.test(customerPhone) ||
+      normalizePhone(message.from) !== normalizePhone(connection.display_phone_number)) return;
+  const sentAt = metaTimestamp(message.timestamp);
+  if (!sentAt) return;
+  const type = cleanText(message.type, "unknown");
+  const messageText = type === "text" ? cleanText(message.text?.body).slice(0, 20000)
+    : `[WhatsApp Business app activity: ${type}]`;
+  const { error } = await getAdminSupabase().rpc("record_whatsapp_business_app_echo", {
+    p_connection_id: connection.id, p_meta_message_id: id, p_customer_phone: customerPhone,
+    p_message_text: messageText, p_message_type: type, p_sent_at: sentAt,
+  });
+  if (error) throw error;
 }
 
 export async function GET(request: NextRequest) {
@@ -1514,12 +765,21 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const secrets = getWhatsAppAppSecrets();
+  if (secrets.length === 0) {
+    console.error("WhatsApp webhook verification is not configured. Set META_APP_SECRET or META_WHATSAPP_APP_SECRET.");
+    return NextResponse.json(
+      { success: false, error: "WhatsApp webhook is not configured." },
+      { status: 503 }
+    );
+  }
   try {
     const rawBody = await request.text();
 
-    const isSignatureValid = verifyMetaSignature(
+    const isSignatureValid = verifyWhatsAppSignature(
       rawBody,
-      request.headers.get("x-hub-signature-256")
+      request.headers.get("x-hub-signature-256"),
+      secrets
     );
 
     if (!isSignatureValid) {
@@ -1529,42 +789,72 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const payload = JSON.parse(rawBody || "{}") as MetaWebhookPayload;
+    let payload: MetaWebhookPayload;
+    try {
+      payload = JSON.parse(rawBody) as MetaWebhookPayload;
+      if (!payload || !Array.isArray(payload.entry)) throw new Error("Invalid payload");
+    } catch {
+      return NextResponse.json({ success: false, error: "Invalid webhook payload." }, { status: 400 });
+    }
 
     if (payload.object !== "whatsapp_business_account") {
       return NextResponse.json({ success: true, ignored: true });
     }
 
     const webhookMessages = extractWebhookMessages(payload);
+    let incomplete = false;
+    // Delivery-only events do not include a messages array.
+    for (const entry of payload.entry || []) for (const change of entry.changes || []) {
+      if (change.field !== "messages" || change.value?.messaging_product !== "whatsapp") continue;
+      const phoneId = cleanText(change.value.metadata?.phone_number_id);
+      if (!phoneId || isInternalWhatsAppNumber(phoneId, cleanText(entry.id))) continue;
+      try {
+        const connection = await findWhatsAppConnection(phoneId);
+        if (!connection || connection.meta_waba_id !== cleanText(entry.id)) continue;
+        for (const status of change.value.statuses || []) await receiveWhatsAppStatus(connection, status);
+      } catch { incomplete = true; }
+    }
 
     for (const item of webhookMessages) {
+      try {
       const metaPhoneNumberId = cleanText(
         item.value.metadata?.phone_number_id
       );
 
-      const customerWorkspaceConnection =
-        await findCustomerWorkspaceConnection(metaPhoneNumberId);
+      if (!metaPhoneNumberId) continue;
 
-      if (customerWorkspaceConnection?.id) {
-        await handleCustomerWorkspaceWhatsAppMessage({
-          payload,
-          value: item.value,
-          message: item.message,
-          contact: item.contact,
-          connection: customerWorkspaceConnection,
+      // Kolkap's support bot must only receive its configured number's messages.
+      // It is never a fallback for an unrecognized customer's business number.
+      if (isInternalWhatsAppNumber(metaPhoneNumberId, item.businessAccountId || "")) {
+        if (item.isBusinessAppEcho) continue;
+        await handleInternalKolkapIncomingMessage({
+          payload, value: item.value, message: item.message,
+          contact: item.contact, businessAccountId: item.businessAccountId,
         });
+        continue;
+      }
+      if (metaPhoneNumberId === process.env.META_WHATSAPP_PHONE_NUMBER_ID?.trim()) continue;
+
+      const customerWorkspaceConnection =
+        await findWhatsAppConnection(metaPhoneNumberId);
+
+      if (customerWorkspaceConnection?.id &&
+          customerWorkspaceConnection.provider === "meta" &&
+          customerWorkspaceConnection.meta_waba_id === item.businessAccountId) {
+        if (item.isBusinessAppEcho) {
+          await handleBusinessAppEcho(customerWorkspaceConnection, item.message);
+          continue;
+        }
+        await receiveWhatsAppMessage(customerWorkspaceConnection, item.message, cleanText(item.contact?.profile?.name));
 
         continue;
       }
 
-      await handleInternalKolkapIncomingMessage({
-        payload,
-        value: item.value,
-        message: item.message,
-        contact: item.contact,
-        businessAccountId: item.businessAccountId,
-      });
+      // Unknown or mismatched numbers are acknowledged without storing messages,
+      // generating AI output, using credits, or sending from another number.
+      } catch { incomplete = true; }
     }
+    if (incomplete) return NextResponse.json({ success: false, error: "Some messages are still processing." }, { status: 503 });
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -1573,6 +863,8 @@ export async function POST(request: NextRequest) {
       error instanceof Error ? error.message : error
     );
 
-    return NextResponse.json({ success: true, error_logged: true });
+    // Do not acknowledge a failed database/intake operation as successful.
+    // Persisted processing steps make incoming Meta retries safe.
+    return NextResponse.json({ success: false, error: "WhatsApp intake could not complete." }, { status: 503 });
   }
 }

@@ -1,0 +1,123 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { randomUUID } = require('node:crypto');
+const { PGlite } = require(process.env.KOLKAP_PGLITE_MODULE || '@electric-sql/pglite');
+
+// Isolated PostgreSQL, not the linked project. Reuse the installed channel fixture.
+const existing = fs.readFileSync(path.join(__dirname, 'test-whatsapp-db.cjs'), 'utf8');
+const fixture = existing.split('const fixture = `')[1].split('`;')[0];
+const migration = fs.readFileSync(path.join(__dirname, '../supabase/migrations/20260911110000_website_chat_reliability.sql'), 'utf8');
+
+async function run(domainType) {
+  const db = new PGlite();
+  let checks = 0;
+  const check = (ok, name) => { assert.ok(ok, name); checks++; };
+  await db.exec(fixture);
+  await db.exec(`
+    alter table customer_conversations add column customer_email text;
+    create table workspace_credit_balances(workspace_id uuid primary key,plan_credits bigint,purchased_credits bigint,used_credits bigint);
+    create table workspace_website_chat_settings(id uuid primary key default gen_random_uuid(),workspace_id uuid unique,owner_user_id uuid,
+      selected_ai_staff_id uuid,widget_title text,widget_subtitle text,welcome_message text,is_active boolean,ai_enabled boolean,
+      auto_reply_enabled boolean,handover_enabled boolean,allowed_domains ${domainType});
+    create or replace function record_workspace_usage(p_workspace_id uuid,p_owner_user_id uuid,p_user_id uuid,p_event_type text,p_channel text,
+      p_source_page text,p_credits_used integer,p_event_count integer,p_status text,p_metadata jsonb) returns void language plpgsql as $$ begin
+      if current_setting('test.fail_usage',true)='yes' then raise exception 'test usage failure'; end if;
+      insert into usage_events values(p_workspace_id,p_credits_used,p_event_type,p_metadata);
+      update workspace_credit_balances set used_credits=used_credits+p_credits_used where workspace_id=p_workspace_id;
+    end; $$;
+  `);
+  await db.exec(fs.readFileSync(path.join(__dirname, '../supabase/migrations/20260911100000_whatsapp_delivery_and_handover.sql'), 'utf8'));
+  const owner = randomUUID(), workspace = randomUUID(), other = randomUUID(), staff = randomUUID();
+  await db.query('insert into business_workspaces values($1,$2,\'starter\'),($3,$2,\'growth\')', [workspace, owner, other]);
+  await db.query('insert into ai_staff values($1,$2,null,\'active\')', [staff, workspace]);
+  await db.query('insert into workspace_credit_balances values($1,100,0,0)', [workspace]);
+  const oldConversation = randomUUID();
+  await db.query("insert into customer_conversations(id,workspace_id,owner_user_id,customer_channel) values($1,$2,$3,'website_chat')", [oldConversation, workspace, owner]);
+  for (let i=0; i<105; i++) await db.query("insert into customer_messages(conversation_id,workspace_id,owner_user_id,sender_type,message_text,created_at) values($1,$2,$3,'human',$4,$5)", [oldConversation, workspace, owner, 'Historical reply '+i, new Date(Date.UTC(2026,8,1)+i*1000).toISOString()]);
+  await db.exec(migration);
+  await db.exec(migration);
+  check((await db.query('select max(website_message_sequence) as n from customer_messages')).rows[0].n === 105, 'repeatable backfill');
+  const rpc = async (name, args) => (await db.query(`select ${name}(${args.map((_, i) => '$'+(i+1)).join(',')}) as result`, args)).rows[0].result;
+  const settings = {selected_ai_staff_id:staff,widget_title:'Chat',widget_subtitle:'Help',welcome_message:'Hello',is_active:true,ai_enabled:true,auto_reply_enabled:true,handover_enabled:true,allowed_domains:['example.com']};
+  const save = data => rpc('save_workspace_website_settings', [workspace, owner, data, [staff]]);
+  await save(settings);
+  await assert.rejects(() => rpc('save_workspace_website_settings', [workspace, owner, {...settings,widget_title:'Bad'}, [randomUUID()]])); checks++;
+  check((await db.query('select widget_title from workspace_website_chat_settings')).rows[0].widget_title === 'Chat', 'invalid staff cannot partially update settings');
+  // Force an insert failure AFTER the settings upsert and assignment delete.
+  await db.exec("create function fail_test_assignment() returns trigger language plpgsql as $$ begin raise exception 'assignment failure'; end; $$; create trigger test_assignment before insert on channel_ai_assignments for each row execute function fail_test_assignment();");
+  await assert.rejects(() => save({...settings,widget_title:'Must roll back'})); checks++;
+  check((await db.query('select widget_title from workspace_website_chat_settings')).rows[0].widget_title === 'Chat' && (await db.query('select count(*) as n from channel_ai_assignments')).rows[0].n === 1, 'settings and AI assignments roll back together');
+  await db.exec('drop trigger test_assignment on channel_ai_assignments');
+  const receive = (id, conversation=null, human=false, fingerprint='fingerprint', visitor='visitor-secret') => rpc('receive_website_chat_message', [workspace,conversation,id,visitor,fingerprint,'Hello','Visitor','v@example.com','',staff,human]);
+  const finish = (id, generated=true) => rpc('complete_website_chat_reply',[id,'Generated answer',generated,{}]);
+  const usage = async () => (await db.query('select used_credits as n from workspace_credit_balances')).rows[0].n;
+  const firstId = randomUUID();
+  const first = (await receive(firstId)).request;
+  const retry = await receive(firstId);
+  check(!retry.created && retry.request.id === first.id && retry.request.incoming_message_id === first.incoming_message_id, 'retry of first request recovers the same conversation');
+  await assert.rejects(() => receive(firstId,null,false,'different content')); checks++;
+  const complete = await finish(first.id);
+  check(complete.credits_recorded === 3 && complete.reply_message_id && await usage() === 3, 'generation costs three and is saved atomically');
+  await finish(first.id);
+  check(await usage() === 3, 'completion retry never charges twice');
+  check((await receive(firstId)).request.reply_message_id === complete.reply_message_id, 'retry returns the original reply');
+  const humanId = randomUUID();
+  const pending = (await receive(randomUUID(), first.conversation_id)).request;
+  const human = await rpc('save_website_chat_human_reply', [first.conversation_id, workspace, humanId, owner, 'Human reply']);
+  const suppressed = await finish(pending.id);
+  check(!suppressed.reply_message_id && suppressed.credits_recorded === 3 && await usage() === 6, 'takeover suppresses stale AI while retaining intentional generation charge');
+  check((await rpc('save_website_chat_human_reply', [first.conversation_id, workspace, humanId, owner, 'Human reply'])).id === human.id, 'manual network retry does not duplicate a reply');
+  await assert.rejects(() => rpc('save_website_chat_human_reply', [first.conversation_id, workspace, humanId, owner, 'Changed reply'])); checks++;
+  await assert.rejects(() => rpc('save_website_chat_human_reply', [first.conversation_id, other, randomUUID(), owner, 'Wrong workspace'])); checks++;
+  check((await db.query('select handover_requested from customer_conversations where id=$1', [first.conversation_id])).rows[0].handover_requested, 'AI cannot reset a human takeover');
+  await rpc('set_workspace_conversation_handover', [first.conversation_id, workspace, false]);
+  const pauseResume = (await receive(randomUUID(),first.conversation_id)).request;
+  await rpc('set_workspace_conversation_handover', [first.conversation_id, workspace, true]);
+  await rpc('set_workspace_conversation_handover', [first.conversation_id, workspace, false]);
+  check(!(await finish(pauseResume.id)).reply_message_id, 'pause then resume invalidates an older generated reply');
+  const requested = (await receive(randomUUID(), first.conversation_id, true)).request;
+  check(requested.completed && !requested.generation_allowed, 'asking for a person bypasses AI');
+  await rpc('set_workspace_conversation_handover', [first.conversation_id, workspace, false]);
+  await save({...settings,auto_reply_enabled:false});
+  const off = (await receive(randomUUID(),first.conversation_id)).request;
+  check(off.completed && !(await db.query('select handover_requested from customer_conversations where id=$1',[first.conversation_id])).rows[0].handover_requested, 'switching off auto replies does not permanently pause a visitor');
+  await save(settings);
+  const failed = (await receive(randomUUID(),first.conversation_id)).request;
+  const beforeFailure = await usage();
+  await finish(failed.id,false);
+  check(await usage() === beforeFailure, 'failed generation is not charged');
+  const crashId = randomUUID();
+  const crash = (await receive(crashId,first.conversation_id)).request;
+  await db.query("update website_chat_requests set created_at=now()-interval '4 minutes' where id=$1",[crash.id]);
+  const recovered = await receive(crashId,first.conversation_id);
+  check(recovered.request.completed && !recovered.created, 'interrupted request closes without another generation');
+  const transaction = (await receive(randomUUID(),first.conversation_id)).request;
+  const before = await usage();
+  await db.exec("set test.fail_usage='yes'");
+  await assert.rejects(() => finish(transaction.id)); checks++;
+  check(!(await db.query('select completed from website_chat_requests where id=$1',[transaction.id])).rows[0].completed && await usage() === before, 'failed credit write rolls back completion');
+  await db.exec("set test.fail_usage='no'");
+  await finish(transaction.id);
+  check(await usage() === before+3, 'retry after rollback completes once');
+  const stale = (await receive(randomUUID(),first.conversation_id)).request;
+  await save({...settings,is_active:false});
+  check(!(await finish(stale.id)).reply_message_id, 'disabling the channel suppresses an in-flight reply');
+  await assert.rejects(() => receive(randomUUID(),first.conversation_id)); checks++;
+  await save(settings);
+  await db.query('update workspace_credit_balances set plan_credits=used_credits+3 where workspace_id=$1',[workspace]);
+  const reserved = (await receive(randomUUID(),first.conversation_id)).request;
+  const noBudget = (await receive(randomUUID(),first.conversation_id)).request;
+  check(reserved.generation_allowed && !noBudget.generation_allowed, 'pending generation reserves the last three credits');
+  const history = (await db.query('select * from customer_messages where conversation_id=$1 and website_message_sequence>100 order by website_message_sequence limit 100',[oldConversation])).rows;
+  check(history.length === 5 && history[4].message_text === 'Historical reply 104', 'cursor can reach past the first 100 replies');
+  const appended = await rpc('save_website_chat_human_reply',[oldConversation,workspace,randomUUID(),owner,'Latest reply']);
+  check(appended.website_message_sequence === 106, 'new reply continues after migrated history');
+  const privileges = (await db.query("select r,has_function_privilege(r,'public.complete_website_chat_reply(uuid,text,boolean,jsonb)','EXECUTE') as allowed from (values('anon'),('authenticated'),('service_role')) roles(r)")).rows;
+  check(!privileges[0].allowed && !privileges[1].allowed && privileges[2].allowed, 'credit and publish function is service-only');
+  await db.exec(migration);
+  check((await db.query('select website_message_sequence from customer_messages where id=$1',[appended.id])).rows[0].website_message_sequence === 106, 'reapply preserves existing cursors');
+  await db.close();
+  console.log(`Website PostgreSQL checks passed (${domainType}): ${checks}`);
+}
+(async()=>{ await run('text[]'); await run('jsonb'); })().catch(error=>{console.error(error);process.exitCode=1;});

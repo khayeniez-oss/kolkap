@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import WhatsAppConversationTools from "@/components/WhatsAppConversationTools";
+import { deliveryLabel, isWhatsAppWindowOpen } from "@/lib/whatsapp/policy";
 import {
   useEffect,
   useMemo,
   useState,
+  useRef,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -73,6 +76,7 @@ type ConversationRow = {
   status: string;
   lead_status: string;
   handover_requested: boolean;
+  whatsapp_last_customer_at?: string | null;
   last_message: string | null;
   last_message_at: string | null;
   created_at: string;
@@ -87,6 +91,8 @@ type MessageRow = {
   ai_staff_id: string | null;
   sender_type: string;
   message_text: string;
+  delivery_status?: string | null;
+  delivery_error?: string | null;
   created_at: string;
 };
 
@@ -221,6 +227,9 @@ export default function InboxPage() {
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const selectedIdRef = useRef(selectedConversationId);
+  useEffect(() => { selectedIdRef.current = selectedConversationId; }, [selectedConversationId]);
+  const sendRequestRef = useRef({ key: "", id: "" });
 
   const creditsLeft = getCreditsLeft(creditBalance);
   const usedCredits = Number(creditBalance?.used_credits || 0);
@@ -376,14 +385,13 @@ export default function InboxPage() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadMessages() {
+    async function loadMessages(background = false) {
       if (!workspace?.id || !selectedConversationId) {
         setMessages([]);
         return;
       }
 
-      setIsLoadingMessages(true);
-      setActionError("");
+      if (!background) setIsLoadingMessages(true);
 
       const supabase = createClient();
 
@@ -404,13 +412,17 @@ export default function InboxPage() {
       }
 
       setMessages(((data ?? []) as MessageRow[]).reverse());
+      const { data: latest } = await supabase.from("customer_conversations").select("*").eq("id", selectedConversationId).eq("workspace_id", workspace.id).maybeSingle();
+      if (isMounted && latest) setConversations(current => current.map(item => item.id === latest.id ? latest as ConversationRow : item));
       setIsLoadingMessages(false);
     }
 
-    loadMessages();
+    void loadMessages();
+    const timer = setInterval(() => { void loadMessages(true); }, 5000);
 
     return () => {
       isMounted = false;
+      clearInterval(timer);
     };
   }, [workspace?.id, selectedConversationId, messageLimit, reloadKey]);
 
@@ -443,6 +455,7 @@ export default function InboxPage() {
     }
 
     setIsGeneratingAiReply(true);
+    const generatingForId = selectedConversation.id;
 
     try {
       const response = await fetch("/api/inbox/ai-reply", {
@@ -468,6 +481,11 @@ export default function InboxPage() {
         return;
       }
 
+      if (selectedIdRef.current !== generatingForId) {
+        setIsGeneratingAiReply(false);
+        void loadCreditBalance();
+        return;
+      }
       setReplyText(result.reply || "");
 
       const knowledgeText =
@@ -504,6 +522,10 @@ export default function InboxPage() {
     }
 
     setIsSavingReply(true);
+    const conversationId = selectedConversation.id;
+    const sendingText = replyText.trim();
+    const requestKey = JSON.stringify([conversationId, sendingText]);
+    if (sendRequestRef.current.key !== requestKey) sendRequestRef.current = { key: requestKey, id: crypto.randomUUID() };
 
     try {
       const token = await getAccessToken();
@@ -522,7 +544,8 @@ export default function InboxPage() {
         },
         body: JSON.stringify({
           conversation_id: selectedConversation.id,
-          message_text: replyText.trim(),
+          message_text: sendingText,
+          request_id: sendRequestRef.current.id,
         }),
       });
 
@@ -538,7 +561,7 @@ export default function InboxPage() {
       const cleanReply = savedMessage?.message_text || replyText.trim();
       const now = savedMessage?.created_at || new Date().toISOString();
 
-      setMessages((current) => [...current, savedMessage]);
+      if (selectedIdRef.current === conversationId) setMessages((current) => current.some(m => m.id === savedMessage.id) ? current : [...current, savedMessage]);
 
       setConversations((current) =>
         current.map((conversation) =>
@@ -547,15 +570,18 @@ export default function InboxPage() {
                 ...conversation,
                 last_message: cleanReply,
                 last_message_at: now,
-                status: "open",
-                handover_requested: false,
+                status: "handover",
+                handover_requested: true,
                 updated_at: now,
               }
             : conversation
         )
       );
 
-      setReplyText("");
+      sendRequestRef.current = { key: "", id: "" };
+      if (selectedIdRef.current !== conversationId) { setIsSavingReply(false); return; }
+      setReplyText(current => current.trim() === sendingText ? "" : current);
+      void loadCreditBalance();
       setActionMessage(
         result.notice ||
           (result.delivered
@@ -574,43 +600,19 @@ export default function InboxPage() {
   }
 
   async function handleMarkHandover() {
-    setActionMessage("");
-    setActionError("");
-
-    if (!workspace || !selectedConversation) return;
-
-    const supabase = createClient();
-    const now = new Date().toISOString();
-
-    const { error: handoverError } = await supabase
-      .from("customer_conversations")
-      .update({
-        handover_requested: true,
-        status: "handover",
-        updated_at: now,
-      })
-      .eq("id", selectedConversation.id)
-      .eq("workspace_id", workspace.id);
-
-    if (handoverError) {
-      setActionError(handoverError.message);
-      return;
-    }
-
-    setConversations((current) =>
-      current.map((conversation) =>
-        conversation.id === selectedConversation.id
-          ? {
-              ...conversation,
-              handover_requested: true,
-              status: "handover",
-              updated_at: now,
-            }
-          : conversation
-      )
-    );
-
-    setActionMessage("Handover marked for this conversation.");
+    if (!selectedConversation) return;
+    const id=selectedConversation.id;
+    const paused=!selectedConversation.handover_requested;
+    setActionMessage(""); setActionError("");
+    try {
+      const token=await getAccessToken();
+      const response=await fetch("/api/inbox/handover",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},
+        body:JSON.stringify({conversation_id:id,paused})});
+      const result=await response.json();
+      if(!response.ok) throw new Error(result.error);
+      setConversations(current=>current.map(c=>c.id===id?result.conversation:c));
+      if(selectedIdRef.current===id) setActionMessage(paused?"AI is paused. Your team can reply here.":"AI can reply to the next customer message when automatic replies are enabled for this channel.");
+    } catch(error) {setActionError(error instanceof Error?error.message:"Handover could not be updated.");}
   }
 
   async function handleLeadStatusChange(value: string) {
@@ -1036,6 +1038,8 @@ export default function InboxPage() {
                   </div>
                 ) : null}
 
+                {selectedIsWhatsApp ? <WhatsAppConversationTools key={selectedConversation.id} conversationId={selectedConversation.id} onSent={() => { setReloadKey(key => key+1); void loadCreditBalance(); }} /> : null}
+
                 <form
                   onSubmit={handleSaveReply}
                   className="grid gap-4 rounded-[2rem] border border-slate-200 bg-[#F7F9FA] p-5"
@@ -1066,7 +1070,8 @@ export default function InboxPage() {
                     disabled={
                       isGeneratingAiReply ||
                       isLoadingMessages ||
-                      !hasEnoughCredits
+                      !hasEnoughCredits ||
+                      (selectedIsWhatsApp && !isWhatsAppWindowOpen(selectedConversation.whatsapp_last_customer_at))
                     }
                     className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-lg font-black text-[#07111F] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:text-xl"
                   >
@@ -1097,7 +1102,7 @@ export default function InboxPage() {
 
                   <button
                     type="submit"
-                    disabled={isSavingReply || isGeneratingAiReply}
+                    disabled={isSavingReply || isGeneratingAiReply || (selectedIsWhatsApp && !isWhatsAppWindowOpen(selectedConversation.whatsapp_last_customer_at))}
                     className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Send className="h-6 w-6" />
@@ -1305,7 +1310,7 @@ function ConversationHeader({
             className="inline-flex items-center justify-center gap-2 rounded-full bg-amber-100 px-5 py-3 text-sm font-black text-amber-800"
           >
             <ShieldCheck className="h-4 w-4" />
-            Mark Handover
+            {conversation.handover_requested ? "Resume AI" : "Pause AI"}
           </button>
 
           <select
@@ -1365,7 +1370,9 @@ function MessageBubble({ message }: { message: MessageRow }) {
         <p className="mt-3 flex items-center gap-2 text-xs font-black opacity-60">
           <Clock3 className="h-3 w-3" />
           {formatDate(message.created_at)}
+          {!isCustomer && message.delivery_status ? ` · ${deliveryLabel(message.delivery_status)}` : ""}
         </p>
+        {message.delivery_error ? <p className="mt-2 text-sm">{message.delivery_error}</p> : null}
       </div>
     </div>
   );

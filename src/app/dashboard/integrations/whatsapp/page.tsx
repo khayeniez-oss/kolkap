@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import {
   AlertCircle,
@@ -9,12 +9,11 @@ import {
   ArrowRight,
   Bot,
   CheckCircle2,
-  CirclePause,
   Inbox,
-  KeyRound,
   MessageCircle,
   Phone,
   PlugZap,
+  Plus,
   RefreshCcw,
   Send,
   Settings,
@@ -30,6 +29,8 @@ import {
   getPlanWhatsAppNumberLimitLabel,
 } from "@/lib/kolkapPlan";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
+import { createEmbeddedSignupAttempt, getSignupFeatureType, isSignupCompletion, normalizeSignupPhone, parseEmbeddedSignupEvent, type WhatsAppNumberOption } from "@/lib/whatsapp/embeddedSignup";
+import { WhatsAppNumberSetup } from "@/components/whatsapp/WhatsAppNumberSetup";
 
 declare global {
   interface Window {
@@ -119,6 +120,7 @@ type WhatsAppLogRow = {
   connection_id: string | null;
   direction: string;
   status: string;
+  delivery_status?: string | null;
   customer_phone: string | null;
   display_phone_number: string | null;
   message_text: string | null;
@@ -126,15 +128,6 @@ type WhatsAppLogRow = {
   error_message: string | null;
   credits_used: number;
   created_at: string;
-};
-
-type EmbeddedSignupInfo = {
-  phone_number_id?: string;
-  waba_id?: string;
-  business_id?: string;
-  phone_number?: string;
-  event?: string;
-  raw?: unknown;
 };
 
 type ActiveTab = "overview" | "numbers" | "logs" | "settings";
@@ -173,6 +166,8 @@ const metaGraphVersion =
   process.env.NEXT_PUBLIC_META_GRAPH_VERSION ||
   process.env.NEXT_PUBLIC_META_API_VERSION ||
   "v23.0";
+
+const metaCoexistenceConfigId = process.env.NEXT_PUBLIC_META_WHATSAPP_COEXISTENCE_CONFIG_ID || metaConfigId;
 
 function cleanText(value: unknown, fallback = "") {
   return String(value || fallback).trim();
@@ -295,38 +290,6 @@ function getConnectionTeamSummary({
   };
 }
 
-function parseEmbeddedSignupMessage(data: unknown): EmbeddedSignupInfo | null {
-  if (!data || typeof data !== "object") return null;
-
-  const payload = data as Record<string, unknown>;
-  const eventType = cleanText(payload.type || payload.event);
-
-  if (
-    eventType !== "WA_EMBEDDED_SIGNUP" &&
-    eventType !== "whatsapp_embedded_signup" &&
-    !payload.phone_number_id &&
-    !payload.waba_id
-  ) {
-    return null;
-  }
-
-  const innerData =
-    typeof payload.data === "object" && payload.data !== null
-      ? (payload.data as Record<string, unknown>)
-      : payload;
-
-  return {
-    phone_number_id: cleanText(
-      innerData.phone_number_id || innerData.phoneNumberId
-    ),
-    waba_id: cleanText(innerData.waba_id || innerData.wabaId),
-    business_id: cleanText(innerData.business_id || innerData.businessId),
-    phone_number: cleanText(innerData.phone_number || innerData.phoneNumber),
-    event: eventType,
-    raw: payload,
-  };
-}
-
 async function getAccessToken() {
   const supabase = createClient();
 
@@ -349,7 +312,12 @@ function loadFacebookSdk(): Promise<void> {
       return;
     }
 
+    const timeout = window.setTimeout(() => {
+      reject(new Error("Facebook signup could not load. Check popup or content blockers and try again."));
+    }, 20000);
+
     window.fbAsyncInit = function fbAsyncInit() {
+      window.clearTimeout(timeout);
       window.FB?.init({
         appId: metaAppId,
         autoLogAppEvents: true,
@@ -371,8 +339,11 @@ function loadFacebookSdk(): Promise<void> {
     script.src = "https://connect.facebook.net/en_US/sdk.js";
     script.async = true;
     script.defer = true;
-    script.onerror = () =>
+    script.onerror = () => {
+      window.clearTimeout(timeout);
+      script.remove();
       reject(new Error("Facebook SDK could not be loaded."));
+    };
 
     document.body.appendChild(script);
   });
@@ -400,8 +371,11 @@ export default function WhatsAppIntegrationPage() {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [embeddedSignupInfo, setEmbeddedSignupInfo] =
-    useState<EmbeddedSignupInfo | null>(null);
+  const [numberOption, setNumberOption] = useState<WhatsAppNumberOption | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [confirmedNewNumber, setConfirmedNewNumber] = useState(false);
+  const [metaSdkReady, setMetaSdkReady] = useState(false);
+  const signupAttempt = useRef<ReturnType<typeof createEmbeddedSignupAttempt> | null>(null);
 
   const aiStaffById = useMemo(() => {
     return new Map(aiStaff.map((item) => [item.id, item]));
@@ -463,7 +437,7 @@ export default function WhatsAppIntegrationPage() {
     try {
       const supabase = createClient();
 
-      const [{ data: staffData }, { data: connectionData }, { data: logData }] =
+      const [{ data: staffData, error: staffError }, { data: connectionData, error: connectionError }, { data: logData, error: logError }] =
         await Promise.all([
           supabase
             .from("ai_staff")
@@ -482,12 +456,16 @@ export default function WhatsAppIntegrationPage() {
           supabase
             .from("whatsapp_message_logs")
             .select(
-              "id,workspace_id,connection_id,direction,status,customer_phone,display_phone_number,message_text,error_code,error_message,credits_used,created_at"
+              "id,workspace_id,connection_id,direction,status,delivery_status,customer_phone,display_phone_number,message_text,error_code,error_message,credits_used,created_at"
             )
             .eq("workspace_id", workspace.id)
             .order("created_at", { ascending: false })
             .limit(50),
         ]);
+
+      if (staffError || connectionError || logError) {
+        throw staffError || connectionError || logError;
+      }
 
       const staffRows = (staffData ?? []) as AiStaffRow[];
       const connectionRows = (connectionData ?? []) as WhatsAppConnectionRow[];
@@ -544,28 +522,32 @@ export default function WhatsAppIntegrationPage() {
   }, [workspace?.id]);
 
   useEffect(() => {
+    if (!isFormOpen || editingConnectionId || !metaAppId || !metaConfigId) return;
+    let cancelled = false;
+    // Load before the button click so Facebook's popup opens inside the
+    // user's click event, rather than after a slow SDK network request.
+    loadFacebookSdk().then(() => {
+      if (!cancelled) setMetaSdkReady(true);
+    }).catch(() => {
+      if (!cancelled) setError("Facebook signup could not load. Check your connection or content blocker and reopen number setup.");
+    });
+    return () => { cancelled = true; };
+  }, [isFormOpen, editingConnectionId]);
+
+  useEffect(() => {
     function handleMetaMessage(event: MessageEvent) {
-      if (
-        !event.origin.includes("facebook.com") &&
-        !event.origin.includes("facebook.net")
-      ) {
-        return;
-      }
-
-      let parsed: unknown = event.data;
-
-      if (typeof event.data === "string") {
-        try {
-          parsed = JSON.parse(event.data);
-        } catch {
-          return;
+      const attempt = signupAttempt.current;
+      if (!attempt) return;
+      const info = parseEmbeddedSignupEvent(event.origin, event.data);
+      if (info) {
+        if (!attempt.accept(info)) return;
+        if (!isSignupCompletion(info)) {
+          signupAttempt.current = null;
+          setIsConnectingMeta(false);
+          setError(info.event === "CANCEL"
+            ? "WhatsApp signup was cancelled. Nothing has been connected."
+            : "Meta could not complete signup. Please try again.");
         }
-      }
-
-      const signupInfo = parseEmbeddedSignupMessage(parsed);
-
-      if (signupInfo) {
-        setEmbeddedSignupInfo(signupInfo);
       }
     }
 
@@ -573,10 +555,13 @@ export default function WhatsAppIntegrationPage() {
 
     return () => {
       window.removeEventListener("message", handleMetaMessage);
+      signupAttempt.current?.cancel();
+      signupAttempt.current = null;
     };
-  }, []);
+  }, [workspace?.id]);
 
   function openConnectForm() {
+    if (signupAttempt.current) return;
     setSuccess("");
     setError("");
 
@@ -588,15 +573,11 @@ export default function WhatsAppIntegrationPage() {
       return;
     }
 
-    const firstStaffId = aiStaff[0]?.id || "";
-
     setEditingConnectionId(null);
-    setForm({
-      ...emptyForm,
-      selected_ai_staff_id: firstStaffId,
-      ai_team_staff_ids: firstStaffId ? [firstStaffId] : [],
-      first_responder_ai_staff_id: firstStaffId,
-    });
+    setForm(emptyForm);
+    setNumberOption(null);
+    setPhoneNumber("");
+    setConfirmedNewNumber(false);
     setIsFormOpen(true);
     setActiveTab("numbers");
   }
@@ -648,72 +629,19 @@ export default function WhatsAppIntegrationPage() {
     setSuccess("");
 
     try {
-      const supabase = createClient();
       const normalizedTeam = normalizeAiTeamIds({
-        teamIds: form.ai_team_staff_ids,
-        firstResponderId: form.first_responder_ai_staff_id,
-        fallbackId: form.selected_ai_staff_id,
+        teamIds: form.ai_team_staff_ids, firstResponderId: form.first_responder_ai_staff_id, fallbackId: form.selected_ai_staff_id,
       });
-
-      if (form.is_primary) {
-        await supabase
-          .from("workspace_whatsapp_connections")
-          .update({ is_primary: false })
-          .eq("workspace_id", workspace.id)
-          .neq("id", editingConnectionId);
-      }
-
-      const { error: updateError } = await supabase
-        .from("workspace_whatsapp_connections")
-        .update({
-          connection_label: form.connection_label.trim() || null,
-          selected_ai_staff_id: normalizedTeam.firstResponderId || null,
-          ai_enabled: form.ai_enabled,
-          auto_reply_enabled: form.auto_reply_enabled,
-          handover_enabled: form.handover_enabled,
-          is_primary: form.is_primary,
-          notes: form.notes.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", editingConnectionId)
-        .eq("workspace_id", workspace.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      const { error: deleteAssignmentError } = await supabase
-        .from("channel_ai_assignments")
-        .delete()
-        .eq("workspace_id", workspace.id)
-        .eq("channel_type", "whatsapp")
-        .eq("channel_connection_id", editingConnectionId);
-
-      if (deleteAssignmentError) {
-        throw deleteAssignmentError;
-      }
-
-      if (normalizedTeam.teamIds.length) {
-        const assignmentRows = normalizedTeam.teamIds.map((aiStaffId, index) => ({
-          workspace_id: workspace.id,
-          channel_type: "whatsapp",
-          channel_connection_id: editingConnectionId,
-          ai_staff_id: aiStaffId,
-          is_enabled: true,
-          is_default: aiStaffId === normalizedTeam.firstResponderId,
-          priority: (index + 1) * 10,
-          routing_notes: null,
-          created_by_user_id: null,
-        }));
-
-        const { error: assignmentError } = await supabase
-          .from("channel_ai_assignments")
-          .insert(assignmentRows);
-
-        if (assignmentError) {
-          throw assignmentError;
-        }
-      }
+      const token = await getAccessToken();
+      const response = await fetch("/api/meta/whatsapp/settings", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({workspace_id:workspace.id,connection_id:editingConnectionId,staff_ids:normalizedTeam.teamIds,
+          settings:{connection_label:form.connection_label,selected_ai_staff_id:normalizedTeam.firstResponderId || null,
+            ai_enabled:form.ai_enabled,auto_reply_enabled:form.auto_reply_enabled,handover_enabled:form.handover_enabled,
+            is_primary:form.is_primary,notes:form.notes}}),
+      });
+      const result = await response.json();
+      if(!response.ok) throw new Error(result.error || "WhatsApp settings could not be saved.");
 
       setSuccess("WhatsApp AI Team saved.");
       setIsFormOpen(false);
@@ -732,6 +660,7 @@ export default function WhatsAppIntegrationPage() {
   }
 
   async function startMetaEmbeddedSignup() {
+    if (signupAttempt.current) return;
     if (!workspace?.id) {
       setError("Workspace is not ready yet.");
       return;
@@ -742,9 +671,15 @@ export default function WhatsAppIntegrationPage() {
       return;
     }
 
+    const expectedPhone = normalizeSignupPhone(phoneNumber);
+    if (!numberOption || !expectedPhone || (numberOption === "new_number" && !confirmedNewNumber)) {
+      setError("Choose a number option and enter your number with country code. For a new number, confirm it is not already used in WhatsApp.");
+      return;
+    }
+
     if (!metaAppId || !metaConfigId) {
       setError(
-        "Meta Embedded Signup is not configured yet. Add NEXT_PUBLIC_META_APP_ID and NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID to your environment."
+        "WhatsApp connection is not available yet. Please contact support or try again later."
       );
       return;
     }
@@ -752,42 +687,40 @@ export default function WhatsAppIntegrationPage() {
     setIsConnectingMeta(true);
     setError("");
     setSuccess("");
-    setEmbeddedSignupInfo(null);
+    const attempt = createEmbeddedSignupAttempt();
+    signupAttempt.current = attempt;
 
     try {
-      await loadFacebookSdk();
+      if (signupAttempt.current !== attempt) return;
 
-      if (!window.FB) {
+      if (!metaSdkReady || !window.FB) {
         throw new Error("Facebook SDK is not ready yet.");
       }
 
       window.FB.login(
   (response) => {
+    if (signupAttempt.current !== attempt || !attempt.claim()) return;
     void (async () => {
       try {
         const code = cleanText(response.authResponse?.code);
 
             if (!code) {
-              setError(
-                "Meta signup was cancelled or did not return an authorization code."
-              );
-              setIsConnectingMeta(false);
-              return;
+              throw new Error("Meta signup was cancelled or did not return an authorization code.");
             }
 
+            const completedSignup = await attempt.waitForCompletion();
+
+            // The server verifies whether Meta preserved Business-app access.
+
             const token = await getAccessToken();
+
+            if (signupAttempt.current !== attempt) return;
 
             if (!token) {
               setError("Please log in again before connecting WhatsApp.");
               setIsConnectingMeta(false);
               return;
             }
-
-            const normalizedTeam = normalizeAiTeamIds({
-              teamIds: form.ai_team_staff_ids,
-              firstResponderId: form.first_responder_ai_staff_id,
-              fallbackId: form.selected_ai_staff_id,
-            });
 
             const apiResponse = await fetch(
               "/api/meta/whatsapp/embedded-signup",
@@ -800,24 +733,19 @@ export default function WhatsAppIntegrationPage() {
                 body: JSON.stringify({
                   code,
                   workspace_id: workspace.id,
-                  connection_label: form.connection_label.trim() || null,
-                  selected_ai_staff_id: normalizedTeam.firstResponderId || null,
-                  ai_enabled: form.ai_enabled,
-                  auto_reply_enabled: form.auto_reply_enabled,
-                  handover_enabled: form.handover_enabled,
-                  is_primary: form.is_primary,
-                  notes: form.notes.trim() || null,
+                  number_option: numberOption,
+                  expected_phone_number: expectedPhone,
+                  is_primary: visibleConnections.length === 0,
                   phone_number_id:
-                    embeddedSignupInfo?.phone_number_id || undefined,
-                  waba_id: embeddedSignupInfo?.waba_id || undefined,
-                  business_id: embeddedSignupInfo?.business_id || undefined,
-                  phone_number: embeddedSignupInfo?.phone_number || undefined,
-                  embedded_signup_info: embeddedSignupInfo || null,
+                    completedSignup.phone_number_id,
+                  waba_id: completedSignup.waba_id,
                 }),
               }
             );
 
             const result = await apiResponse.json().catch(() => ({}));
+
+            if (signupAttempt.current !== attempt) return;
 
             if (!apiResponse.ok || result.success === false) {
               setError(
@@ -828,71 +756,44 @@ export default function WhatsAppIntegrationPage() {
               return;
             }
 
-            const createdConnectionId = cleanText(
-              (result as {
-                connection?: { id?: string };
-                connection_id?: string;
-                id?: string;
-              }).connection?.id ||
-                (result as { connection_id?: string }).connection_id ||
-                (result as { id?: string }).id
-            );
-
-            if (createdConnectionId && normalizedTeam.teamIds.length) {
-              const supabase = createClient();
-
-              await supabase
-                .from("channel_ai_assignments")
-                .delete()
-                .eq("workspace_id", workspace.id)
-                .eq("channel_type", "whatsapp")
-                .eq("channel_connection_id", createdConnectionId);
-
-              await supabase.from("channel_ai_assignments").insert(
-                normalizedTeam.teamIds.map((aiStaffId, index) => ({
-                  workspace_id: workspace.id,
-                  channel_type: "whatsapp",
-                  channel_connection_id: createdConnectionId,
-                  ai_staff_id: aiStaffId,
-                  is_enabled: true,
-                  is_default: aiStaffId === normalizedTeam.firstResponderId,
-                  priority: (index + 1) * 10,
-                  routing_notes: null,
-                  created_by_user_id: null,
-                }))
-              );
-            }
-
-            setSuccess(
-              "WhatsApp connected. Choose your First Responder AI, test replies, then turn auto-reply on when ready."
-            );
-            setIsFormOpen(false);
-            setEditingConnectionId(null);
-            setForm(emptyForm);
             await loadWhatsAppSetup();
+            if (signupAttempt.current !== attempt) return;
+            if (!result.connection?.id) throw new Error("The linked number could not be loaded. Refresh the WhatsApp numbers list.");
+            openEditForm(result.connection as WhatsAppConnectionRow);
+            setSuccess(
+              result.notice || "WhatsApp account linked. Send a test message to confirm delivery before enabling auto-reply."
+            );
           } catch (connectError) {
+            if (signupAttempt.current !== attempt) return;
             setError(
               connectError instanceof Error
                 ? connectError.message
                 : "WhatsApp could not be connected."
             );
                   } finally {
-          setIsConnectingMeta(false);
+          if (signupAttempt.current === attempt) {
+            signupAttempt.current = null;
+            attempt.cancel();
+            setIsConnectingMeta(false);
+          }
         }
       })();
     },
     {
-      config_id: metaConfigId,
+      config_id: numberOption === "existing_business_app" ? metaCoexistenceConfigId : metaConfigId,
           response_type: "code",
           override_default_response_type: true,
           extras: {
             setup: {},
-            featureType: "whatsapp_embedded_signup",
+            featureType: getSignupFeatureType(numberOption),
             sessionInfoVersion: "3",
           },
         }
       );
     } catch (connectError) {
+      if (signupAttempt.current !== attempt) return;
+      signupAttempt.current = null;
+      attempt.cancel();
       setError(
         connectError instanceof Error
           ? connectError.message
@@ -973,7 +874,7 @@ export default function WhatsAppIntegrationPage() {
                       Meta Setup
                     </p>
                     <p className="mt-2 text-2xl font-black text-[#7CFF3D]">
-                      {metaReady ? "Ready" : "Needs env setup"}
+                      {metaReady ? "Setup available" : "Unavailable"}
                     </p>
                   </div>
                 </div>
@@ -986,8 +887,8 @@ export default function WhatsAppIntegrationPage() {
                   disabled={!canAddWhatsAppNumber}
                   className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <PlugZap className="h-6 w-6" />
-                  Connect with Meta
+                  <Plus className="h-6 w-6" />
+                  Add Phone Number
                 </button>
 
                 <Link
@@ -1014,12 +915,10 @@ export default function WhatsAppIntegrationPage() {
         {!metaReady ? (
           <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-800">
             <p className="text-lg font-black">
-              Meta Embedded Signup is not fully configured
+              WhatsApp connection is not available yet
             </p>
             <p className="mt-1 text-base font-semibold leading-7">
-              Add NEXT_PUBLIC_META_APP_ID and
-              NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID to your environment before
-              customers can connect WhatsApp from this page.
+              Please contact support or try again later.
             </p>
           </div>
         ) : null}
@@ -1110,18 +1009,27 @@ export default function WhatsAppIntegrationPage() {
               canAddWhatsAppNumber={canAddWhatsAppNumber}
             />
 
-            {isFormOpen ? (
+            {isFormOpen && !editingConnectionId ? (
+              <WhatsAppNumberSetup
+                option={numberOption}
+                phone={phoneNumber}
+                confirmedNew={confirmedNewNumber}
+                busy={isConnectingMeta}
+                metaReady={metaReady && metaSdkReady}
+                onOption={(value) => { setNumberOption(value); setConfirmedNewNumber(false); setError(""); }}
+                onPhone={(value) => { setPhoneNumber(value); setConfirmedNewNumber(false); }}
+                onConfirmNew={setConfirmedNewNumber}
+                onContinue={startMetaEmbeddedSignup}
+                onCancel={() => { setIsFormOpen(false); setNumberOption(null); setPhoneNumber(""); }}
+              />
+            ) : isFormOpen ? (
               <WhatsAppSetupForm
                 form={form}
                 setForm={setForm}
                 aiStaff={aiStaff}
                 isSaving={isSaving}
-                isConnectingMeta={isConnectingMeta}
-                editing={Boolean(editingConnectionId)}
-                metaReady={metaReady}
-                embeddedSignupInfo={embeddedSignupInfo}
                 onSaveSettings={saveConnectionSettings}
-                onConnectWithMeta={startMetaEmbeddedSignup}
+                linkedNumber={connections.find((connection) => connection.id === editingConnectionId)?.display_phone_number || ""}
                 onCancel={() => {
                   setIsFormOpen(false);
                   setEditingConnectionId(null);
@@ -1191,8 +1099,8 @@ function OverviewPanel({
             disabled={!canAddWhatsAppNumber}
             className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-base font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <PlugZap className="h-5 w-5" />
-            Connect with Meta
+            <Plus className="h-5 w-5" />
+            Add Phone Number
           </button>
         </div>
 
@@ -1255,23 +1163,23 @@ function OverviewPanel({
         <div className="mt-6 grid gap-4">
           <FlowStep
             number="1"
-            title="Connect with Meta"
-            text="The business owner connects their official WhatsApp number through Meta Embedded Signup."
+            title="Add your phone number"
+            text="Use an existing WhatsApp Business app number, subject to Meta eligibility, or a separate new number."
           />
           <FlowStep
             number="2"
-            title="Choose AI staff"
-            text="Choose an AI Team and set your Admin AI or Reception AI as the First Responder."
+            title="Continue with Meta"
+            text="Sign in to Facebook, select or create your business accounts, and authorise the number connection."
           />
           <FlowStep
             number="3"
-            title="Turn auto-reply on"
-            text="When auto-reply is on, AI replies automatically. When off, Inbox can still generate suggestions."
+            title="Choose AI staff"
+            text="Once the number is linked, select the AI staff who should help with replies."
           />
           <FlowStep
             number="4"
-            title="Manage in Inbox"
-            text="All inbound messages, AI replies, and human replies are saved in the customer Inbox."
+            title="Test, then enable auto-reply"
+            text="Send a message from another phone and check Inbox. Enable auto-reply when your AI is ready."
           />
         </div>
 
@@ -1340,8 +1248,8 @@ function WhatsAppNumbersInventory({
           disabled={!canAddWhatsAppNumber}
           className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-base font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <PlugZap className="h-5 w-5" />
-          Connect
+          <Plus className="h-5 w-5" />
+          Add Phone Number
         </button>
       </div>
 
@@ -1405,8 +1313,8 @@ function EmptyNumbersState({
         disabled={!canAddWhatsAppNumber}
         className="mt-6 inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-7 py-4 text-base font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <PlugZap className="h-5 w-5" />
-        Connect with Meta
+        <Plus className="h-5 w-5" />
+        Add Phone Number
       </button>
     </div>
   );
@@ -1559,7 +1467,7 @@ function ConnectNumberSideCard({
       {!metaReady ? (
         <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-amber-800">
           <p className="text-base font-black">
-            Meta environment variables are missing.
+            WhatsApp connection is not available yet. Please contact support.
           </p>
         </div>
       ) : null}
@@ -1576,8 +1484,8 @@ function ConnectNumberSideCard({
         disabled={!canAddWhatsAppNumber}
         className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#07111F] px-8 py-5 text-xl font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <PlugZap className="h-6 w-6" />
-        Start Meta Setup
+        <Plus className="h-6 w-6" />
+        Add Phone Number
       </button>
     </div>
   );
@@ -1588,24 +1496,16 @@ function WhatsAppSetupForm({
   setForm,
   aiStaff,
   isSaving,
-  isConnectingMeta,
-  editing,
-  metaReady,
-  embeddedSignupInfo,
+  linkedNumber,
   onSaveSettings,
-  onConnectWithMeta,
   onCancel,
 }: {
   form: WhatsAppForm;
   setForm: Dispatch<SetStateAction<WhatsAppForm>>;
   aiStaff: AiStaffRow[];
   isSaving: boolean;
-  isConnectingMeta: boolean;
-  editing: boolean;
-  metaReady: boolean;
-  embeddedSignupInfo: EmbeddedSignupInfo | null;
+  linkedNumber: string;
   onSaveSettings: () => void;
-  onConnectWithMeta: () => void;
   onCancel: () => void;
 }) {
   const selectedAiTeam = useMemo(() => {
@@ -1618,15 +1518,15 @@ function WhatsAppSetupForm({
     <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-7">
       <div className="mb-6 flex items-center gap-4">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-          {editing ? <Settings className="h-8 w-8" /> : <PlugZap className="h-8 w-8" />}
+          <Settings className="h-8 w-8" />
         </div>
 
         <div>
           <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-            {editing ? "Edit Controls" : "Meta Setup"}
+            {linkedNumber || "Linked number"}
           </p>
           <h2 className="mt-1 text-3xl font-black tracking-[-0.04em]">
-            {editing ? "WhatsApp AI controls" : "Connect official WhatsApp"}
+            Choose AI staff and test replies
           </h2>
         </div>
       </div>
@@ -1804,39 +1704,16 @@ function WhatsAppSetupForm({
           />
         </label>
 
-        {!editing ? (
-          <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5 text-blue-900">
-            <div className="flex items-start gap-4">
-              <KeyRound className="mt-1 h-6 w-6 shrink-0" />
-              <div>
-                <p className="text-lg font-black">
-                  Meta will verify and connect the official number.
-                </p>
-                <p className="mt-2 text-base font-semibold leading-7">
-                  After Meta signup finishes, Kolkap saves the real WhatsApp
-                  phone number ID, WABA ID, and access token through the backend.
-                </p>
-              </div>
-            </div>
+        <div className="rounded-2xl bg-blue-50 p-4 text-sm font-semibold leading-6 text-blue-900">
+          Save your AI staff, then send a message to {linkedNumber || "this number"} from another phone.
+          Check delivery in Inbox and test your AI before enabling auto-reply.
+          <div className="mt-3 flex gap-5">
+            <Link href="/dashboard/test-ai" className="font-black underline">Test AI replies</Link>
+            <Link href="/dashboard/inbox" className="font-black underline">Open Inbox</Link>
           </div>
-        ) : null}
-
-        {embeddedSignupInfo ? (
-          <div className="rounded-3xl border border-green-200 bg-green-50 p-5 text-green-800">
-            <p className="text-base font-black">
-              Meta signup information received.
-            </p>
-            <p className="mt-1 text-sm font-semibold">
-              Phone number ID: {embeddedSignupInfo.phone_number_id || "Pending"}
-            </p>
-            <p className="mt-1 text-sm font-semibold">
-              WABA ID: {embeddedSignupInfo.waba_id || "Pending"}
-            </p>
-          </div>
-        ) : null}
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          {editing ? (
             <button
               type="button"
               onClick={onSaveSettings}
@@ -1846,22 +1723,11 @@ function WhatsAppSetupForm({
               <CheckCircle2 className="h-6 w-6" />
               {isSaving ? "Saving..." : "Save Controls"}
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onConnectWithMeta}
-              disabled={isConnectingMeta || !metaReady}
-              className="inline-flex items-center justify-center gap-3 rounded-full bg-[#07111F] px-7 py-5 text-lg font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <PlugZap className="h-6 w-6" />
-              {isConnectingMeta ? "Connecting..." : "Connect with Meta"}
-            </button>
-          )}
 
           <button
             type="button"
             onClick={onCancel}
-            disabled={isSaving || isConnectingMeta}
+            disabled={isSaving}
             className="inline-flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-[#F7F9FA] px-7 py-5 text-lg font-black text-[#07111F] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancel
@@ -2043,12 +1909,12 @@ function MessageLogs({ logs }: { logs: WhatsAppLogRow[] }) {
 
                   <p
                     className={`font-black ${
-                      log.status === "failed" || log.error_message
+                      (log.delivery_status || log.status) === "failed" || log.error_message
                         ? "text-red-600"
                         : "text-green-700"
                     }`}
                   >
-                    {messageStatusText(log.status)}
+                    {messageStatusText(log.delivery_status || log.status)}
                   </p>
 
                   <p>{log.credits_used}</p>
