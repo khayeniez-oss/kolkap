@@ -1,10 +1,12 @@
-import { channelAccess, channelErrorResponse } from "@/lib/whatsapp/server";
+import { channelAccess, channelErrorResponse, channelRpc, ChannelError } from "@/lib/whatsapp/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { runKolkapBrain } from "@/lib/kolkap-ai/brain";
 import { logWorkspaceUsage } from "@/lib/kolkap-usage/logUsage";
 import { KOLKAP_AI_GENERATION_MIN_CREDITS } from "@/lib/kolkapPlan";
+import { isUuid } from "@/lib/whatsapp/policy";
+import { processEmailSuggestion, type EmailJob } from "@/lib/email/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -255,6 +257,50 @@ export async function POST(request: Request) {
         },
         { status: 402 }
       );
+    }
+
+    if (conversation.customer_channel === "email") {
+      if (!isUuid(body.request_id)) {
+        throw new ChannelError("Refresh Inbox before generating this suggestion.");
+      }
+      let job = await channelRpc<EmailJob>("prepare_email_ai_suggestion", {
+        p_request_id: body.request_id,
+        p_conversation_id: conversation.id,
+        p_actor_user_id: user.id,
+        p_ai_staff_id: conversation.ai_staff_id || null,
+      });
+      job = await processEmailSuggestion(job.id, {
+        language,
+        tone,
+        extraInstructions,
+        uiLanguage,
+      });
+      if (job.phase !== "generated" || !job.reply_text) {
+        return NextResponse.json(
+          {
+            error:
+              job.error_message ||
+              "The email suggestion was not generated. Please try again.",
+            error_code: job.error_code,
+            credits_used: job.credits_recorded || 0,
+          },
+          { status: job.error_code === "insufficient_credits" ? 402 : 409 }
+        );
+      }
+      const metadata = job.reply_payload || {};
+      return NextResponse.json({
+        reply: job.reply_text,
+        workspace_id: job.workspace_id,
+        conversation_id: job.conversation_id,
+        customer_channel: "email",
+        knowledge_count: metadata.knowledge_count,
+        model: metadata.model,
+        fallback: metadata.fallback,
+        ai_staff_id: metadata.ai_staff_id || job.ai_staff_id,
+        credits_used: job.credits_recorded,
+        manual_review_mode: true,
+        email_job_id: job.id,
+      });
     }
 
     const result = await runKolkapBrain({

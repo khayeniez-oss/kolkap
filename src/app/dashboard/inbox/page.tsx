@@ -230,6 +230,7 @@ export default function InboxPage() {
   const selectedIdRef = useRef(selectedConversationId);
   useEffect(() => { selectedIdRef.current = selectedConversationId; }, [selectedConversationId]);
   const sendRequestRef = useRef({ key: "", id: "" });
+  const aiRequestRef = useRef({ key: "", id: "" });
 
   const creditsLeft = getCreditsLeft(creditBalance);
   const usedCredits = Number(creditBalance?.used_credits || 0);
@@ -456,15 +457,22 @@ export default function InboxPage() {
 
     setIsGeneratingAiReply(true);
     const generatingForId = selectedConversation.id;
+    const requestKey = JSON.stringify([selectedConversation.id, customerMessage]);
+    if (aiRequestRef.current.key !== requestKey) {
+      aiRequestRef.current = { key: requestKey, id: crypto.randomUUID() };
+    }
 
     try {
+      const token = await getAccessToken();
       const response = await fetch("/api/inbox/ai-reply", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           conversation_id: selectedConversation.id,
+          request_id: aiRequestRef.current.id,
           language: "auto",
           tone: "professional",
           extra_instructions:
@@ -487,6 +495,7 @@ export default function InboxPage() {
         return;
       }
       setReplyText(result.reply || "");
+      aiRequestRef.current = { key: "", id: "" };
 
       const knowledgeText =
         typeof result.knowledge_count === "number"

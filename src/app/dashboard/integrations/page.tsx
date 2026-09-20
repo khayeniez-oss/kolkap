@@ -10,6 +10,7 @@ import {
   CirclePause,
   Globe2,
   MessageCircle,
+  Mail,
   Rocket,
   ShieldCheck,
   Smartphone,
@@ -69,7 +70,7 @@ const setupSteps = [
 const messageFlowItems = [
   {
     title: "Customer sends a message",
-    text: "From Website Chat, WhatsApp, or a future supported channel.",
+    text: "From Website Chat, WhatsApp, or the business's connected email mailbox.",
   },
   {
     title: "Kolkap receives it",
@@ -139,6 +140,39 @@ export default function IntegrationsPage() {
     status: ChannelStatus;
     label: string;
   }>({ status: "checking", label: "Checking..." });
+  const [emailStatus, setEmailStatus] = useState<{
+    status: ChannelStatus;
+    label: string;
+  }>({ status: "checking", label: "Checking..." });
+
+  useEffect(() => {
+    let isCurrent = true;
+    async function loadEmailStatus() {
+      if (!workspace?.id) return;
+      setEmailStatus({ status: "checking", label: "Checking..." });
+      try {
+        const { data, error } = await createClient()
+          .from("workspace_email_connections")
+          .select("status,ai_enabled,auto_reply_enabled,selected_ai_staff_id,is_primary")
+          .eq("workspace_id", workspace.id)
+          .neq("status", "revoked")
+          .order("is_primary", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!isCurrent) return;
+        if (error) throw error;
+        if (!data) setEmailStatus({ status: "setup", label: "Setup Required" });
+        else if (["failed", "reauthorization_required"].includes(data.status)) setEmailStatus({ status: "attention", label: "Needs Attention" });
+        else if (data.status !== "connected") setEmailStatus({ status: "paused", label: "Paused" });
+        else if (data.ai_enabled && data.auto_reply_enabled && data.selected_ai_staff_id) setEmailStatus({ status: "live", label: "Live" });
+        else setEmailStatus({ status: "inbox", label: "Inbox Only" });
+      } catch {
+        if (isCurrent) setEmailStatus({ status: "attention", label: "Could Not Check" });
+      }
+    }
+    void loadEmailStatus();
+    return () => { isCurrent = false; };
+  }, [workspace?.id]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -259,6 +293,17 @@ export default function IntegrationsPage() {
       highlighted: true,
     },
     {
+      name: "Email",
+      status: emailStatus.status,
+      statusLabel: emailStatus.label,
+      description:
+        "Connect a Gmail or Google Workspace mailbox for Inbox, AI replies, and human takeover.",
+      icon: Mail,
+      action: "Manage Email",
+      href: "/dashboard/integrations/email",
+      highlighted: true,
+    },
+    {
       name: "SMS",
       status: "later",
       statusLabel: "Coming Later",
@@ -321,9 +366,8 @@ export default function IntegrationsPage() {
             </h1>
 
             <p className="mt-6 max-w-3xl text-xl font-semibold leading-9 text-slate-300">
-              Connect Website Chat and WhatsApp, then choose which AI staff
-              should help with replies. SMS support will be added later as a
-              separate channel.
+              Connect Website Chat, WhatsApp, or Email, then choose which AI
+              staff should help with replies. SMS support will be added later.
             </p>
 
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
@@ -420,7 +464,7 @@ export default function IntegrationsPage() {
             </p>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-4">
             {channels.map((channel) => {
               const Icon = channel.icon;
 

@@ -4,6 +4,7 @@ import { isUuid, isWhatsAppWindowOpen } from '@/lib/whatsapp/policy';
 import { processWhatsAppJob, whatsappCredentials, whatsappCredits, type WhatsAppJob } from '@/lib/whatsapp/messages';
 import { buildReplyTemplate } from '@/lib/whatsapp/templates';
 import { logWorkspaceUsage } from '@/lib/kolkap-usage/logUsage';
+import { processEmailJob, type EmailJob } from '@/lib/email/server';
 
 export const runtime='nodejs';
 export const maxDuration=60;
@@ -20,6 +21,20 @@ export async function POST(request:Request) {
         p_request_id:body.request_id,p_actor_id:user.id,p_text:text});
       return Response.json({success:true,message,delivered:false,delivery_status:'queued',credits_used:0,
         notice:"Reply saved for Website Chat. It will appear when the visitor opens their chat. AI is paused."});
+    }
+    if(conversation.customer_channel==='email') {
+      if(!isUuid(body.request_id)) throw new ChannelError('Refresh Inbox before sending this reply.');
+      if(!text||text.length>100000) throw new ChannelError('Enter an email reply of up to 100,000 characters.');
+      let job=await channelRpc<EmailJob>('prepare_email_human_send',{
+        p_request_id:body.request_id,p_conversation_id:conversation.id,p_actor_user_id:user.id,p_text:text,
+      });
+      job=await processEmailJob(job.id);
+      if(job.phase!=='sent') return Response.json({success:false,job_id:job.id,delivery_status:job.delivery_status||job.phase,
+        error:job.error_message||'This email has not been sent. Check Email activity before trying again.'},{status:409});
+      const {data:message,error:messageError}=await db.from('customer_messages').select('*').eq('id',job.outbound_message_id).single();
+      if(messageError) throw new ChannelError('Gmail accepted the reply. Refresh Inbox to see it.',503);
+      return Response.json({success:true,message,job_id:job.id,delivery_status:'sent',delivered:true,credits_used:0,
+        notice:'Reply accepted by Gmail and saved in Inbox. Human replies use 0 credits, and AI is paused for this conversation.'});
     }
     if(conversation.customer_channel!=='whatsapp') {
       if(!text||text.length>4096) throw new ChannelError('Enter a reply of up to 4,096 characters.');
