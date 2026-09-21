@@ -7,9 +7,7 @@ import {
   Bot,
   CheckCircle2,
   CircleAlert,
-  Clock3,
   Mail,
-  RefreshCcw,
   Save,
   ShieldCheck,
   Unplug,
@@ -30,7 +28,6 @@ type EmailConnection = {
   auto_reply_enabled: boolean;
   handover_enabled: boolean;
   is_primary: boolean;
-  watch_expiration: string | null;
   last_inbound_at: string | null;
   last_outbound_at: string | null;
   last_error_message: string | null;
@@ -64,10 +61,10 @@ function dateLabel(value: string | null) {
 }
 
 function statusText(connection: EmailConnection | null) {
-  if (!connection) return "Not connected";
-  if (connection.status === "reauthorization_required") return "Reconnect required";
-  if (connection.status === "failed") return "Needs attention";
-  if (connection.status !== "connected") return "Paused";
+  if (!connection) return "Ready to connect";
+  if (connection.status === "reauthorization_required") return "Reconnect your email";
+  if (connection.status === "failed") return "Connection needs attention";
+  if (connection.status !== "connected") return "Email paused";
   if (
     connection.ai_enabled &&
     connection.auto_reply_enabled &&
@@ -76,6 +73,14 @@ function statusText(connection: EmailConnection | null) {
     return "Automatic AI replies live";
   }
   return "Connected — Inbox only";
+}
+
+function statusBadgeText(connection: EmailConnection | null) {
+  if (!connection) return "Not connected";
+  if (connection.status === "connected") return "Connected";
+  if (connection.status === "reauthorization_required") return "Reconnect";
+  if (connection.status === "failed") return "Needs attention";
+  return "Paused";
 }
 
 export default function EmailIntegrationPage() {
@@ -263,31 +268,6 @@ export default function EmailIntegrationPage() {
     }
   }
 
-  async function renewWatch() {
-    if (!workspace?.id || !selected) return;
-    setIsWorking(true);
-    setError("");
-    try {
-      const token = await accessToken();
-      const response = await fetch("/api/email/google/watch", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ workspace_id: workspace.id, connection_id: selected.id }),
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || "Gmail notifications could not be refreshed.");
-      setNotice("Gmail notifications refreshed successfully.");
-      await load();
-    } catch (watchError) {
-      setError(watchError instanceof Error ? watchError.message : "Gmail notifications could not be refreshed.");
-    } finally {
-      setIsWorking(false);
-    }
-  }
-
   async function disconnect() {
     if (!workspace?.id || !selected) return;
     if (!window.confirm(`Disconnect ${selected.mailbox_email || "this mailbox"} from Kolkap?`)) return;
@@ -330,11 +310,11 @@ export default function EmailIntegrationPage() {
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]"><Mail className="h-8 w-8" /></div>
             <div>
               <p className="font-black uppercase tracking-[0.18em] text-[#7CFF3D]">Email Integration</p>
-              <h1 className="mt-1 text-4xl font-black tracking-[-0.05em] sm:text-5xl">Connect the business mailbox.</h1>
+              <h1 className="mt-1 text-4xl font-black tracking-[-0.05em] sm:text-5xl">Connect Gmail or Google Workspace.</h1>
             </div>
           </div>
           <p className="mt-6 max-w-4xl text-lg font-semibold leading-8 text-slate-300">
-            Customers keep emailing the business normally. Kolkap receives those emails, saves them in Inbox, and—only when enabled—uses the assigned AI staff to reply from the same business mailbox.
+            Bring customer emails from your Google-powered inbox into Kolkap. Your team can reply personally, or your assigned AI staff can respond automatically when enabled.
           </p>
         </section>
 
@@ -344,9 +324,9 @@ export default function EmailIntegrationPage() {
         <section className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
             <Mail className="h-10 w-10" />
-            <h2 className="mt-4 text-3xl font-black tracking-[-0.04em]">Google mailbox</h2>
+            <h2 className="mt-4 text-3xl font-black tracking-[-0.04em]">Gmail &amp; Google Workspace</h2>
             <p className="mt-3 font-semibold leading-7 text-slate-600">
-              Gmail and Google Workspace are supported. Google asks the owner to approve read-only email access and permission to send replies.
+              Works with Gmail and business email addresses hosted by Google Workspace, including addresses using your company&apos;s own domain.
             </p>
             {connections.length > 1 ? (
               <div className="mt-5 space-y-2">
@@ -356,26 +336,23 @@ export default function EmailIntegrationPage() {
               </div>
             ) : null}
             <button disabled={isWorking} onClick={connectMailbox} className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-full bg-[#07111F] px-6 py-4 text-lg font-black text-white disabled:opacity-50">
-              <Mail className="h-5 w-5" />{selected ? "Reconnect Google Mailbox" : "Connect Google Mailbox"}
+              <Mail className="h-5 w-5" />{selected ? "Reconnect with Google" : "Connect with Google"}
             </button>
-            <p className="mt-4 text-sm font-semibold leading-6 text-slate-500">
-              While the Google app is in Testing, the mailbox must also be listed as a Google OAuth test user.
-            </p>
           </div>
 
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.18em] text-blue-600">Current status</p>
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-blue-600">Email status</p>
                 <h2 className="mt-2 text-3xl font-black">{statusText(selected)}</h2>
-                <p className="mt-2 text-lg font-bold text-slate-600">{selected?.mailbox_email || "No mailbox connected yet"}</p>
+                <p className="mt-2 text-lg font-bold text-slate-600">{selected?.mailbox_email || "Connect an email account to get started."}</p>
               </div>
-              <span className={`rounded-full px-4 py-2 text-sm font-black ${selected?.status === "connected" ? "bg-lime-100 text-lime-900" : "bg-amber-100 text-amber-900"}`}>{selected?.status || "setup required"}</span>
+              <span className={`rounded-full px-4 py-2 text-sm font-black ${selected?.status === "connected" ? "bg-lime-100 text-lime-900" : "bg-amber-100 text-amber-900"}`}>{statusBadgeText(selected)}</span>
             </div>
             {selected ? (
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl bg-slate-100 p-4"><p className="text-xs font-black uppercase text-slate-500">Gmail watch expires</p><p className="mt-2 font-bold">{dateLabel(selected.watch_expiration)}</p></div>
                 <div className="rounded-2xl bg-slate-100 p-4"><p className="text-xs font-black uppercase text-slate-500">Last customer email</p><p className="mt-2 font-bold">{dateLabel(selected.last_inbound_at)}</p></div>
+                <div className="rounded-2xl bg-slate-100 p-4"><p className="text-xs font-black uppercase text-slate-500">Last reply sent</p><p className="mt-2 font-bold">{dateLabel(selected.last_outbound_at)}</p></div>
               </div>
             ) : null}
             {selected?.last_error_message ? <p className="mt-4 rounded-2xl bg-red-50 p-4 font-bold text-red-700">{selected.last_error_message}</p> : null}
@@ -384,31 +361,29 @@ export default function EmailIntegrationPage() {
 
         {selected ? (
           <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-            <div className="flex items-center gap-4"><Bot className="h-10 w-10" /><div><p className="font-black uppercase tracking-[0.18em] text-blue-600">AI staff settings</p><h2 className="text-3xl font-black">Choose how Email should work.</h2></div></div>
+            <div className="flex items-center gap-4"><Bot className="h-10 w-10" /><div><p className="font-black uppercase tracking-[0.18em] text-blue-600">AI staff settings</p><h2 className="text-3xl font-black">Choose how email replies should work.</h2></div></div>
             <div className="mt-7 grid gap-5 lg:grid-cols-2">
               <label className="font-black">Mailbox label<input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="e.g. Customer Enquiries" className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-4 font-semibold outline-none focus:border-[#07111F]" /></label>
               <label className="font-black">Assigned AI staff<select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-4 font-semibold outline-none focus:border-[#07111F]"><option value="">Choose AI staff</option>{staff.filter((item) => !item.status || item.status === "active").map((item) => <option key={item.id} value={item.id}>{item.name}{item.role ? ` — ${item.role}` : ""}</option>)}</select></label>
             </div>
             <div className="mt-6 grid gap-4 lg:grid-cols-3">
-              <label className="flex cursor-pointer gap-4 rounded-3xl border border-slate-200 p-5"><input type="checkbox" checked={aiEnabled} onChange={(event) => { setAiEnabled(event.target.checked); if (!event.target.checked) setAutoReplyEnabled(false); }} className="mt-1 h-5 w-5" /><span><strong className="block text-lg">Enable AI for Email</strong><span className="mt-1 block font-semibold text-slate-600">Allows suggestions and automatic replies.</span></span></label>
-              <label className="flex cursor-pointer gap-4 rounded-3xl border border-slate-200 p-5"><input type="checkbox" checked={autoReplyEnabled} onChange={(event) => { setAutoReplyEnabled(event.target.checked); if (event.target.checked) setAiEnabled(true); }} className="mt-1 h-5 w-5" /><span><strong className="block text-lg">Reply automatically</strong><span className="mt-1 block font-semibold text-slate-600">3 credits only after Gmail accepts each AI reply.</span></span></label>
+              <label className="flex cursor-pointer gap-4 rounded-3xl border border-slate-200 p-5"><input type="checkbox" checked={aiEnabled} onChange={(event) => { setAiEnabled(event.target.checked); if (!event.target.checked) setAutoReplyEnabled(false); }} className="mt-1 h-5 w-5" /><span><strong className="block text-lg">Enable AI assistance</strong><span className="mt-1 block font-semibold text-slate-600">Allows AI suggestions and automatic replies.</span></span></label>
+              <label className="flex cursor-pointer gap-4 rounded-3xl border border-slate-200 p-5"><input type="checkbox" checked={autoReplyEnabled} onChange={(event) => { setAutoReplyEnabled(event.target.checked); if (event.target.checked) setAiEnabled(true); }} className="mt-1 h-5 w-5" /><span><strong className="block text-lg">Reply automatically</strong><span className="mt-1 block font-semibold text-slate-600">Uses 3 credits for each successful automatic AI reply.</span></span></label>
               <label className="flex cursor-pointer gap-4 rounded-3xl border border-slate-200 p-5"><input type="checkbox" checked={handoverEnabled} onChange={(event) => setHandoverEnabled(event.target.checked)} className="mt-1 h-5 w-5" /><span><strong className="block text-lg">Human handover</strong><span className="mt-1 block font-semibold text-slate-600">Stops AI when the customer asks for a person.</span></span></label>
             </div>
             <div className="mt-7 flex flex-wrap gap-3">
               <button disabled={isWorking} onClick={saveSettings} className="inline-flex items-center gap-3 rounded-full bg-[#7CFF3D] px-7 py-4 text-lg font-black disabled:opacity-50"><Save className="h-5 w-5" />Save Email Settings</button>
-              <button disabled={isWorking} onClick={renewWatch} className="inline-flex items-center gap-3 rounded-full border border-slate-300 px-6 py-4 font-black disabled:opacity-50"><RefreshCcw className="h-5 w-5" />Refresh Gmail Notifications</button>
               <button disabled={isWorking} onClick={disconnect} className="inline-flex items-center gap-3 rounded-full border border-red-200 px-6 py-4 font-black text-red-700 disabled:opacity-50"><Unplug className="h-5 w-5" />Disconnect</button>
             </div>
           </section>
         ) : null}
 
         <section className="grid gap-5 md:grid-cols-3">
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-6"><ShieldCheck className="h-9 w-9" /><h3 className="mt-4 text-xl font-black">Private by design</h3><p className="mt-2 font-semibold leading-7 text-slate-600">Google tokens are encrypted and kept server-side. They are never sent to the browser.</p></div>
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-6"><Zap className="h-9 w-9" /><h3 className="mt-4 text-xl font-black">Fair credit rule</h3><p className="mt-2 font-semibold leading-7 text-slate-600">Incoming email and human replies use 0 credits. A successful AI reply uses 3.</p></div>
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-6"><UsersRound className="h-9 w-9" /><h3 className="mt-4 text-xl font-black">Human control</h3><p className="mt-2 font-semibold leading-7 text-slate-600">A team member can take over from Inbox at any time and send a free human reply.</p></div>
+          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-6"><ShieldCheck className="h-9 w-9" /><h3 className="mt-4 text-xl font-black">Secure connection</h3><p className="mt-2 font-semibold leading-7 text-slate-600">Connect securely through Google. You can disconnect your email at any time.</p></div>
+          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-6"><Zap className="h-9 w-9" /><h3 className="mt-4 text-xl font-black">Simple credit use</h3><p className="mt-2 font-semibold leading-7 text-slate-600">Receiving emails and replies written by your team are free. Each AI-generated reply uses 3 credits.</p></div>
+          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-6"><UsersRound className="h-9 w-9" /><h3 className="mt-4 text-xl font-black">You stay in control</h3><p className="mt-2 font-semibold leading-7 text-slate-600">Your team can take over any conversation and reply personally at any time.</p></div>
         </section>
 
-        <section className="flex items-start gap-4 rounded-[1.8rem] bg-[#07111F] p-6 text-white"><Clock3 className="mt-1 h-7 w-7 shrink-0 text-[#7CFF3D]" /><div><h3 className="text-xl font-black">Automatic watch renewal</h3><p className="mt-2 font-semibold leading-7 text-slate-300">Google Gmail watches expire regularly. Kolkap renews active mailbox watches every day in the background.</p></div></section>
       </div>
     </main>
   );
