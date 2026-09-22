@@ -72,7 +72,7 @@ function statusText(connection: EmailConnection | null) {
   ) {
     return "Automatic AI replies live";
   }
-  return "Connected — Inbox only";
+  return "Connected — AI replies off";
 }
 
 function statusBadgeText(connection: EmailConnection | null) {
@@ -258,7 +258,7 @@ export default function EmailIntegrationPage() {
       setNotice(
         autoReplyEnabled
           ? "Saved. Automatic AI email replies are now active. Each successful AI reply uses 3 credits."
-          : "Saved. Customer emails will appear in Inbox, but AI will not reply automatically."
+          : "Saved. Emails will continue to arrive in your business mailbox and appear in Kolkap Inbox. AI replies are off."
       );
       await load();
     } catch (saveError) {
@@ -314,7 +314,7 @@ export default function EmailIntegrationPage() {
             </div>
           </div>
           <p className="mt-6 max-w-4xl text-lg font-semibold leading-8 text-slate-300">
-            Bring customer emails from your Google-powered inbox into Kolkap. Your team can reply personally, or your assigned AI staff can respond automatically when enabled.
+            Customer emails continue to arrive in your business mailbox and also appear in Kolkap Inbox. Your team or assigned AI staff can reply from the same email address, inside the original email thread.
           </p>
         </section>
 
@@ -326,7 +326,7 @@ export default function EmailIntegrationPage() {
             <Mail className="h-10 w-10" />
             <h2 className="mt-4 text-3xl font-black tracking-[-0.04em]">Gmail &amp; Google Workspace</h2>
             <p className="mt-3 font-semibold leading-7 text-slate-600">
-              Works with Gmail and business email addresses hosted by Google Workspace, including addresses using your company&apos;s own domain.
+              Works with Gmail and Google Workspace, including company email addresses using your own domain. Your mailbox remains with Google.
             </p>
             {connections.length > 1 ? (
               <div className="mt-5 space-y-2">
@@ -379,7 +379,7 @@ export default function EmailIntegrationPage() {
         ) : null}
 
         <section className="grid gap-5 md:grid-cols-3">
-          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-6"><ShieldCheck className="h-9 w-9" /><h3 className="mt-4 text-xl font-black">Secure connection</h3><p className="mt-2 font-semibold leading-7 text-slate-600">Connect securely through Google. You can disconnect your email at any time.</p></div>
+          <div className="rounded-[1.8rem] border border-slate-200 bg-white p-6"><ShieldCheck className="h-9 w-9" /><h3 className="mt-4 text-xl font-black">Your mailbox stays yours</h3><p className="mt-2 font-semibold leading-7 text-slate-600">Your emails remain in Gmail or Google Workspace. You can disconnect Kolkap at any time.</p></div>
           <div className="rounded-[1.8rem] border border-slate-200 bg-white p-6"><Zap className="h-9 w-9" /><h3 className="mt-4 text-xl font-black">Simple credit use</h3><p className="mt-2 font-semibold leading-7 text-slate-600">Receiving emails and replies written by your team are free. Each AI-generated reply uses 3 credits.</p></div>
           <div className="rounded-[1.8rem] border border-slate-200 bg-white p-6"><UsersRound className="h-9 w-9" /><h3 className="mt-4 text-xl font-black">You stay in control</h3><p className="mt-2 font-semibold leading-7 text-slate-600">Your team can take over any conversation and reply personally at any time.</p></div>
         </section>

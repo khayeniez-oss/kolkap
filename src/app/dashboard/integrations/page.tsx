@@ -5,18 +5,11 @@ import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  Bot,
-  CheckCircle2,
-  CirclePause,
   Globe2,
-  MessageCircle,
   Mail,
-  Rocket,
-  ShieldCheck,
+  MessageCircle,
   Smartphone,
-  Sparkles,
   UsersRound,
-  WalletCards,
   type LucideIcon,
 } from "lucide-react";
 import { useKolkapWorkspace } from "@/lib/useKolkapWorkspace";
@@ -43,66 +36,6 @@ type ChannelCard = {
   href?: string;
   highlighted?: boolean;
 };
-
-const setupSteps = [
-  {
-    title: "Create AI staff",
-    text: "Set up the AI role, tone, reply style, and purpose.",
-  },
-  {
-    title: "Add business knowledge",
-    text: "Add services, prices, FAQs, policies, opening hours, and approved answers.",
-  },
-  {
-    title: "Connect channels",
-    text: "Choose where customers can talk to your business.",
-  },
-  {
-    title: "Test replies",
-    text: "Send sample questions and improve the answer before customers see it.",
-  },
-  {
-    title: "Go live or pause",
-    text: "Turn AI replies on when ready. Pause anytime when your team needs control.",
-  },
-];
-
-const messageFlowItems = [
-  {
-    title: "Customer sends a message",
-    text: "From Website Chat, WhatsApp, or the business's connected email mailbox.",
-  },
-  {
-    title: "Kolkap receives it",
-    text: "Kolkap connects the message to the correct business workspace.",
-  },
-  {
-    title: "AI staff helps reply",
-    text: "The reply uses your selected AI staff and saved business knowledge.",
-  },
-  {
-    title: "Inbox and leads update",
-    text: "The conversation, lead activity, and usage are recorded for your team.",
-  },
-];
-
-const userControlsList = [
-  "Choose which AI staff replies",
-  "Test messages before going live",
-  "Turn AI replies on or off",
-  "Pause a channel anytime",
-  "Review conversations in Inbox",
-  "Keep human handover available",
-];
-
-const kolkapHandlesList = [
-  "Customer message intake",
-  "Workspace matching",
-  "Assigned AI staff selection",
-  "Business knowledge use",
-  "Conversation logging",
-  "Lead and usage tracking",
-];
 
 function StatusPill({
   status,
@@ -147,52 +80,90 @@ export default function IntegrationsPage() {
 
   useEffect(() => {
     let isCurrent = true;
+
     async function loadEmailStatus() {
       if (!workspace?.id) return;
       setEmailStatus({ status: "checking", label: "Checking..." });
+
       try {
         const { data, error } = await createClient()
           .from("workspace_email_connections")
-          .select("status,ai_enabled,auto_reply_enabled,selected_ai_staff_id,is_primary")
+          .select(
+            "status,ai_enabled,auto_reply_enabled,selected_ai_staff_id,is_primary"
+          )
           .eq("workspace_id", workspace.id)
           .neq("status", "revoked")
           .order("is_primary", { ascending: false })
           .limit(1)
           .maybeSingle();
+
         if (!isCurrent) return;
         if (error) throw error;
-        if (!data) setEmailStatus({ status: "setup", label: "Setup Required" });
-        else if (["failed", "reauthorization_required"].includes(data.status)) setEmailStatus({ status: "attention", label: "Needs Attention" });
-        else if (data.status !== "connected") setEmailStatus({ status: "paused", label: "Paused" });
-        else if (data.ai_enabled && data.auto_reply_enabled && data.selected_ai_staff_id) setEmailStatus({ status: "live", label: "Live" });
-        else setEmailStatus({ status: "inbox", label: "Inbox Only" });
+
+        if (!data) {
+          setEmailStatus({ status: "setup", label: "Not Connected" });
+        } else if (
+          ["failed", "reauthorization_required"].includes(data.status)
+        ) {
+          setEmailStatus({ status: "attention", label: "Needs Attention" });
+        } else if (data.status !== "connected") {
+          setEmailStatus({ status: "paused", label: "Paused" });
+        } else if (
+          data.ai_enabled &&
+          data.auto_reply_enabled &&
+          data.selected_ai_staff_id
+        ) {
+          setEmailStatus({ status: "live", label: "AI Replies On" });
+        } else {
+          setEmailStatus({ status: "inbox", label: "AI Replies Off" });
+        }
       } catch {
-        if (isCurrent) setEmailStatus({ status: "attention", label: "Could Not Check" });
+        if (isCurrent) {
+          setEmailStatus({ status: "attention", label: "Could Not Check" });
+        }
       }
     }
+
     void loadEmailStatus();
-    return () => { isCurrent = false; };
+
+    return () => {
+      isCurrent = false;
+    };
   }, [workspace?.id]);
 
   useEffect(() => {
     let isCurrent = true;
+
     async function loadWhatsAppStatus() {
       if (!workspace?.id) return;
       setWhatsAppStatus({ status: "checking", label: "Checking..." });
+
       try {
         const { data, error } = await createClient()
           .from("workspace_whatsapp_connections")
-          .select("status,meta_phone_number_id,meta_waba_id,last_error_code,last_inbound_at,ai_enabled,auto_reply_enabled,selected_ai_staff_id")
+          .select(
+            "status,meta_phone_number_id,meta_waba_id,last_error_code,last_inbound_at,ai_enabled,auto_reply_enabled,selected_ai_staff_id"
+          )
           .eq("workspace_id", workspace.id);
+
         if (!isCurrent) return;
         if (error) throw error;
         setWhatsAppStatus(getWhatsAppChannelStatus(data || []));
       } catch {
-        if (isCurrent) setWhatsAppStatus({ status: "attention", label: "Could Not Check" });
+        if (isCurrent) {
+          setWhatsAppStatus({
+            status: "attention",
+            label: "Could Not Check",
+          });
+        }
       }
     }
+
     void loadWhatsAppStatus();
-    return () => { isCurrent = false; };
+
+    return () => {
+      isCurrent = false;
+    };
   }, [workspace?.id]);
 
   useEffect(() => {
@@ -221,7 +192,7 @@ export default function IntegrationsPage() {
       }
 
       if (!data) {
-        setWebsiteChatStatus({ status: "setup", label: "Setup Required" });
+        setWebsiteChatStatus({ status: "setup", label: "Not Connected" });
         return;
       }
 
@@ -231,7 +202,7 @@ export default function IntegrationsPage() {
       }
 
       if (!Array.isArray(data.allowed_domains) || !data.allowed_domains.length) {
-        setWebsiteChatStatus({ status: "setup", label: "Add Website Domain" });
+        setWebsiteChatStatus({ status: "setup", label: "Add Website" });
         return;
       }
 
@@ -245,7 +216,7 @@ export default function IntegrationsPage() {
       }
 
       if (!data.ai_enabled || !data.auto_reply_enabled) {
-        setWebsiteChatStatus({ status: "inbox", label: "Inbox Only" });
+        setWebsiteChatStatus({ status: "inbox", label: "AI Replies Off" });
         return;
       }
 
@@ -257,12 +228,12 @@ export default function IntegrationsPage() {
 
       setWebsiteChatStatus(
         recentlySeen
-          ? { status: "live", label: "Live" }
+          ? { status: "live", label: "AI Replies On" }
           : { status: "ready", label: "Ready to Install" }
       );
     }
 
-    loadWebsiteChatStatus();
+    void loadWebsiteChatStatus();
 
     return () => {
       isCurrent = false;
@@ -273,33 +244,46 @@ export default function IntegrationsPage() {
     {
       name: "Website Chat",
       status: websiteChatStatus.status,
-      statusLabel: websiteChatStatus.label,
+      statusLabel:
+        websiteChatStatus.status === "setup"
+          ? websiteChatStatus.label.replace("Setup Required", "Not Connected")
+          : websiteChatStatus.label,
       description:
-        "Let visitors message your business from your website and receive AI-assisted replies.",
+        "Add chat to your website so visitors can contact your business and keep every conversation in Kolkap.",
       icon: MessageCircle,
-      action: "Manage Website Chat",
+      action:
+        websiteChatStatus.status === "setup"
+          ? "Set Up Website Chat"
+          : "Manage Website Chat",
       href: "/dashboard/integrations/website-chat",
       highlighted: true,
     },
     {
       name: "WhatsApp",
       status: whatsAppStatus.status,
-      statusLabel: whatsAppStatus.label,
+      statusLabel:
+        whatsAppStatus.status === "setup"
+          ? whatsAppStatus.label.replace("Setup Required", "Not Connected")
+          : whatsAppStatus.label,
       description:
-        "Let customers message your business on WhatsApp and receive AI-assisted replies.",
+        "Connect your business WhatsApp number and manage customer conversations in Kolkap.",
       icon: Smartphone,
-      action: "Manage WhatsApp",
+      action:
+        whatsAppStatus.status === "setup"
+          ? "Connect WhatsApp"
+          : "Manage WhatsApp",
       href: "/dashboard/integrations/whatsapp",
       highlighted: true,
     },
     {
       name: "Email",
       status: emailStatus.status,
-      statusLabel: emailStatus.label,
+      statusLabel:
+        emailStatus.status === "setup" ? "Not Connected" : emailStatus.label,
       description:
-        "Connect a Gmail or Google Workspace mailbox for Inbox, AI replies, and human takeover.",
+        "Connect Gmail or Google Workspace. Emails stay in your business mailbox, and replies are sent from the same address.",
       icon: Mail,
-      action: "Manage Email",
+      action: emailStatus.status === "setup" ? "Connect Email" : "Manage Email",
       href: "/dashboard/integrations/email",
       highlighted: true,
     },
@@ -307,8 +291,7 @@ export default function IntegrationsPage() {
       name: "SMS",
       status: "later",
       statusLabel: "Coming Later",
-      description:
-        "SMS support will be added later as a separate customer channel for businesses that need text message replies.",
+      description: "Text messaging is coming soon.",
       icon: Smartphone,
       action: "Coming Later",
     },
@@ -346,121 +329,49 @@ export default function IntegrationsPage() {
   return (
     <main className="min-h-screen bg-[#F7F9FA] text-[#07111F]">
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 py-6 sm:px-6 lg:px-8">
-        <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-          <div className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
-            <Link
-              href="/dashboard"
-              className="mb-7 inline-flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              Back to Dashboard
-            </Link>
+        <section className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
+          <Link
+            href="/dashboard"
+            className="inline-flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-white transition hover:bg-white/10"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            Back to Dashboard
+          </Link>
 
-            <div className="mb-7 flex w-fit items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-lg font-black text-[#7CFF3D]">
-              <span className="h-3 w-3 rounded-full bg-[#7CFF3D] shadow-[0_0_14px_rgba(124,255,61,0.7)]" />
-              Customer Channels
-            </div>
+          <p className="mt-8 text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
+            Customer Channels
+          </p>
 
-            <h1 className="max-w-4xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
-              Choose where customers can talk to your business.
-            </h1>
+          <h1 className="mt-3 max-w-4xl text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl lg:text-6xl">
+            Connect your customer channels.
+          </h1>
 
-            <p className="mt-6 max-w-3xl text-xl font-semibold leading-9 text-slate-300">
-              Connect Website Chat, WhatsApp, or Email, then choose which AI
-              staff should help with replies. SMS support will be added later.
-            </p>
+          <p className="mt-6 max-w-4xl text-xl font-semibold leading-9 text-slate-300">
+            Manage Website Chat, WhatsApp, and Email in one place. Choose an AI
+            staff member for each channel, then turn automatic replies on when
+            you&apos;re ready.
+          </p>
 
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-              <a
-                href="#channels"
-                className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-7 py-4 text-lg font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
-              >
-                <Globe2 className="h-6 w-6" />
-                Choose Channel
-              </a>
-
-              <Link
-                href="/dashboard/go-live"
-                className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-7 py-4 text-lg font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10"
-              >
-                <Rocket className="h-6 w-6" />
-                Go Live
-              </Link>
-            </div>
-          </div>
-
-          <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-7">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-              <WalletCards className="h-8 w-8" />
-            </div>
-
-            <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              Workspace
-            </p>
-
-            <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
-              {workspace?.business_name || "Your business"}
-            </h2>
-
-            <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
-              Kolkap keeps channel setup simple. You choose the customer
-              channel, assign your AI staff, test replies, and go live when your
-              setup is ready.
-            </p>
-          </div>
-        </section>
-
-        <section className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
-          <div className="mb-7">
-            <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              Simple Flow
-            </p>
-            <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
-              Create, connect, test, then go live.
-            </h2>
-            <p className="mt-4 max-w-3xl text-lg font-semibold leading-8 text-slate-600">
-              Your business should not need to manage technical setup. Kolkap
-              helps keep the connection work in the background so your team can
-              focus on customers.
-            </p>
-          </div>
-
-          <div className="grid gap-5 lg:grid-cols-5">
-            {setupSteps.map((step, index) => (
-              <div
-                key={step.title}
-                className="rounded-[1.7rem] border border-slate-200 bg-[#F7F9FA] p-5"
-              >
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#07111F] text-lg font-black text-[#7CFF3D]">
-                  {index + 1}
-                </div>
-
-                <h3 className="text-xl font-black tracking-[-0.03em]">
-                  {step.title}
-                </h3>
-
-                <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
-                  {step.text}
-                </p>
-              </div>
-            ))}
-          </div>
+          <a
+            href="#channels"
+            className="mt-8 inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-7 py-4 text-lg font-black text-[#07111F] shadow-xl shadow-lime-400/10 transition hover:-translate-y-0.5"
+          >
+            <Globe2 className="h-6 w-6" />
+            Choose a Channel
+          </a>
         </section>
 
         <section id="channels">
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-                Channels
-              </p>
-              <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
-                Available customer channels
-              </h2>
-            </div>
-
-            <p className="max-w-lg text-lg font-semibold leading-8 text-slate-600">
-              Choose where Kolkap AI staff should support customer
-              conversations.
+          <div className="mb-6">
+            <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
+              Your Channels
+            </p>
+            <h2 className="mt-2 text-4xl font-black tracking-[-0.05em]">
+              Connect or manage a channel.
+            </h2>
+            <p className="mt-3 max-w-3xl text-lg font-semibold leading-8 text-slate-600">
+              Select a channel below to connect it, check its status, or change
+              how replies work.
             </p>
           </div>
 
@@ -535,148 +446,18 @@ export default function IntegrationsPage() {
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#7CFF3D] text-[#07111F]">
-              <Sparkles className="h-8 w-8" />
-            </div>
-
-            <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-              How Kolkap Works
-            </p>
-
-            <h2 className="mt-3 text-4xl font-black leading-tight tracking-[-0.05em]">
-              Kolkap connects your customer channels to your AI staff and Inbox.
+        <section className="flex flex-col gap-5 rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:flex-row sm:items-center sm:p-8">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
+            <UsersRound className="h-8 w-8" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black tracking-[-0.04em]">
+              You stay in control.
             </h2>
-
-            <p className="mt-5 text-xl font-semibold leading-9 text-slate-300">
-              When a customer sends a message, Kolkap helps match it to your
-              workspace, uses the assigned AI staff, supports the reply, and
-              records the conversation.
+            <p className="mt-2 text-lg font-semibold leading-8 text-slate-600">
+              AI replies are optional. Your team can turn them on or off for
+              each channel and take over any conversation at any time.
             </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {messageFlowItems.map((item, index) => (
-              <div
-                key={item.title}
-                className="rounded-[1.7rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/5"
-              >
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#07111F] text-lg font-black text-[#7CFF3D]">
-                  {index + 1}
-                </div>
-
-                <h3 className="text-xl font-black tracking-[-0.03em]">
-                  {item.title}
-                </h3>
-
-                <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
-                  {item.text}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-              <UsersRound className="h-8 w-8" />
-            </div>
-
-            <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              What You Control
-            </p>
-
-            <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
-              Simple business controls.
-            </h2>
-
-            <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
-              Your team controls the business side: AI staff, replies, channels,
-              handover, and customer conversations.
-            </p>
-
-            <div className="mt-6 space-y-4">
-              {userControlsList.map((item) => (
-                <div
-                  key={item}
-                  className="flex items-start gap-4 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5"
-                >
-                  <CheckCircle2 className="mt-1 h-6 w-6 shrink-0 text-[#07111F]" />
-                  <p className="text-lg font-black leading-8">{item}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-[2.2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5 sm:p-8">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#07111F] text-[#7CFF3D]">
-              <Bot className="h-8 w-8" />
-            </div>
-
-            <p className="text-lg font-black uppercase tracking-[0.18em] text-blue-600">
-              What Kolkap Supports
-            </p>
-
-            <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
-              Kolkap keeps the connection work in the background.
-            </h2>
-
-            <p className="mt-4 text-lg font-semibold leading-8 text-slate-600">
-              Kolkap is designed so business users can manage customer channels
-              without needing to handle technical setup themselves.
-            </p>
-
-            <div className="mt-6 space-y-4">
-              {kolkapHandlesList.map((item) => (
-                <div
-                  key={item}
-                  className="flex items-start gap-4 rounded-3xl border border-slate-200 bg-[#F7F9FA] p-5"
-                >
-                  <ShieldCheck className="mt-1 h-6 w-6 shrink-0 text-[#07111F]" />
-                  <p className="text-lg font-black leading-8">{item}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-[2.2rem] bg-[#07111F] p-7 text-white shadow-2xl shadow-slate-900/20 sm:p-9">
-          <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-            <div>
-              <p className="text-lg font-black uppercase tracking-[0.18em] text-[#7CFF3D]">
-                Ready to Go Live
-              </p>
-
-              <h2 className="mt-3 text-4xl font-black leading-tight tracking-[-0.05em] sm:text-5xl">
-                Your AI staff should work only after setup and testing.
-              </h2>
-
-              <p className="mt-5 text-xl font-semibold leading-9 text-slate-300">
-                Before going live, make sure your AI staff is created, business
-                knowledge is added, test replies look good, your plan or trial
-                is active, and credits are available.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Link
-                href="/dashboard/test-ai"
-                className="inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 px-8 py-5 text-xl font-black text-white"
-              >
-                Test AI
-                <Bot className="h-6 w-6" />
-              </Link>
-
-              <Link
-                href="/dashboard/go-live"
-                className="inline-flex items-center justify-center gap-3 rounded-full bg-[#7CFF3D] px-8 py-5 text-xl font-black text-[#07111F]"
-              >
-                Go Live
-                <CirclePause className="h-6 w-6" />
-              </Link>
-            </div>
           </div>
         </section>
       </div>
